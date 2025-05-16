@@ -1,14 +1,15 @@
 import type {Metadata} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/auth-context'; // Importar AuthProvider
 
-const geistSans = Geist({ // Corrected variable name
+const geistSans = Geist({ 
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({ // Corrected variable name
+const geistMono = Geist_Mono({ 
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
@@ -26,8 +27,10 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
-        <Toaster />
+        <AuthProvider> {/* Envolver la aplicación con AuthProvider */}
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );

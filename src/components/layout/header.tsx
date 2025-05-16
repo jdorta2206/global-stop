@@ -1,5 +1,6 @@
 import { Globe } from 'lucide-react';
 import Link from 'next/link';
+import { AuthStatus } from '@/components/auth/auth-status'; // Importar AuthStatus
 
 export function AppHeader() {
   return (
@@ -11,7 +12,7 @@ export function AppHeader() {
             Global<span className="text-foreground">Stop</span>
           </h1>
         </Link>
-        {/* Future placeholder for User Profile / Login Button */}
+        <AuthStatus /> {/* Añadir el componente AuthStatus aquí */}
       </div>
     </header>
   );
