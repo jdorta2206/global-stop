@@ -64,8 +64,20 @@ const validatePlayerWordFlow = ai.defineFlow(
         return { isValid: false };
     }
     
-    const {output} = await prompt(input);
-    return output!;
+    const {output, response: rawLLMResponse} = await prompt(input);
+    if (output && typeof output.isValid === 'boolean') {
+      return output;
+    }
+    
+    // Log an error or return a default if output is not as expected
+    let llmResponseText = "Unavailable";
+    try {
+      llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
+    } catch (e) {
+      llmResponseText = "Error fetching LLM response text";
+    }
+    console.error(`validatePlayerWordFlow: LLM did not return valid output for input: ${JSON.stringify(input)}. Raw response text: ${llmResponseText}. Output object: ${JSON.stringify(output)}`);
+    return { isValid: false }; // Default to not valid if LLM response is problematic
   }
 );
 

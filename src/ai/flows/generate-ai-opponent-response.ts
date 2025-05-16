@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -40,7 +41,26 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     outputSchema: AiOpponentResponseOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const {output, response: rawLLMResponse} = await prompt(input);
+
+    if (output && typeof output.response === 'string') {
+      // Defensive check: Ensure AI's response actually starts with the correct letter,
+      // even though the prompt instructs it to.
+      if (output.response.trim() !== "" && !output.response.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
+        console.warn(`AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        return { response: "" }; // Treat as invalid if it doesn't adhere to the primary rule
+      }
+      return output;
+    }
+    
+    let llmResponseText = "Unavailable";
+    try {
+      llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
+    } catch (e) {
+      llmResponseText = "Error fetching LLM response text";
+    }
+    console.error(`generateAiOpponentResponseFlow: LLM did not return valid output for input ${JSON.stringify(input)}. Raw response text: ${llmResponseText}. Output object: ${JSON.stringify(output)}`);
+    return { response: "" }; // Default to empty string if LLM response is problematic
   }
 );
+
