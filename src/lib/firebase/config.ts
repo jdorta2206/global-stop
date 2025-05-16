@@ -6,7 +6,7 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 // TODO: Agrega aquí la configuración de tu proyecto Firebase
 // MUY IMPORTANTE: Reemplaza esto con la configuración real de tu proyecto Firebase.
 // Puedes encontrarla en la consola de Firebase > Configuración del proyecto.
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "TU_API_KEY",
   authDomain: "TU_AUTH_DOMAIN",
   projectId: "TU_PROJECT_ID",
@@ -40,3 +40,5 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
 }
 
 export { app, auth }; // Exporta 'db' también si lo usas
+// firebaseConfig ya se exporta individualmente arriba con 'export const firebaseConfig = ...'
+// por lo que no es necesario añadirlo aquí de nuevo.
