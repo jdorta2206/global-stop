@@ -1,21 +1,23 @@
 "use client";
 
+import type { RoundResults } from '@/app/page'; // Import the type
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 interface GameAreaProps {
   letter: string | null;
   categories: string[];
-  playerResponses: Record<string, string>;
-  aiResponses: Record<string, string>;
+  playerResponses: Record<string, string>; // Still needed for input binding before results
   onInputChange: (category: string, value: string) => void;
   isEvaluating: boolean;
   showResults: boolean;
+  roundResults: RoundResults | null; // Added to display scores
 }
 
-export function GameArea({ letter, categories, playerResponses, aiResponses, onInputChange, isEvaluating, showResults }: GameAreaProps) {
+export function GameArea({ letter, categories, playerResponses, onInputChange, isEvaluating, showResults, roundResults }: GameAreaProps) {
   if (!letter) return null;
 
   return (
@@ -27,7 +29,7 @@ export function GameArea({ letter, categories, playerResponses, aiResponses, onI
         </CardTitle>
         {!showResults && !isEvaluating && <CardDescription className="mt-1 text-md">Completa las categorías a continuación. ¡Buena suerte!</CardDescription>}
          {isEvaluating && <CardDescription className="mt-1 text-md">La IA está pensando... Tus respuestas están bloqueadas.</CardDescription>}
-         {showResults && <CardDescription className="mt-1 text-md">¡Ronda terminada! Aquí están los resultados.</CardDescription>}
+         {showResults && <CardDescription className="mt-1 text-md">¡Ronda terminada! Aquí están los resultados y puntuaciones por categoría.</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-6 p-6">
         {categories.map((category, index) => (
@@ -43,21 +45,37 @@ export function GameArea({ letter, categories, playerResponses, aiResponses, onI
                 className="text-lg py-3 px-4 border-2 focus:border-primary focus:ring-primary"
                 aria-label={`Entrada para la categoría ${category}`}
               />
-              {showResults && (
-                <div className="mt-3 p-4 bg-secondary rounded-md shadow-sm space-y-1">
-                  <p className="text-md">
-                    <span className="font-semibold text-primary">Tú: </span>
-                    {playerResponses[category] || <span className="italic text-muted-foreground">Sin respuesta</span>}
-                  </p>
+              {showResults && roundResults && roundResults[category] && (
+                <div className="mt-3 p-4 bg-secondary rounded-md shadow-sm space-y-2">
+                  <div className="flex justify-between items-center">
+                    <p className="text-md flex-grow">
+                      <span className="font-semibold text-primary">Tú: </span>
+                      {roundResults[category].playerResponse || <span className="italic text-muted-foreground">Sin respuesta</span>}
+                    </p>
+                    <Badge 
+                      variant={roundResults[category].playerScore > 0 ? (roundResults[category].playerScore === 50 ? "secondary" : "default") : "outline"} 
+                      className="text-sm ml-2 shrink-0"
+                    >
+                      {roundResults[category].playerScore} pts
+                    </Badge>
+                  </div>
                   <Separator className="my-1 bg-border" />
-                  <p className="text-md">
-                    <span className="font-semibold text-accent-foreground">IA: </span>
-                    {aiResponses[category] || <span className="italic text-muted-foreground">Sin respuesta</span>}
-                  </p>
+                  <div className="flex justify-between items-center">
+                    <p className="text-md flex-grow">
+                      <span className="font-semibold text-accent-foreground">IA: </span>
+                      {roundResults[category].aiResponse || <span className="italic text-muted-foreground">Sin respuesta por IA</span>}
+                    </p>
+                     <Badge 
+                       variant={roundResults[category].aiScore > 0 ? (roundResults[category].aiScore === 50 ? "secondary" : "default") : "outline"} 
+                       className="text-sm ml-2 shrink-0"
+                     >
+                      {roundResults[category].aiScore} pts
+                    </Badge>
+                  </div>
                 </div>
               )}
             </div>
-            {index < categories.length -1 && !showResults && <Separator className="my-6"/>}
+            {index < categories.length -1 && <Separator className="my-6"/>}
           </div>
         ))}
       </CardContent>

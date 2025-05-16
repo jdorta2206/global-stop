@@ -11,10 +11,20 @@ import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { Loader2, PlayCircle, RotateCcw } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { Separator } from '@/components/ui/separator';
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+export interface RoundResultDetail {
+  playerScore: number;
+  aiScore: number;
+  playerResponse: string;
+  aiResponse: string;
+}
+export type RoundResults = Record<string, RoundResultDetail>;
+
 
 export default function GamePage() {
   const [gameState, setGameState] = useState<GameState>("IDLE");
@@ -24,16 +34,31 @@ export default function GamePage() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
 
+  const [playerRoundScore, setPlayerRoundScore] = useState(0);
+  const [aiRoundScore, setAiRoundScore] = useState(0);
+  const [totalPlayerScore, setTotalPlayerScore] = useState(0);
+  const [totalAiScore, setTotalAiScore] = useState(0);
+  const [roundResults, setRoundResults] = useState<RoundResults | null>(null);
+  const [roundWinner, setRoundWinner] = useState<string | null>(null);
+
+
   const resetRound = useCallback(() => {
-    // setCurrentLetter(null); // Keep current letter for display until new spin
     setPlayerResponses({});
     setAiResponses({});
+    setPlayerRoundScore(0);
+    setAiRoundScore(0);
+    setRoundResults(null);
+    setRoundWinner(null);
   }, []);
 
   const startGame = useCallback(() => {
+    if (gameState === "IDLE") { // Reset total scores for a new game session
+        setTotalPlayerScore(0);
+        setTotalAiScore(0);
+    }
     resetRound();
     setGameState("SPINNING");
-  }, [resetRound]);
+  }, [resetRound, gameState]);
 
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
@@ -52,34 +77,89 @@ export default function GamePage() {
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
-        // Add a small randomized delay to make AI seem like it's "thinking"
-        // and to avoid potential rapid-fire API calls if backend has limits.
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
         const aiInput: AiOpponentResponseInput = { letter: currentLetter, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
       } catch (error) {
         console.error(`Error fetching AI response for ${category}:`, error);
-        tempAiResponses[category] = "Error al generar respuesta"; // Translated
-        // Individual toast for each error might be too noisy, group them or show one general error.
+        tempAiResponses[category] = ""; 
       }
     });
 
     try {
       await Promise.all(aiPromises);
-      setAiResponses(tempAiResponses);
-    } catch (error) { // This catch is for Promise.all, individual errors handled above.
-      console.error("Error in processing AI responses:", error);
+      setAiResponses(tempAiResponses); // Set AI responses first
+
+      // Calculate scores
+      let currentRoundPlayerScore = 0;
+      let currentRoundAiScore = 0;
+      const detailedRoundResults: RoundResults = {};
+
+      CATEGORIES.forEach(category => {
+        const playerResponseRaw = playerResponses[category] || "";
+        const playerResponse = playerResponseRaw.trim();
+        const aiResponseRaw = tempAiResponses[category] || "";
+        const aiResponse = aiResponseRaw.trim();
+        
+        let pScore = 0;
+        let aScore = 0;
+
+        const isPlayerResponseValid = playerResponse !== "" && playerResponse.toLowerCase().startsWith(currentLetter!.toLowerCase());
+        const isAiResponseValid = aiResponse !== "" && aiResponse.toLowerCase().startsWith(currentLetter!.toLowerCase());
+
+        if (isPlayerResponseValid && !isAiResponseValid) {
+          pScore = 100;
+        } else if (!isPlayerResponseValid && isAiResponseValid) {
+          aScore = 100;
+        } else if (isPlayerResponseValid && isAiResponseValid) {
+          if (playerResponse.toLowerCase() === aiResponse.toLowerCase()) {
+            pScore = 50;
+            aScore = 50;
+          } else {
+            pScore = 100;
+            aScore = 100;
+          }
+        }
+        
+        detailedRoundResults[category] = { 
+          playerScore: pScore, 
+          aiScore: aScore, 
+          playerResponse: playerResponseRaw, // Store raw for display
+          aiResponse: aiResponseRaw // Store raw for display
+        };
+        currentRoundPlayerScore += pScore;
+        currentRoundAiScore += aScore;
+      });
+
+      setPlayerRoundScore(currentRoundPlayerScore);
+      setAiRoundScore(currentRoundAiScore);
+      setTotalPlayerScore(prev => prev + currentRoundPlayerScore);
+      setTotalAiScore(prev => prev + currentRoundAiScore);
+      setRoundResults(detailedRoundResults);
+
+      if (currentRoundPlayerScore > currentRoundAiScore) {
+        setRoundWinner("¡Jugador Gana la Ronda!");
+      } else if (currentRoundAiScore > currentRoundPlayerScore) {
+        setRoundWinner("¡IA Gana la Ronda!");
+      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
+        setRoundWinner("¡Empate en la Ronda!");
+      } else {
+        setRoundWinner("Nadie puntuó en esta ronda.");
+      }
+
+    } catch (error) {
+      console.error("Error in processing AI responses or scores:", error);
        toast({
-        title: "Error de IA", // Translated
-        description: "Algunas respuestas de la IA no pudieron generarse. Por favor, revisa los resultados.", // Translated
+        title: "Error de IA o Puntuación",
+        description: "Algunas respuestas o puntuaciones no pudieron procesarse. Por favor, revisa los resultados.",
         variant: "destructive",
       });
     } finally {
       setIsLoadingAi(false);
       setGameState("RESULTS");
     }
-  }, [currentLetter, toast]);
+  }, [currentLetter, playerResponses, toast]);
 
   const startNextRound = useCallback(() => {
     startGame();
@@ -124,44 +204,76 @@ export default function GamePage() {
               <GameArea
                 letter={currentLetter}
                 categories={CATEGORIES}
-                playerResponses={playerResponses}
-                aiResponses={aiResponses}
+                playerResponses={playerResponses} // Kept for input binding
                 onInputChange={handleInputChange}
                 isEvaluating={gameState === "EVALUATING" || isLoadingAi}
                 showResults={gameState === "RESULTS"}
+                roundResults={roundResults} // Pass detailed results
               />
             </div>
           )}
           
           {gameState === "PLAYING" && (
-            <div className="flex justify-center animate-fadeInUp">
+            <div className="flex justify-center animate-fadeInUp mt-6">
               <StopButton onClick={handleStop} />
             </div>
           )}
 
           {gameState === "EVALUATING" && (
-            <Card className="shadow-xl rounded-lg animate-fadeIn p-8">
+            <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="text-2xl font-semibold text-primary">IA está Pensando...</p>
-                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas.</p>
+                <p className="text-2xl font-semibold text-primary">IA está Pensando y Calculando Puntos...</p>
+                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas y calculamos las puntuaciones.</p>
               </CardContent>
             </Card>
           )}
 
           {gameState === "RESULTS" && (
-             <div className="flex justify-center animate-fadeInUp">
-              <Button 
-                onClick={startNextRound} 
-                size="lg" 
-                className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
-                           transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                           focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
-              >
-                <RotateCcw className="mr-3 h-7 w-7" />
-                Jugar Siguiente Ronda
-              </Button>
-            </div>
+            <>
+              <Card className="shadow-xl rounded-lg animate-fadeInUp mt-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-2xl text-center text-primary">Resultados de la Ronda</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center space-y-3 p-6">
+                  {roundWinner && <p className="text-xl font-bold text-accent">{roundWinner}</p>}
+                  <div className="grid grid-cols-2 gap-4 text-lg">
+                    <div>
+                        <p>Tu Puntuación (Ronda):</p>
+                        <p className="font-bold text-primary text-2xl">{playerRoundScore}</p>
+                    </div>
+                    <div>
+                        <p>Puntuación IA (Ronda):</p>
+                        <p className="font-bold text-primary text-2xl">{aiRoundScore}</p>
+                    </div>
+                  </div>
+                  <Separator className="my-4" />
+                  <p className="text-xl font-semibold">Puntuación Total Acumulada</p>
+                  <div className="grid grid-cols-2 gap-4 text-lg">
+                    <div>
+                        <p>Tú:</p>
+                        <p className="font-bold text-primary text-2xl">{totalPlayerScore}</p>
+                    </div>
+                    <div>
+                        <p>IA:</p>
+                        <p className="font-bold text-primary text-2xl">{totalAiScore}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="flex justify-center animate-fadeInUp mt-6">
+                <Button 
+                  onClick={startNextRound} 
+                  size="lg" 
+                  className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
+                            transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                            focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
+                >
+                  <RotateCcw className="mr-3 h-7 w-7" />
+                  Jugar Siguiente Ronda
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </main>
@@ -171,7 +283,7 @@ export default function GamePage() {
           animation: fadeIn 0.5s ease-out;
         }
         .animate-fadeInUp {
-          animation: fadeInUp 0.5s ease-out;
+          animation: fadeInUp 0.5s ease-out forwards; /* Added forwards to maintain end state */
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }

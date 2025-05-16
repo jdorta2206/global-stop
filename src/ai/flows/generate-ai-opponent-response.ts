@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'generateAiOpponentResponsePrompt',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
-  prompt: `Eres un oponente de IA jugando al juego Stop (también conocido como Tutti Frutti, Lápiz Quieto o Basta). Tu tarea es generar una respuesta plausible y relevante para la letra y categoría dadas. La letra es "{{{letter}}}" y la categoría es "{{{category}}}". Genera solo la palabra. No incluyas información adicional ni explicaciones.`,
+  prompt: `Eres un oponente de IA jugando al juego Stop (también conocido como Tutti Frutti, Lápiz Quieto o Basta). Tu tarea es generar una respuesta plausible y relevante para la letra y categoría dadas. La palabra DEBE comenzar con la letra "{{{letter}}}". La categoría es "{{{category}}}". Genera solo la palabra. No incluyas información adicional ni explicaciones. Si no puedes generar una palabra válida que comience con la letra especificada para la categoría, responde con una cadena vacía.`,
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
