@@ -10,14 +10,23 @@ import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw, Share2, Link as LinkIcon, Copy } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/auth-context'; // Importar useAuth
+import { useAuth } from '@/contexts/auth-context';
+import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
+import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
+import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+export interface PlayerScore {
+  name: string;
+  score: number;
+  avatar?: string; // Opcional, para imagen de avatar
+}
 
 export interface RoundResultDetail {
   playerScore: number;
@@ -35,7 +44,7 @@ export default function GamePage() {
   const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth(); // Obtener el usuario del contexto de autenticación
+  const { user } = useAuth();
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
@@ -43,6 +52,38 @@ export default function GamePage() {
   const [totalAiScore, setTotalAiScore] = useState(0);
   const [roundResults, setRoundResults] = useState<RoundResults | null>(null);
   const [roundWinner, setRoundWinner] = useState<string | null>(null);
+  const [personalHighScore, setPersonalHighScore] = useState(0);
+
+  // Datos de ejemplo para las tablas de clasificación
+  const exampleGlobalLeaderboard: PlayerScore[] = [
+    { name: "Jugador Estrella", score: 12500 },
+    { name: "ReyDelStop", score: 11800 },
+    { name: "LetrasVeloces", score: 10500 },
+    { name: "ProPlayer123", score: 9800 },
+    { name: "Ana S.", score: 9200 },
+  ];
+
+  const exampleFriendsLeaderboard: PlayerScore[] = [
+    { name: "Amigo Juan", score: 7500 },
+    { name: "Vecina Sofia", score: 6800 },
+    { name: "Compañero Alex", score: 6500 },
+  ];
+
+  useEffect(() => {
+    // Cargar la puntuación más alta personal desde localStorage
+    const storedHighScore = localStorage.getItem('globalStopHighScore');
+    if (storedHighScore) {
+      setPersonalHighScore(parseInt(storedHighScore, 10));
+    }
+  }, []);
+
+  useEffect(() => {
+    // Guardar la puntuación más alta personal en localStorage si se supera
+    if (totalPlayerScore > personalHighScore) {
+      setPersonalHighScore(totalPlayerScore);
+      localStorage.setItem('globalStopHighScore', totalPlayerScore.toString());
+    }
+  }, [totalPlayerScore, personalHighScore]);
 
 
   const resetRound = useCallback(() => {
@@ -55,7 +96,7 @@ export default function GamePage() {
   }, []);
 
   const startGame = useCallback(() => {
-    if (gameState === "IDLE") { // Reset total scores for a new game session
+    if (gameState === "IDLE") { 
         setTotalPlayerScore(0);
         setTotalAiScore(0);
     }
@@ -80,22 +121,20 @@ export default function GamePage() {
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
-        // Simular un pequeño retraso variable para la respuesta de la IA
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
         const aiInput: AiOpponentResponseInput = { letter: currentLetter, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
       } catch (error) {
         console.error(`Error al obtener respuesta de IA para ${category}:`, error);
-        tempAiResponses[category] = ""; // Respuesta vacía en caso de error
+        tempAiResponses[category] = ""; 
       }
     });
 
     try {
       await Promise.all(aiPromises);
-      setAiResponses(tempAiResponses); // Establecer respuestas de la IA
+      setAiResponses(tempAiResponses); 
 
-      // Calcular puntuaciones
       let currentRoundPlayerScore = 0;
       let currentRoundAiScore = 0;
       const detailedRoundResults: RoundResults = {};
@@ -129,8 +168,8 @@ export default function GamePage() {
         detailedRoundResults[category] = { 
           playerScore: pScore, 
           aiScore: aScore, 
-          playerResponse: playerResponseRaw, // Guardar respuesta original para mostrar
-          aiResponse: aiResponseRaw // Guardar respuesta original para mostrar
+          playerResponse: playerResponseRaw,
+          aiResponse: aiResponseRaw
         };
         currentRoundPlayerScore += pScore;
         currentRoundAiScore += aScore;
@@ -146,9 +185,9 @@ export default function GamePage() {
         setRoundWinner("¡Jugador Gana la Ronda!");
       } else if (currentRoundAiScore > currentRoundPlayerScore) {
         setRoundWinner("¡IA Gana la Ronda!");
-      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) { // Empate pero alguien puntuó
+      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
         setRoundWinner("¡Empate en la Ronda!");
-      } else { // Nadie puntuó
+      } else { 
         setRoundWinner("Nadie puntuó en esta ronda.");
       }
 
@@ -166,7 +205,6 @@ export default function GamePage() {
   }, [currentLetter, playerResponses, toast]);
 
   const startNextRound = useCallback(() => {
-    // No reiniciar puntuaciones totales aquí, solo las de la ronda
     startGame();
   }, [startGame]);
 
@@ -204,40 +242,45 @@ export default function GamePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center">
+      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center">
         <div className="w-full max-w-2xl space-y-6">
           {gameState === "IDLE" && (
-            <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
-              <CardHeader className="text-center p-8">
-                <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">¡Bienvenido a Global Stop!</CardTitle>
-                <CardDescription className="text-lg text-muted-foreground mt-3">
-                  ¿Listo para poner a prueba tu vocabulario y rapidez mental contra nuestra IA?
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-4 py-10 px-6">
-                <Button 
-                  onClick={startGame} 
-                  size="lg" 
-                  className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
-                             transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                             focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
-                >
-                  <PlayCircle className="mr-3 h-7 w-7" />
-                  Empezar Juego
-                </Button>
-                <Button 
-                  onClick={handleShareGameLink} 
-                  size="lg" 
-                  variant="outline"
-                  className="text-xl px-10 py-8 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg 
-                             transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                             focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
-                >
-                  <Copy className="mr-3 h-7 w-7" />
-                  Compartir Juego
-                </Button>
-              </CardContent>
-            </Card>
+            <>
+              <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
+                <CardHeader className="text-center p-8">
+                  <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">¡Bienvenido a Global Stop!</CardTitle>
+                  <CardDescription className="text-lg text-muted-foreground mt-3">
+                    ¿Listo para poner a prueba tu vocabulario y rapidez mental contra nuestra IA?
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-4 py-10 px-6">
+                  <Button 
+                    onClick={startGame} 
+                    size="lg" 
+                    className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
+                              transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                              focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
+                  >
+                    <PlayCircle className="mr-3 h-7 w-7" />
+                    Empezar Juego
+                  </Button>
+                  <Button 
+                    onClick={handleShareGameLink} 
+                    size="lg" 
+                    variant="outline"
+                    className="text-xl px-10 py-8 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg 
+                              transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                              focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
+                  >
+                    <Copy className="mr-3 h-7 w-7" />
+                    Compartir Juego
+                  </Button>
+                </CardContent>
+              </Card>
+              <PersonalHighScoreCard highScore={personalHighScore} />
+              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} />
+              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} />
+            </>
           )}
 
           {gameState === "SPINNING" && (
@@ -247,7 +290,7 @@ export default function GamePage() {
           )}
 
           {(gameState === "PLAYING" || gameState === "EVALUATING" || gameState === "RESULTS") && currentLetter && (
-             <div className="animate-fadeIn">
+             <div className="animate-fadeIn w-full">
               <GameArea
                 letter={currentLetter}
                 categories={CATEGORIES}
@@ -267,7 +310,7 @@ export default function GamePage() {
           )}
 
           {gameState === "EVALUATING" && (
-            <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6">
+            <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6 w-full">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
                 <p className="text-2xl font-semibold text-primary">IA está Pensando y Calculando Puntos...</p>
@@ -278,7 +321,7 @@ export default function GamePage() {
 
           {gameState === "RESULTS" && (
             <>
-              <Card className="shadow-xl rounded-lg animate-fadeInUp mt-6">
+              <Card className="shadow-xl rounded-lg animate-fadeInUp mt-6 w-full">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-2xl text-center text-primary">Resultados de la Ronda</CardTitle>
                 </CardHeader>
@@ -308,6 +351,7 @@ export default function GamePage() {
                   </div>
                 </CardContent>
               </Card>
+              <PersonalHighScoreCard highScore={personalHighScore} className="animate-fadeInUp" />
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fadeInUp mt-6">
                 <Button 
                   onClick={startNextRound} 
@@ -331,6 +375,8 @@ export default function GamePage() {
                   Compartir Puntuación
                 </Button>
               </div>
+              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} className="animate-fadeInUp" />
+              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} className="animate-fadeInUp" />
             </>
           )}
         </div>
@@ -341,7 +387,7 @@ export default function GamePage() {
           animation: fadeIn 0.5s ease-out;
         }
         .animate-fadeInUp {
-          animation: fadeInUp 0.5s ease-out forwards; /* Added forwards to maintain end state */
+          animation: fadeInUp 0.5s ease-out forwards;
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }
