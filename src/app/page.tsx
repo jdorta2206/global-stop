@@ -10,7 +10,7 @@ import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw, Share2 } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Link as LinkIcon, Copy } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context'; // Importar useAuth
@@ -182,6 +182,25 @@ export default function GamePage() {
     window.open(whatsappUrl, '_blank');
   };
 
+  const handleShareGameLink = async () => {
+    try {
+      const gameUrl = window.location.href;
+      await navigator.clipboard.writeText(gameUrl);
+      toast({
+        title: "¡Enlace Copiado!",
+        description: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!",
+      });
+    } catch (err) {
+      console.error('Error al copiar el enlace: ', err);
+      toast({
+        title: "Error al Copiar",
+        description: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
@@ -195,16 +214,27 @@ export default function GamePage() {
                   ¿Listo para poner a prueba tu vocabulario y rapidez mental contra nuestra IA?
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex justify-center py-10">
+              <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-4 py-10 px-6">
                 <Button 
                   onClick={startGame} 
                   size="lg" 
                   className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
                              transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                             focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
+                             focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
                 >
                   <PlayCircle className="mr-3 h-7 w-7" />
                   Empezar Juego
+                </Button>
+                <Button 
+                  onClick={handleShareGameLink} 
+                  size="lg" 
+                  variant="outline"
+                  className="text-xl px-10 py-8 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg 
+                             transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                             focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
+                >
+                  <Copy className="mr-3 h-7 w-7" />
+                  Compartir Juego
                 </Button>
               </CardContent>
             </Card>
