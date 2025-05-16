@@ -1,24 +1,33 @@
+
 "use client";
 
-import type { RoundResults } from '@/app/page'; // Import the type
+import type { RoundResults } from '@/app/page'; 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { AlertTriangle } from 'lucide-react'; 
 
 interface GameAreaProps {
   letter: string | null;
   categories: string[];
-  playerResponses: Record<string, string>; // Still needed for input binding before results
+  playerResponses: Record<string, string>; 
   onInputChange: (category: string, value: string) => void;
   isEvaluating: boolean;
   showResults: boolean;
-  roundResults: RoundResults | null; // Added to display scores
+  roundResults: RoundResults | null; 
 }
 
 export function GameArea({ letter, categories, playerResponses, onInputChange, isEvaluating, showResults, roundResults }: GameAreaProps) {
   if (!letter) return null;
+
+  const getInvalidReasonText = (reason: RoundResults[string]['playerResponseErrorReason']) => {
+    if (reason === 'format') return "(No empieza con la letra correcta)";
+    if (reason === 'invalid_word') return "(Palabra no válida o mal escrita)";
+    if (reason === 'api_error') return "(Error al validar)";
+    return "";
+  };
 
   return (
     <Card className="w-full shadow-lg bg-card rounded-lg">
@@ -28,7 +37,7 @@ export function GameArea({ letter, categories, playerResponses, onInputChange, i
           <span className="text-accent tracking-wider">{letter}</span>
         </CardTitle>
         {!showResults && !isEvaluating && <CardDescription className="mt-1 text-md">Completa las categorías a continuación. ¡Buena suerte!</CardDescription>}
-         {isEvaluating && <CardDescription className="mt-1 text-md">La IA está pensando... Tus respuestas están bloqueadas.</CardDescription>}
+         {isEvaluating && <CardDescription className="mt-1 text-md">La IA está pensando y validando tus respuestas... Tus respuestas están bloqueadas.</CardDescription>}
          {showResults && <CardDescription className="mt-1 text-md">¡Ronda terminada! Aquí están los resultados y puntuaciones por categoría.</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-6 p-6">
@@ -51,6 +60,12 @@ export function GameArea({ letter, categories, playerResponses, onInputChange, i
                     <p className="text-md flex-grow">
                       <span className="font-semibold text-primary">Tú: </span>
                       {roundResults[category].playerResponse || <span className="italic text-muted-foreground">Sin respuesta</span>}
+                      {roundResults[category].playerResponse && roundResults[category].playerResponseIsValid === false && (
+                        <span className="ml-2 text-xs text-destructive inline-flex items-center">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {getInvalidReasonText(roundResults[category].playerResponseErrorReason)}
+                        </span>
+                      )}
                     </p>
                     <Badge 
                       variant={roundResults[category].playerScore > 0 ? (roundResults[category].playerScore === 50 ? "secondary" : "default") : "outline"} 
@@ -82,3 +97,4 @@ export function GameArea({ letter, categories, playerResponses, onInputChange, i
     </Card>
   );
 }
+

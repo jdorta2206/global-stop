@@ -13,7 +13,8 @@ import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock } from 'lucide-react';
+import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
@@ -38,6 +39,8 @@ export interface RoundResultDetail {
   aiScore: number;
   playerResponse: string;
   aiResponse: string;
+  playerResponseIsValid?: boolean; 
+  playerResponseErrorReason?: 'format' | 'invalid_word' | 'api_error' | null;
 }
 export type RoundResults = Record<string, RoundResultDetail>;
 
@@ -68,6 +71,24 @@ export default function GamePage() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Refs for values needed by handleStopInternal to keep it stable
+  const playerResponsesRef = useRef(playerResponses);
+  const currentLetterRef = useRef(currentLetter);
+  const gameStateRef = useRef(gameState);
+
+  useEffect(() => {
+    playerResponsesRef.current = playerResponses;
+  }, [playerResponses]);
+
+  useEffect(() => {
+    currentLetterRef.current = currentLetter;
+  }, [currentLetter]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+
   const exampleGlobalLeaderboard: PlayerScore[] = [
     { name: "Jugador Estrella", score: 12500 },
     { name: "ReyDelStop", score: 11800 },
@@ -82,64 +103,28 @@ export default function GamePage() {
     { name: "Compañero Alex", score: 6500 },
   ];
 
-  // Initialize Audio element
   useEffect(() => {
     if (typeof window !== 'undefined' && !audioRef.current) {
-      // **IMPORTANTE**: Cambia '/music/tension-music.mp3' por la ruta a tu archivo de música.
-      // El archivo debe estar en la carpeta `public/music/`.
       audioRef.current = new Audio('/music/tension-music.mp3'); 
-      audioRef.current.loop = true; // Para que la música se repita
+      audioRef.current.loop = true;
     }
-    // Cleanup function to pause and release audio resources if the component unmounts
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
-        // audioRef.current.src = ''; // Descomentar si experimentas problemas con la liberación de recursos
       }
     };
   }, []);
 
-  // Manage music playback based on gameState
   useEffect(() => {
     if (audioRef.current) {
       if (gameState === "PLAYING" && currentLetter) {
-        audioRef.current.currentTime = 0; // Reinicia la música cada vez que empieza una ronda
+        audioRef.current.currentTime = 0; 
         audioRef.current.play().catch(error => console.error("Error al reproducir audio:", error));
       } else {
         audioRef.current.pause();
       }
     }
   }, [gameState, currentLetter]);
-
-
-  // Timer logic
-  useEffect(() => {
-    if (gameState === "PLAYING" && currentLetter) {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Clear existing timer
-      setTimeLeft(ROUND_DURATION_SECONDS); // Reset timer for the new round
-
-      timerIntervalRef.current = setInterval(() => {
-        setTimeLeft(prevTime => {
-          if (prevTime <= 1) {
-            clearInterval(timerIntervalRef.current!);
-            handleStop(); // Auto-stop when time is up
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000);
-    } else {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    }
-    return () => { // Cleanup interval on component unmount or when gameState/currentLetter changes
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-      }
-    };
-  }, [gameState, currentLetter]); // Dependencia en currentLetter para reiniciar en nueva ronda
-
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem('globalStopHighScore');
@@ -181,15 +166,18 @@ export default function GamePage() {
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
     setGameState("PLAYING");
-    // Timer and music will start via their useEffect hooks based on gameState change
   }, []);
 
   const handleInputChange = useCallback((category: string, value: string) => {
     setPlayerResponses(prev => ({ ...prev, [category]: value }));
   }, []);
 
-  const handleStop = useCallback(async () => {
-    if (!currentLetter || gameState === "EVALUATING") return; // Evitar múltiples llamadas
+  const handleStopInternal = useCallback(async () => {
+    const letterForValidation = currentLetterRef.current;
+    const currentResponses = playerResponsesRef.current;
+    const currentGameState = gameStateRef.current;
+
+    if (!letterForValidation || currentGameState === "EVALUATING") return;
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -197,13 +185,11 @@ export default function GamePage() {
     setGameState("EVALUATING");
     setIsLoadingAi(true);
     
-    // Music will pause due to gameState change in its useEffect
-    
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
-        const aiInput: AiOpponentResponseInput = { letter: currentLetter, category };
+        const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
       } catch (error) {
@@ -212,78 +198,144 @@ export default function GamePage() {
       }
     });
 
-    try {
-      await Promise.all(aiPromises);
-      setAiResponses(tempAiResponses); 
+    await Promise.all(aiPromises);
+    setAiResponses(tempAiResponses); 
 
-      let currentRoundPlayerScore = 0;
-      let currentRoundAiScore = 0;
-      const detailedRoundResults: RoundResults = {};
-
-      CATEGORIES.forEach(category => {
-        const playerResponseRaw = playerResponses[category] || "";
-        const playerResponse = playerResponseRaw.trim();
-        const aiResponseRaw = tempAiResponses[category] || "";
-        const aiResponse = aiResponseRaw.trim();
-        
-        let pScore = 0;
-        let aScore = 0;
-
-        const isPlayerResponseValid = playerResponse !== "" && playerResponse.toLowerCase().startsWith(currentLetter!.toLowerCase());
-        const isAiResponseValid = aiResponse !== "" && aiResponse.toLowerCase().startsWith(currentLetter!.toLowerCase());
-
-        if (isPlayerResponseValid && !isAiResponseValid) {
-          pScore = 100;
-        } else if (!isPlayerResponseValid && isAiResponseValid) {
-          aScore = 100;
-        } else if (isPlayerResponseValid && isAiResponseValid) {
-          if (playerResponse.toLowerCase() === aiResponse.toLowerCase()) {
-            pScore = 50;
-            aScore = 50;
-          } else {
-            pScore = 100;
-            aScore = 100;
-          }
-        }
-        
-        detailedRoundResults[category] = { 
-          playerScore: pScore, 
-          aiScore: aScore, 
-          playerResponse: playerResponseRaw,
-          aiResponse: aiResponseRaw
-        };
-        currentRoundPlayerScore += pScore;
-        currentRoundAiScore += aScore;
-      });
-
-      setPlayerRoundScore(currentRoundPlayerScore);
-      setAiRoundScore(currentRoundAiScore);
-      setTotalPlayerScore(prev => prev + currentRoundPlayerScore);
-      setTotalAiScore(prev => prev + currentRoundAiScore);
-      setRoundResults(detailedRoundResults);
-
-      if (currentRoundPlayerScore > currentRoundAiScore) {
-        setRoundWinner("¡Jugador Gana la Ronda!");
-      } else if (currentRoundAiScore > currentRoundPlayerScore) {
-        setRoundWinner("¡IA Gana la Ronda!");
-      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
-        setRoundWinner("¡Empate en la Ronda!");
-      } else { 
-        setRoundWinner("Nadie puntuó en esta ronda.");
+    const playerValidationPromises = CATEGORIES.map(async (category) => {
+      const playerResponse = (currentResponses[category] || "").trim();
+      if (playerResponse === "") {
+        return { category, isValid: false, errorReason: null }; 
       }
+      if (!playerResponse.toLowerCase().startsWith(letterForValidation!.toLowerCase())) {
+        return { category, isValid: false, errorReason: 'format' as 'format' }; 
+      }
+      try {
+        const validationInput: ValidatePlayerWordInput = {
+          letter: letterForValidation!,
+          category,
+          playerWord: playerResponse,
+        };
+        const validationResult = await validatePlayerWord(validationInput);
+        return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
+      } catch (error) {
+        console.error(`Error validando palabra del jugador para ${category} ("${playerResponse}"):`, error);
+        return { category, isValid: false, errorReason: 'api_error' as 'api_error' }; 
+      }
+    });
 
-    } catch (error) {
-      console.error("Error al procesar respuestas de IA o puntuaciones:", error);
-       toast({
-        title: "Error de IA o Puntuación",
-        description: "Algunas respuestas o puntuaciones no pudieron procesarse. Por favor, revisa los resultados.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingAi(false);
-      setGameState("RESULTS");
+    const playerValidationResults = await Promise.all(playerValidationPromises);
+    const playerWordValidity: Record<string, {isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason']}> = {};
+    playerValidationResults.forEach(res => {
+      playerWordValidity[res.category] = {isValid: res.isValid, errorReason: res.errorReason};
+    });
+
+    let currentRoundPlayerScore = 0;
+    let currentRoundAiScore = 0;
+    const detailedRoundResults: RoundResults = {};
+
+    CATEGORIES.forEach(category => {
+      const playerResponseRaw = currentResponses[category] || "";
+      const playerResponseTrimmed = playerResponseRaw.trim();
+      
+      const aiResponseRaw = tempAiResponses[category] || "";
+      const aiResponseTrimmed = aiResponseRaw.trim();
+      
+      const validationStatus = playerWordValidity[category];
+      const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
+      
+      let pScore = 0;
+      let aScore = 0;
+
+      const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
+      const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
+      
+      const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
+
+      if (isPlayerResponseConsideredValid && !isAiResponseValid) {
+        pScore = 100;
+      } else if (!isPlayerResponseConsideredValid && isAiResponseValid) {
+        aScore = 100;
+      } else if (isPlayerResponseConsideredValid && isAiResponseValid) {
+        if (playerResponseTrimmed.toLowerCase() === aiResponseTrimmed.toLowerCase()) {
+          pScore = 50;
+          aScore = 50;
+        } else {
+          pScore = 100;
+          aScore = 100;
+        }
+      }
+      
+      detailedRoundResults[category] = { 
+        playerScore: pScore, 
+        aiScore: aScore, 
+        playerResponse: playerResponseRaw,
+        aiResponse: aiResponseRaw,
+        playerResponseIsValid: isPlayerWordValidatedByAI,
+        playerResponseErrorReason: validationStatus ? validationStatus.errorReason : null,
+      };
+      currentRoundPlayerScore += pScore;
+      currentRoundAiScore += aScore;
+    });
+
+    setPlayerRoundScore(currentRoundPlayerScore);
+    setAiRoundScore(currentRoundAiScore);
+    setTotalPlayerScore(prev => prev + currentRoundPlayerScore);
+    setTotalAiScore(prev => prev + currentRoundAiScore);
+    setRoundResults(detailedRoundResults);
+
+    if (currentRoundPlayerScore > currentRoundAiScore) {
+      setRoundWinner("¡Jugador Gana la Ronda!");
+    } else if (currentRoundAiScore > currentRoundPlayerScore) {
+      setRoundWinner("¡IA Gana la Ronda!");
+    } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
+      setRoundWinner("¡Empate en la Ronda!");
+    } else { 
+      setRoundWinner("Nadie puntuó en esta ronda.");
     }
-  }, [currentLetter, playerResponses, toast, gameState]); // gameState added to dependencies
+
+    setIsLoadingAi(false);
+    setGameState("RESULTS");
+
+  }, [ 
+    setGameState, setIsLoadingAi, setAiResponses, 
+    setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
+    setRoundResults, setRoundWinner, toast
+    // Note: generateAiOpponentResponse and validatePlayerWord are stable imports
+    // CATEGORIES is a stable constant
+    // currentLetterRef, playerResponsesRef, gameStateRef are used internally
+  ]);
+
+  const handleStop = useCallback(() => {
+    handleStopInternal();
+  }, [handleStopInternal]);
+
+  useEffect(() => {
+    if (gameState === "PLAYING" && currentLetter) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); 
+      setTimeLeft(ROUND_DURATION_SECONDS); 
+
+      timerIntervalRef.current = setInterval(() => {
+        setTimeLeft(prevTime => {
+          if (prevTime <= 1) {
+            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            handleStop(); 
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    }
+    return () => { 
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [gameState, currentLetter, handleStop]); 
+
 
   const startNextRound = useCallback(() => {
     startGame();
@@ -326,7 +378,7 @@ export default function GamePage() {
   };
 
   const handleOpenJoinRoomDialog = () => {
-    setJoinRoomId(""); // Limpiar input al abrir
+    setJoinRoomId(""); 
     setShowJoinRoomDialog(true);
   };
   
@@ -519,8 +571,8 @@ export default function GamePage() {
             <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6 w-full">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="text-2xl font-semibold text-primary">IA está Pensando y Calculando Puntos...</p>
-                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas y calculamos las puntuaciones.</p>
+                <p className="text-2xl font-semibold text-primary">IA está Pensando, Validando y Calculando Puntos...</p>
+                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas, validamos las tuyas y calculamos las puntuaciones.</p>
               </CardContent>
             </Card>
           )}
@@ -607,4 +659,3 @@ export default function GamePage() {
     </div>
   );
 }
-
