@@ -1,29 +1,31 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { RouletteWheel } from '@/components/game/roulette-wheel';
 import { GameArea } from '@/components/game/game-area';
 import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, UsersRound, PlusCircle, LogIn } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
+import { Progress } from '@/components/ui/progress';
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ROUND_DURATION_SECONDS = 60; // Duración de la ronda en segundos
 
 export interface PlayerScore {
   name: string;
@@ -62,6 +64,9 @@ export default function GamePage() {
   const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
   const [joinRoomId, setJoinRoomId] = useState<string>("");
 
+  const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const exampleGlobalLeaderboard: PlayerScore[] = [
     { name: "Jugador Estrella", score: 12500 },
@@ -76,6 +81,65 @@ export default function GamePage() {
     { name: "Vecina Sofia", score: 6800 },
     { name: "Compañero Alex", score: 6500 },
   ];
+
+  // Initialize Audio element
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !audioRef.current) {
+      // **IMPORTANTE**: Cambia '/music/tension-music.mp3' por la ruta a tu archivo de música.
+      // El archivo debe estar en la carpeta `public/music/`.
+      audioRef.current = new Audio('/music/tension-music.mp3'); 
+      audioRef.current.loop = true; // Para que la música se repita
+    }
+    // Cleanup function to pause and release audio resources if the component unmounts
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        // audioRef.current.src = ''; // Descomentar si experimentas problemas con la liberación de recursos
+      }
+    };
+  }, []);
+
+  // Manage music playback based on gameState
+  useEffect(() => {
+    if (audioRef.current) {
+      if (gameState === "PLAYING" && currentLetter) {
+        audioRef.current.currentTime = 0; // Reinicia la música cada vez que empieza una ronda
+        audioRef.current.play().catch(error => console.error("Error al reproducir audio:", error));
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [gameState, currentLetter]);
+
+
+  // Timer logic
+  useEffect(() => {
+    if (gameState === "PLAYING" && currentLetter) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Clear existing timer
+      setTimeLeft(ROUND_DURATION_SECONDS); // Reset timer for the new round
+
+      timerIntervalRef.current = setInterval(() => {
+        setTimeLeft(prevTime => {
+          if (prevTime <= 1) {
+            clearInterval(timerIntervalRef.current!);
+            handleStop(); // Auto-stop when time is up
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    }
+    return () => { // Cleanup interval on component unmount or when gameState/currentLetter changes
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+    };
+  }, [gameState, currentLetter]); // Dependencia en currentLetter para reiniciar en nueva ronda
+
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem('globalStopHighScore');
@@ -99,6 +163,10 @@ export default function GamePage() {
     setAiRoundScore(0);
     setRoundResults(null);
     setRoundWinner(null);
+    setTimeLeft(ROUND_DURATION_SECONDS);
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
   }, []);
 
   const startGame = useCallback(() => {
@@ -113,6 +181,7 @@ export default function GamePage() {
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
     setGameState("PLAYING");
+    // Timer and music will start via their useEffect hooks based on gameState change
   }, []);
 
   const handleInputChange = useCallback((category: string, value: string) => {
@@ -120,9 +189,15 @@ export default function GamePage() {
   }, []);
 
   const handleStop = useCallback(async () => {
-    if (!currentLetter) return;
+    if (!currentLetter || gameState === "EVALUATING") return; // Evitar múltiples llamadas
+
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+    }
     setGameState("EVALUATING");
     setIsLoadingAi(true);
+    
+    // Music will pause due to gameState change in its useEffect
     
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
@@ -208,7 +283,7 @@ export default function GamePage() {
       setIsLoadingAi(false);
       setGameState("RESULTS");
     }
-  }, [currentLetter, playerResponses, toast]);
+  }, [currentLetter, playerResponses, toast, gameState]); // gameState added to dependencies
 
   const startNextRound = useCallback(() => {
     startGame();
@@ -260,7 +335,6 @@ export default function GamePage() {
       toast({ title: "ID de Sala Vacío", description: "Por favor, ingresa un ID de sala para unirte.", variant: "destructive" });
       return;
     }
-    // Aquí iría la lógica para unirse a la sala (no implementada en este paso)
     toast({ title: "Intentando Unirse a Sala", description: `Te unirías a la sala: ${joinRoomId}. (Funcionalidad no implementada aún)`, duration: 5000 });
     setShowJoinRoomDialog(false);
   };
@@ -353,7 +427,6 @@ export default function GamePage() {
             </>
           )}
 
-          {/* Dialogo Crear Sala */}
           <AlertDialog open={showCreateRoomDialog} onOpenChange={setShowCreateRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -376,7 +449,6 @@ export default function GamePage() {
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Dialogo Unirse a Sala */}
           <AlertDialog open={showJoinRoomDialog} onOpenChange={setShowJoinRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -410,6 +482,19 @@ export default function GamePage() {
             </div>
           )}
 
+          {gameState === "PLAYING" && currentLetter && (
+            <div className="my-4 w-full max-w-md text-center p-4 bg-card rounded-lg shadow animate-fadeIn">
+              <div className="flex items-center justify-center mb-2">
+                <Clock className="h-6 w-6 mr-2 text-primary" />
+                <p className="text-2xl font-semibold text-primary">Tiempo Restante: {timeLeft}s</p>
+              </div>
+              <Progress value={(timeLeft / ROUND_DURATION_SECONDS) * 100} className="w-full h-3 mb-2" />
+              {timeLeft <= 10 && timeLeft > 0 && (
+                  <p className="text-destructive font-medium mt-1 animate-pulse">¡El tiempo se acaba!</p>
+              )}
+            </div>
+          )}
+
           {(gameState === "PLAYING" || gameState === "EVALUATING" || gameState === "RESULTS") && currentLetter && (
              <div className="animate-fadeIn w-full">
               <GameArea
@@ -426,7 +511,7 @@ export default function GamePage() {
           
           {gameState === "PLAYING" && (
             <div className="flex justify-center animate-fadeInUp mt-6">
-              <StopButton onClick={handleStop} />
+              <StopButton onClick={handleStop} disabled={isLoadingAi || timeLeft <= 0} />
             </div>
           )}
 
