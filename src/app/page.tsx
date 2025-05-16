@@ -4,13 +4,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { RouletteWheel } from '@/components/game/roulette-wheel';
 import { GameArea } from '@/components/game/game-area';
 import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3 } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, UsersRound, PlusCircle, LogIn } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
@@ -25,7 +28,7 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 export interface PlayerScore {
   name: string;
   score: number;
-  avatar?: string; // Opcional, para imagen de avatar
+  avatar?: string;
 }
 
 export interface RoundResultDetail {
@@ -54,7 +57,12 @@ export default function GamePage() {
   const [roundWinner, setRoundWinner] = useState<string | null>(null);
   const [personalHighScore, setPersonalHighScore] = useState(0);
 
-  // Datos de ejemplo para las tablas de clasificación
+  const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
+  const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
+  const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
+  const [joinRoomId, setJoinRoomId] = useState<string>("");
+
+
   const exampleGlobalLeaderboard: PlayerScore[] = [
     { name: "Jugador Estrella", score: 12500 },
     { name: "ReyDelStop", score: 11800 },
@@ -70,7 +78,6 @@ export default function GamePage() {
   ];
 
   useEffect(() => {
-    // Cargar la puntuación más alta personal desde localStorage
     const storedHighScore = localStorage.getItem('globalStopHighScore');
     if (storedHighScore) {
       setPersonalHighScore(parseInt(storedHighScore, 10));
@@ -78,7 +85,6 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
-    // Guardar la puntuación más alta personal en localStorage si se supera
     if (totalPlayerScore > personalHighScore) {
       setPersonalHighScore(totalPlayerScore);
       localStorage.setItem('globalStopHighScore', totalPlayerScore.toString());
@@ -238,6 +244,45 @@ export default function GamePage() {
     }
   };
 
+  const handleOpenCreateRoomDialog = () => {
+    const newRoomId = Math.random().toString(36).substring(2, 10).toUpperCase();
+    setGeneratedRoomId(newRoomId);
+    setShowCreateRoomDialog(true);
+  };
+
+  const handleOpenJoinRoomDialog = () => {
+    setJoinRoomId(""); // Limpiar input al abrir
+    setShowJoinRoomDialog(true);
+  };
+  
+  const handleActualJoinRoom = () => {
+    if (joinRoomId.trim() === "") {
+      toast({ title: "ID de Sala Vacío", description: "Por favor, ingresa un ID de sala para unirte.", variant: "destructive" });
+      return;
+    }
+    // Aquí iría la lógica para unirse a la sala (no implementada en este paso)
+    toast({ title: "Intentando Unirse a Sala", description: `Te unirías a la sala: ${joinRoomId}. (Funcionalidad no implementada aún)`, duration: 5000 });
+    setShowJoinRoomDialog(false);
+  };
+
+  const copyRoomIdToClipboard = async () => {
+    if (generatedRoomId) {
+      try {
+        await navigator.clipboard.writeText(generatedRoomId);
+        toast({
+          title: "¡ID de Sala Copiado!",
+          description: "El ID ha sido copiado. ¡Compártelo con tus amigos!",
+        });
+      } catch (err) {
+        toast({
+          title: "Error al Copiar ID",
+          description: "No se pudo copiar el ID. Por favor, cópialo manualmente.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -250,38 +295,114 @@ export default function GamePage() {
                 <CardHeader className="text-center p-8">
                   <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">¡Bienvenido a Global Stop!</CardTitle>
                   <CardDescription className="text-lg text-muted-foreground mt-3">
-                    ¿Listo para poner a prueba tu vocabulario y rapidez mental contra nuestra IA?
+                    Elige cómo quieres jugar:
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col sm:flex-row justify-center items-center gap-4 py-10 px-6">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-10 px-6">
                   <Button 
                     onClick={startGame} 
                     size="lg" 
                     className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
                               transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                              focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
+                              focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full"
                   >
                     <PlayCircle className="mr-3 h-7 w-7" />
-                    Empezar Juego
+                    Jugar vs IA
                   </Button>
                   <Button 
-                    onClick={handleShareGameLink} 
+                    onClick={handleOpenCreateRoomDialog}
                     size="lg" 
                     variant="outline"
                     className="text-xl px-10 py-8 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg 
                               transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                              focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
+                              focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full"
                   >
-                    <Copy className="mr-3 h-7 w-7" />
+                    <PlusCircle className="mr-3 h-7 w-7" />
+                    Crear Sala (Amigos)
+                  </Button>
+                   <Button 
+                    onClick={handleOpenJoinRoomDialog}
+                    size="lg" 
+                    variant="outline"
+                    className="text-xl px-10 py-8 border-secondary text-secondary-foreground hover:bg-secondary/10 shadow-lg 
+                              transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                              focus-visible:ring-4 focus-visible:ring-secondary/50 rounded-lg w-full"
+                  >
+                    <LogIn className="mr-3 h-7 w-7" />
+                    Unirse a Sala
+                  </Button>
+                  <Button 
+                    onClick={handleShareGameLink} 
+                    size="lg" 
+                    variant="ghost"
+                    className="text-xl px-10 py-8 text-muted-foreground hover:bg-muted/20 shadow-md 
+                              transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                              focus-visible:ring-4 focus-visible:ring-muted/50 rounded-lg w-full"
+                  >
+                    <Share2 className="mr-3 h-7 w-7" />
                     Compartir Juego
                   </Button>
                 </CardContent>
+                 <CardFooter className="text-xs text-muted-foreground text-center block px-6 pb-6">
+                   La opción "Crear Sala" y "Unirse a Sala" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz.
+                </CardFooter>
               </Card>
               <PersonalHighScoreCard highScore={personalHighScore} />
               <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} />
               <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} />
             </>
           )}
+
+          {/* Dialogo Crear Sala */}
+          <AlertDialog open={showCreateRoomDialog} onOpenChange={setShowCreateRoomDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¡Sala Creada (Simulación)!</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Comparte este ID con tus amigos para que se unan a tu sala.
+                  Recuerda, esta es una simulación, la conexión multijugador aún no está activa.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="my-4 p-4 bg-muted rounded-md text-center">
+                <p className="text-sm text-muted-foreground">ID de Sala:</p>
+                <p className="text-2xl font-bold text-primary tracking-widest">{generatedRoomId}</p>
+                 <Button variant="outline" size="sm" onClick={copyRoomIdToClipboard} className="mt-2">
+                  <Copy className="mr-2 h-4 w-4" /> Copiar ID
+                </Button>
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cerrar</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Dialogo Unirse a Sala */}
+          <AlertDialog open={showJoinRoomDialog} onOpenChange={setShowJoinRoomDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Unirse a una Sala (Simulación)</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Ingresa el ID de la sala a la que quieres unirte.
+                  La conexión multijugador aún no está activa.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="my-4 space-y-2">
+                <Label htmlFor="join-room-id" className="text-primary">ID de la Sala</Label>
+                <Input 
+                  id="join-room-id" 
+                  placeholder="Ej: ABC123XYZ" 
+                  value={joinRoomId}
+                  onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
+                  className="text-lg"
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleActualJoinRoom}>Unirse</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
 
           {gameState === "SPINNING" && (
             <div className="animate-fadeIn">
