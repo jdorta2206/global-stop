@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,9 +10,10 @@ import { StopButton } from '@/components/game/stop-button';
 import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
-import { Loader2, PlayCircle, RotateCcw } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/auth-context'; // Importar useAuth
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
@@ -33,6 +35,7 @@ export default function GamePage() {
   const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth(); // Obtener el usuario del contexto de autenticación
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
@@ -77,21 +80,22 @@ export default function GamePage() {
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
+        // Simular un pequeño retraso variable para la respuesta de la IA
         await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
         const aiInput: AiOpponentResponseInput = { letter: currentLetter, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
       } catch (error) {
-        console.error(`Error fetching AI response for ${category}:`, error);
-        tempAiResponses[category] = ""; 
+        console.error(`Error al obtener respuesta de IA para ${category}:`, error);
+        tempAiResponses[category] = ""; // Respuesta vacía en caso de error
       }
     });
 
     try {
       await Promise.all(aiPromises);
-      setAiResponses(tempAiResponses); // Set AI responses first
+      setAiResponses(tempAiResponses); // Establecer respuestas de la IA
 
-      // Calculate scores
+      // Calcular puntuaciones
       let currentRoundPlayerScore = 0;
       let currentRoundAiScore = 0;
       const detailedRoundResults: RoundResults = {};
@@ -125,8 +129,8 @@ export default function GamePage() {
         detailedRoundResults[category] = { 
           playerScore: pScore, 
           aiScore: aScore, 
-          playerResponse: playerResponseRaw, // Store raw for display
-          aiResponse: aiResponseRaw // Store raw for display
+          playerResponse: playerResponseRaw, // Guardar respuesta original para mostrar
+          aiResponse: aiResponseRaw // Guardar respuesta original para mostrar
         };
         currentRoundPlayerScore += pScore;
         currentRoundAiScore += aScore;
@@ -142,14 +146,14 @@ export default function GamePage() {
         setRoundWinner("¡Jugador Gana la Ronda!");
       } else if (currentRoundAiScore > currentRoundPlayerScore) {
         setRoundWinner("¡IA Gana la Ronda!");
-      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
+      } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) { // Empate pero alguien puntuó
         setRoundWinner("¡Empate en la Ronda!");
-      } else {
+      } else { // Nadie puntuó
         setRoundWinner("Nadie puntuó en esta ronda.");
       }
 
     } catch (error) {
-      console.error("Error in processing AI responses or scores:", error);
+      console.error("Error al procesar respuestas de IA o puntuaciones:", error);
        toast({
         title: "Error de IA o Puntuación",
         description: "Algunas respuestas o puntuaciones no pudieron procesarse. Por favor, revisa los resultados.",
@@ -162,8 +166,21 @@ export default function GamePage() {
   }, [currentLetter, playerResponses, toast]);
 
   const startNextRound = useCallback(() => {
+    // No reiniciar puntuaciones totales aquí, solo las de la ronda
     startGame();
   }, [startGame]);
+
+  const handleShareToWhatsApp = () => {
+    const playerName = user?.displayName ? `${user.displayName} jugó` : "Acabo de jugar a";
+    const message = 
+      `${playerName} Global Stop! 🕹️\n\n` +
+      `Mi puntuación total: ${totalPlayerScore}\n` +
+      `Puntuación total de la IA: ${totalAiScore}\n\n` +
+      `¿Crees que puedes superarme? ¡Inténtalo en Global Stop!`;
+    
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -204,11 +221,11 @@ export default function GamePage() {
               <GameArea
                 letter={currentLetter}
                 categories={CATEGORIES}
-                playerResponses={playerResponses} // Kept for input binding
+                playerResponses={playerResponses} 
                 onInputChange={handleInputChange}
                 isEvaluating={gameState === "EVALUATING" || isLoadingAi}
                 showResults={gameState === "RESULTS"}
-                roundResults={roundResults} // Pass detailed results
+                roundResults={roundResults} 
               />
             </div>
           )}
@@ -261,16 +278,27 @@ export default function GamePage() {
                   </div>
                 </CardContent>
               </Card>
-              <div className="flex justify-center animate-fadeInUp mt-6">
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fadeInUp mt-6">
                 <Button 
                   onClick={startNextRound} 
                   size="lg" 
-                  className="text-xl px-10 py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
+                  className="text-lg sm:text-xl px-8 sm:px-10 py-6 sm:py-8 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg 
                             transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
-                            focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
+                            focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
                 >
-                  <RotateCcw className="mr-3 h-7 w-7" />
+                  <RotateCcw className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
                   Jugar Siguiente Ronda
+                </Button>
+                <Button 
+                  onClick={handleShareToWhatsApp} 
+                  size="lg" 
+                  variant="outline"
+                  className="text-lg sm:text-xl px-8 sm:px-10 py-6 sm:py-8 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg 
+                            transform transition-all duration-150 ease-in-out hover:scale-105 active:scale-95
+                            focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
+                >
+                  <Share2 className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
+                  Compartir Puntuación
                 </Button>
               </div>
             </>
@@ -297,3 +325,4 @@ export default function GamePage() {
     </div>
   );
 }
+
