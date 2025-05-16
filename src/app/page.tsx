@@ -13,7 +13,7 @@ import { Loader2, PlayCircle, RotateCcw } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
-const CATEGORIES = ["Name", "Place", "Animal", "Object", "Color", "Fruit or Vegetable"];
+const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 export default function GamePage() {
@@ -60,7 +60,7 @@ export default function GamePage() {
         tempAiResponses[category] = aiResult.response;
       } catch (error) {
         console.error(`Error fetching AI response for ${category}:`, error);
-        tempAiResponses[category] = "Error generating response";
+        tempAiResponses[category] = "Error al generar respuesta"; // Translated
         // Individual toast for each error might be too noisy, group them or show one general error.
       }
     });
@@ -71,8 +71,8 @@ export default function GamePage() {
     } catch (error) { // This catch is for Promise.all, individual errors handled above.
       console.error("Error in processing AI responses:", error);
        toast({
-        title: "AI Error",
-        description: "Some AI responses could not be generated. Please check results.",
+        title: "Error de IA", // Translated
+        description: "Algunas respuestas de la IA no pudieron generarse. Por favor, revisa los resultados.", // Translated
         variant: "destructive",
       });
     } finally {
@@ -93,9 +93,9 @@ export default function GamePage() {
           {gameState === "IDLE" && (
             <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
               <CardHeader className="text-center p-8">
-                <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">Welcome to Global Stop!</CardTitle>
+                <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">¡Bienvenido a Global Stop!</CardTitle>
                 <CardDescription className="text-lg text-muted-foreground mt-3">
-                  Ready to test your vocabulary and quick thinking against our AI?
+                  ¿Listo para poner a prueba tu vocabulario y rapidez mental contra nuestra IA?
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center py-10">
@@ -107,7 +107,7 @@ export default function GamePage() {
                              focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
                 >
                   <PlayCircle className="mr-3 h-7 w-7" />
-                  Start Game
+                  Empezar Juego
                 </Button>
               </CardContent>
             </Card>
@@ -143,8 +143,8 @@ export default function GamePage() {
             <Card className="shadow-xl rounded-lg animate-fadeIn p-8">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="text-2xl font-semibold text-primary">AI is Thinking...</p>
-                <p className="text-muted-foreground">Please wait while the AI prepares its answers.</p>
+                <p className="text-2xl font-semibold text-primary">IA está Pensando...</p>
+                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas.</p>
               </CardContent>
             </Card>
           )}
@@ -159,7 +159,7 @@ export default function GamePage() {
                            focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg"
               >
                 <RotateCcw className="mr-3 h-7 w-7" />
-                Play Next Round
+                Jugar Siguiente Ronda
               </Button>
             </div>
           )}

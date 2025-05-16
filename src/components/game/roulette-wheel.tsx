@@ -33,8 +33,8 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet }: Roulette
   return (
     <Card className="w-full max-w-md mx-auto text-center shadow-xl bg-card rounded-lg">
       <CardHeader className="pb-2">
-        <CardTitle className="text-3xl font-bold text-primary">Spinning for a Letter!</CardTitle>
-        <CardDescription className="text-muted-foreground">Get ready...</CardDescription>
+        <CardTitle className="text-3xl font-bold text-primary">¡Girando por una Letra!</CardTitle>
+        <CardDescription className="text-muted-foreground">Prepárate...</CardDescription>
       </CardHeader>
       <CardContent className="py-8">
         <div 
@@ -47,7 +47,7 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet }: Roulette
             {displayLetter}
           </span>
         </div>
-         {isSpinning && <p className="text-primary animate-pulse">Spinning...</p>}
+         {isSpinning && <p className="text-primary animate-pulse">Girando...</p>}
       </CardContent>
     </Card>
   );

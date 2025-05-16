@@ -1,24 +1,24 @@
 'use server';
 
 /**
- * @fileOverview An AI opponent response generator for the Global Stop game.
+ * @fileOverview Generador de respuestas para un oponente IA en el juego Global Stop.
  *
- * - generateAiOpponentResponse - A function that generates the AI opponent's response for a given letter and category.
- * - AiOpponentResponseInput - The input type for the generateAiOpponentResponse function.
- * - AiOpponentResponseOutput - The return type for the generateAiOpponentResponse function.
+ * - generateAiOpponentResponse - Una función que genera la respuesta del oponente IA para una letra y categoría dadas.
+ * - AiOpponentResponseInput - El tipo de entrada para la función generateAiOpponentResponse.
+ * - AiOpponentResponseOutput - El tipo de retorno para la función generateAiOpponentResponse.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const AiOpponentResponseInputSchema = z.object({
-  letter: z.string().describe('The letter for the current round.'),
-  category: z.string().describe('The category for the current round.'),
+  letter: z.string().describe('La letra para la ronda actual.'),
+  category: z.string().describe('La categoría para la ronda actual.'),
 });
 export type AiOpponentResponseInput = z.infer<typeof AiOpponentResponseInputSchema>;
 
 const AiOpponentResponseOutputSchema = z.object({
-  response: z.string().describe('The AI opponent\'s response for the given letter and category.'),
+  response: z.string().describe('La respuesta del oponente IA para la letra y categoría dadas.'),
 });
 export type AiOpponentResponseOutput = z.infer<typeof AiOpponentResponseOutputSchema>;
 
@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'generateAiOpponentResponsePrompt',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
-  prompt: `You are an AI opponent playing the game Stop. Your task is to generate a plausible and relevant response for the given letter and category. The letter is "{{{letter}}}" and the category is "{{{category}}}". Generate only the word. Do not include any additional information or explanations.`,
+  prompt: `Eres un oponente de IA jugando al juego Stop (también conocido como Tutti Frutti, Lápiz Quieto o Basta). Tu tarea es generar una respuesta plausible y relevante para la letra y categoría dadas. La letra es "{{{letter}}}" y la categoría es "{{{category}}}". Genera solo la palabra. No incluyas información adicional ni explicaciones.`,
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(

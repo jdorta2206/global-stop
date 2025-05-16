@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({ // Corrected variable name
 });
 
 export const metadata: Metadata = {
-  title: 'Global Stop Game',
-  description: 'Play the classic Stop game, multi-language, against AI or friends!',
+  title: 'Juego Global Stop',
+  description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster />

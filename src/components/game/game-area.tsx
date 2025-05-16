@@ -22,12 +22,12 @@ export function GameArea({ letter, categories, playerResponses, aiResponses, onI
     <Card className="w-full shadow-lg bg-card rounded-lg">
       <CardHeader className="text-center">
         <CardTitle className="text-4xl font-bold">
-          <span className="text-muted-foreground">Letter: </span> 
+          <span className="text-muted-foreground">Letra: </span> 
           <span className="text-accent tracking-wider">{letter}</span>
         </CardTitle>
-        {!showResults && !isEvaluating && <CardDescription className="mt-1 text-md">Fill in the categories below. Good luck!</CardDescription>}
-         {isEvaluating && <CardDescription className="mt-1 text-md">AI is thinking... Your answers are locked.</CardDescription>}
-         {showResults && <CardDescription className="mt-1 text-md">Round over! Here are the results.</CardDescription>}
+        {!showResults && !isEvaluating && <CardDescription className="mt-1 text-md">Completa las categorías a continuación. ¡Buena suerte!</CardDescription>}
+         {isEvaluating && <CardDescription className="mt-1 text-md">La IA está pensando... Tus respuestas están bloqueadas.</CardDescription>}
+         {showResults && <CardDescription className="mt-1 text-md">¡Ronda terminada! Aquí están los resultados.</CardDescription>}
       </CardHeader>
       <CardContent className="space-y-6 p-6">
         {categories.map((category, index) => (
@@ -38,21 +38,21 @@ export function GameArea({ letter, categories, playerResponses, aiResponses, onI
                 id={category}
                 value={playerResponses[category] || ''}
                 onChange={(e) => onInputChange(category, e.target.value)}
-                placeholder={`A ${category.toLowerCase()} with "${letter}"`}
+                placeholder={`Ej: ${category} con ${letter}...`}
                 disabled={isEvaluating || showResults}
                 className="text-lg py-3 px-4 border-2 focus:border-primary focus:ring-primary"
-                aria-label={`Input for category ${category}`}
+                aria-label={`Entrada para la categoría ${category}`}
               />
               {showResults && (
                 <div className="mt-3 p-4 bg-secondary rounded-md shadow-sm space-y-1">
                   <p className="text-md">
-                    <span className="font-semibold text-primary">You: </span>
-                    {playerResponses[category] || <span className="italic text-muted-foreground">No answer</span>}
+                    <span className="font-semibold text-primary">Tú: </span>
+                    {playerResponses[category] || <span className="italic text-muted-foreground">Sin respuesta</span>}
                   </p>
                   <Separator className="my-1 bg-border" />
                   <p className="text-md">
-                    <span className="font-semibold text-accent-foreground">AI: </span>
-                    {aiResponses[category] || <span className="italic text-muted-foreground">No answer</span>}
+                    <span className="font-semibold text-accent-foreground">IA: </span>
+                    {aiResponses[category] || <span className="italic text-muted-foreground">Sin respuesta</span>}
                   </p>
                 </div>
               )}
