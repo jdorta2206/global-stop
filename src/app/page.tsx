@@ -222,17 +222,17 @@ export default function GamePage() {
   }, [gameState]);
 
   const exampleGlobalLeaderboard: PlayerScore[] = [
-    { name: translate({es: "Jugador Estrella", en: "Star Player", fr: "Joueur Étoile", pt: "Jogador Estrela"}), score: 12500 },
-    { name: translate({es: "ReyDelStop", en: "StopKing", fr: "RoiDuStop", pt: "ReiDoStop"}), score: 11800 },
-    { name: translate({es: "LetrasVeloces", en: "FastLetters", fr: "LettresRapides", pt: "LetrasRápidas"}), score: 10500 },
-    { name: translate({es: "ProPlayer123", en: "ProPlayer123", fr: "JoueurPro123", pt: "JogadorPro123"}), score: 9800 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "Star Player" }), score: 12500 }, // Placeholder for complex translation
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "StopKing" }), score: 11800 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "FastLetters" }), score: 10500 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "ProPlayer123" }), score: 9800 },
     { name: "Ana S.", score: 9200 },
   ];
 
   const exampleFriendsLeaderboard: PlayerScore[] = [
-    { name: translate({es: "Amigo Juan", en: "Friend John", fr: "Ami Jean", pt: "Amigo João"}), score: 7500 },
-    { name: translate({es: "Vecina Sofia", en: "Neighbor Sofia", fr: "Voisine Sophie", pt: "Vizinha Sofia"}), score: 6800 },
-    { name: translate({es: "Compañero Alex", en: "Colleague Alex", fr: "Collègue Alex", pt: "Colega Alex"}), score: 6500 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "Friend John" }), score: 7500 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "Neighbor Sofia" }), score: 6800 },
+    { name: translate(UI_TEXTS.welcomeTitle, { defaultValue: "Colleague Alex" }), score: 6500 },
   ];
 
   useEffect(() => {
@@ -307,7 +307,7 @@ export default function GamePage() {
  const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
-    const currentLang = language; // Capture current language
+    const currentLang = language; 
     
     console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
@@ -324,7 +324,6 @@ export default function GamePage() {
     
     console.log("[GamePage] Generating AI responses...");
     const tempAiResponses: Record<string, string> = {};
-    // Pass language to AI response generation
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
@@ -356,7 +355,6 @@ export default function GamePage() {
         return { category, isValid: false, errorReason: 'format' as 'format' }; 
       }
       try {
-        // Pass language to player word validation
         const validationInput: ValidatePlayerWordInput = {
           letter: letterForValidation!,
           category, 
@@ -478,7 +476,7 @@ export default function GamePage() {
   }, [ 
     setGameState, setIsLoadingAi, setAiResponses, 
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
-    setRoundResults, setRoundWinner, toast, language, currentCategories, translate // Added language and currentCategories
+    setRoundResults, setRoundWinner, toast, language, currentCategories, translate 
   ]);
 
   const handleStop = useCallback(() => {
@@ -894,3 +892,5 @@ export default function GamePage() {
     </div>
   );
 }
+
+    
