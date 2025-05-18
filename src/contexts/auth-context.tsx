@@ -11,8 +11,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config'; // Asegúrate que la ruta sea correcta
-import { firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; // Importar para la verificación
+import { auth, firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; // Asegúrate que la ruta sea correcta
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -41,17 +40,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verificar si la configuración de Firebase sigue usando placeholders o la de ejemplo
+    // Verificar si la configuración de Firebase sigue usando placeholders
     const isPlaceholder = appFirebaseConfig.apiKey.startsWith("TU_") ||
                           appFirebaseConfig.authDomain.startsWith("TU_") ||
                           appFirebaseConfig.projectId.startsWith("TU_");
 
-    const isExampleConfig = appFirebaseConfig.apiKey === "AIzaSyCz9k9LrLiprDb3tzDrNbMFHqC88-LxUyk" &&
-                           appFirebaseConfig.authDomain === "global-stop.firebaseapp.com" &&
-                           appFirebaseConfig.projectId === "global-stop" &&
-                           appFirebaseConfig.messagingSenderId === "902072408470";
-
-    if (isPlaceholder || isExampleConfig) {
+    // Se elimina la comprobación de isExampleConfig para que el diálogo
+    // no aparezca si el usuario ha puesto la config de ejemplo.
+    // El diálogo solo aparecerá si hay placeholders "TU_...".
+    if (isPlaceholder) {
       setShowConfigErrorDialog(true);
     }
 
@@ -78,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
       title = "Dominio no autorizado";
-      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio: ${typeof window !== 'undefined' ? window.location.hostname : ''}`;
+      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio afectado: ${typeof window !== 'undefined' ? window.location.hostname : ''}`;
     }
 
     toast({
@@ -90,10 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const isPlaceholder = appFirebaseConfig.apiKey.startsWith("TU_");
-    const isExampleConfig = appFirebaseConfig.apiKey === "AIzaSyCz9k9LrLiprDb3tzDrNbMFHqC88-LxUyk" && appFirebaseConfig.projectId === "global-stop";
+    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_");
 
-    if (isPlaceholder || isExampleConfig) {
+    if (isPlaceholderConfig) {
       setShowConfigErrorDialog(true);
       return;
     }
@@ -111,15 +107,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithFacebook = async () => {
-    const isPlaceholder = appFirebaseConfig.apiKey.startsWith("TU_");
-    const isExampleConfig = appFirebaseConfig.apiKey === "AIzaSyCz9k9LrLiprDb3tzDrNbMFHqC88-LxUyk" && appFirebaseConfig.projectId === "global-stop";
+    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_");
     
-    if (isPlaceholder || isExampleConfig) {
+    if (isPlaceholderConfig) {
       setShowConfigErrorDialog(true);
       return;
     }
 
-    // Proactive toast for Facebook specific config
     toast({
       title: "Nota sobre Facebook Login",
       description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
@@ -156,9 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // La variable displayConfigError ahora solo depende del estado showConfigErrorDialog.
-  // El useEffect se encarga de mostrarlo inicialmente si la configuración es incorrecta.
-  // Una vez que el usuario lo cierra, no debería volver a aparecer en la misma sesión.
   const displayConfigError = showConfigErrorDialog;
 
   return (
@@ -172,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               <AlertDialogDescription>
                 Parece que la configuración de Firebase en el archivo
                 <code className="mx-1 p-1 bg-muted rounded text-foreground">src/lib/firebase/config.ts</code>
-                aún contiene valores de marcador de posición (como '{appFirebaseConfig.apiKey.startsWith("TU_") ? "TU_API_KEY" : "EJEMPLO_API_KEY"}', etc.) o la configuración de ejemplo.
+                aún contiene valores de marcador de posición (como 'TU_API_KEY', 'TU_AUTH_DOMAIN', 'TU_PROJECT_ID').
                 <br /><br />
                 Para que el inicio de sesión (Google, Facebook, etc.) funcione correctamente, es <strong>crucial</strong> que reemplaces estos marcadores de posición con las credenciales reales de tu proyecto Firebase. Puedes encontrarlas en la consola de Firebase, en la sección "Configuración del proyecto" (el ícono de engranaje).
                 <br /><br />
@@ -196,6 +187,3 @@ export function useAuth() {
   }
   return context;
 }
-    
-
-    
