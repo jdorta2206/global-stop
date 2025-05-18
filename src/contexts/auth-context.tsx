@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
       title = "Dominio no autorizado";
-      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio: ${window.location.hostname}`;
+      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio: ${typeof window !== 'undefined' ? window.location.hostname : ''}`;
     }
 
     toast({
@@ -156,19 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const actualPlaceholderKey = "TU_API_KEY"; // Ejemplo real de un placeholder
-  const actualPlaceholderDomain = "TU_AUTH_DOMAIN";
-  const actualPlaceholderProjectId = "TU_PROJECT_ID";
-
-  const displayConfigError = showConfigErrorDialog || // Mantenemos el estado local para el diálogo
-                             appFirebaseConfig.apiKey === actualPlaceholderKey ||
-                             appFirebaseConfig.authDomain === actualPlaceholderDomain ||
-                             appFirebaseConfig.projectId === actualPlaceholderProjectId ||
-                             (appFirebaseConfig.apiKey === "AIzaSyCz9k9LrLiprDb3tzDrNbMFHqC88-LxUyk" &&
-                              appFirebaseConfig.projectId === "global-stop" &&
-                              appFirebaseConfig.authDomain === "global-stop.firebaseapp.com" &&
-                              appFirebaseConfig.messagingSenderId === "902072408470");
-
+  // La variable displayConfigError ahora solo depende del estado showConfigErrorDialog.
+  // El useEffect se encarga de mostrarlo inicialmente si la configuración es incorrecta.
+  // Una vez que el usuario lo cierra, no debería volver a aparecer en la misma sesión.
+  const displayConfigError = showConfigErrorDialog;
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithFacebook, logout }}>
@@ -181,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               <AlertDialogDescription>
                 Parece que la configuración de Firebase en el archivo
                 <code className="mx-1 p-1 bg-muted rounded text-foreground">src/lib/firebase/config.ts</code>
-                aún contiene valores de marcador de posición (como '{actualPlaceholderKey}', '{actualPlaceholderDomain}', '{actualPlaceholderProjectId}') o la configuración de ejemplo.
+                aún contiene valores de marcador de posición (como '{appFirebaseConfig.apiKey.startsWith("TU_") ? "TU_API_KEY" : "EJEMPLO_API_KEY"}', etc.) o la configuración de ejemplo.
                 <br /><br />
                 Para que el inicio de sesión (Google, Facebook, etc.) funcione correctamente, es <strong>crucial</strong> que reemplaces estos marcadores de posición con las credenciales reales de tu proyecto Firebase. Puedes encontrarlas en la consola de Firebase, en la sección "Configuración del proyecto" (el ícono de engranaje).
                 <br /><br />
@@ -205,4 +196,6 @@ export function useAuth() {
   }
   return context;
 }
+    
+
     
