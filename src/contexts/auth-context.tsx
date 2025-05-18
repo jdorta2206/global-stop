@@ -40,15 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verificar si la configuración de Firebase sigue usando placeholders
-    const isPlaceholder = appFirebaseConfig.apiKey.startsWith("TU_") ||
-                          appFirebaseConfig.authDomain.startsWith("TU_") ||
-                          appFirebaseConfig.projectId.startsWith("TU_");
+    // Verificar si la configuración de Firebase sigue usando placeholders "TU_"
+    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_") ||
+                               appFirebaseConfig.authDomain.startsWith("TU_") || 
+                               appFirebaseConfig.projectId.startsWith("TU_");   
 
-    // Se elimina la comprobación de isExampleConfig para que el diálogo
-    // no aparezca si el usuario ha puesto la config de ejemplo.
-    // El diálogo solo aparecerá si hay placeholders "TU_...".
-    if (isPlaceholder) {
+    if (isPlaceholderConfig) {
       setShowConfigErrorDialog(true);
     }
 
@@ -63,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.error(`Error al iniciar sesión con ${providerName}:`, error);
     let title = `Error de inicio de sesión con ${providerName}`;
     let description = error.message || `No se pudo iniciar sesión con ${providerName}. Revisa la consola del navegador para más detalles y verifica tu configuración de Firebase.`;
+    let duration = 9000;
 
     if (error.code === 'auth/popup-closed-by-user') {
       title = "Inicio de sesión cancelado";
@@ -75,21 +73,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
       title = "Dominio no autorizado";
-      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio afectado: ${typeof window !== 'undefined' ? window.location.hostname : ''}`;
+      description = `El dominio actual (${typeof window !== 'undefined' ? window.location.hostname : 'desconocido'}) no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista.`;
+    } else if (error.code === 'auth/invalid-api-key') {
+      title = "API Key de Firebase Inválida";
+      description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo.`;
+    } else if (error.code === 'auth/project-not-found' || error.code === 'auth/invalid-project-id') {
+        title = "Proyecto de Firebase no encontrado o ID Inválido";
+        description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo.`;
     }
+
 
     toast({
       title: title,
       description: description,
       variant: "destructive",
-      duration: 9000,
+      duration: duration,
     });
   };
 
   const signInWithGoogle = async () => {
-    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_");
-
-    if (isPlaceholderConfig) {
+    if (appFirebaseConfig.apiKey.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
@@ -107,13 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithFacebook = async () => {
-    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_");
-    
-    if (isPlaceholderConfig) {
+    if (appFirebaseConfig.apiKey.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
-
+    
     toast({
       title: "Nota sobre Facebook Login",
       description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
@@ -150,20 +151,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const displayConfigError = showConfigErrorDialog;
-
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithFacebook, logout }}>
       {children}
-      {displayConfigError && (
-        <AlertDialog open={displayConfigError} onOpenChange={setShowConfigErrorDialog}>
+      {showConfigErrorDialog && (
+        <AlertDialog open={showConfigErrorDialog} onOpenChange={setShowConfigErrorDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>¡Configuración de Firebase Requerida!</AlertDialogTitle>
               <AlertDialogDescription>
                 Parece que la configuración de Firebase en el archivo
                 <code className="mx-1 p-1 bg-muted rounded text-foreground">src/lib/firebase/config.ts</code>
-                aún contiene valores de marcador de posición (como 'TU_API_KEY', 'TU_AUTH_DOMAIN', 'TU_PROJECT_ID').
+                aún contiene valores de marcador de posición que comienzan con 'TU_' (como 'TU_API_KEY', 'TU_AUTH_DOMAIN', etc.).
                 <br /><br />
                 Para que el inicio de sesión (Google, Facebook, etc.) funcione correctamente, es <strong>crucial</strong> que reemplaces estos marcadores de posición con las credenciales reales de tu proyecto Firebase. Puedes encontrarlas en la consola de Firebase, en la sección "Configuración del proyecto" (el ícono de engranaje).
                 <br /><br />
