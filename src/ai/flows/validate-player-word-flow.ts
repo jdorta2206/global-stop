@@ -27,19 +27,11 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
   return validatePlayerWordFlow(input);
 }
 
-// Prompt ultra-directo en inglés
-const currentPromptText = `Task: Validate a Spanish word for a game.
-Word: "{{{playerWord}}}"
-Must start with letter: "{{{letter}}}" (case-insensitive)
-
-Rules:
-1. Word must start with "{{{letter}}}".
-2. Word must be a real, correctly-spelled Spanish word or common Spanish proper name.
-3. Word must not be empty.
-
-Is the word valid according to ALL rules?
-Respond ONLY with this JSON: {"isValid": true} or {"isValid": false}
-NO OTHER TEXT. NO MARKDOWN. JUST THE JSON.`;
+// Prompt ultra-simplificado para depuración
+const currentPromptText = `The input word is "{{{playerWord}}}".
+Does "{{{playerWord}}}" start with the letter "{{{letter}}}" (case-insensitive)?
+Respond ONLY with a JSON object: {"isValid": true} or {"isValid": false}.
+NO MARKDOWN. NO EXTRA TEXT. Just the JSON object.`;
 
 const prompt = ai.definePrompt({
   name: 'validatePlayerWordPrompt',
@@ -62,12 +54,14 @@ const validatePlayerWordFlow = ai.defineFlow(
       console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra vacía recibida. Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
       return { isValid: false };
     }
-    if (!input.playerWord.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra "${input.playerWord}" no comienza con la letra "${input.letter}". Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
-        return { isValid: false };
-    }
+    // Esta validación de la letra inicial ya se hace en page.tsx, pero es bueno tenerla aquí como defensa.
+    // Sin embargo, para el prompt actual ultra-simplificado, la IA es la que debe determinar esto.
+    // if (!input.playerWord.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
+    //     console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra "${input.playerWord}" no comienza con la letra "${input.letter}". Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
+    //     return { isValid: false };
+    // }
     
-    console.log(`[${timestamp}] validatePlayerWordFlow: Input pasó las pre-validaciones. Llamando al LLM con: ${JSON.stringify(input)}`);
+    console.log(`[${timestamp}] validatePlayerWordFlow: Input para LLM: ${JSON.stringify(input)}`);
     console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
     
     const {output, response: rawLLMResponse} = await prompt(input);
@@ -90,13 +84,11 @@ const validatePlayerWordFlow = ai.defineFlow(
     if (llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text" && !llmResponseTextForLogging.startsWith("Error fetching raw text")) {
       let potentialJsonString = llmResponseTextForLogging;
       
-      // Intenta extraer contenido de bloques de código markdown JSON
       const markdownMatch = llmResponseTextForLogging.match(/```json\s*([\s\S]*?)\s*```/i);
       if (markdownMatch && markdownMatch[1]) {
         potentialJsonString = markdownMatch[1].trim();
         console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo JSON de bloque markdown. Potencial JSON: "${potentialJsonString}"`);
       } else {
-        // Si no hay markdown, intenta encontrar el primer '{' y el último '}'
         const firstBrace = potentialJsonString.indexOf('{');
         const lastBrace = potentialJsonString.lastIndexOf('}');
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -108,7 +100,6 @@ const validatePlayerWordFlow = ai.defineFlow(
       }
 
       try {
-        // Solo intenta parsear si potentialJsonString parece un objeto JSON
         if (potentialJsonString.startsWith("{") && potentialJsonString.endsWith("}")) {
           const parsedJson = JSON.parse(potentialJsonString);
           if (typeof parsedJson.isValid === 'boolean') {
@@ -131,4 +122,3 @@ const validatePlayerWordFlow = ai.defineFlow(
     return { isValid: false }; 
   }
 );
-
