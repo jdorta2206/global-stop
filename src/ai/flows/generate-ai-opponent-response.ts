@@ -23,6 +23,7 @@ const AiOpponentResponseOutputSchema = z.object({
 });
 export type AiOpponentResponseOutput = z.infer<typeof AiOpponentResponseOutputSchema>;
 
+
 export async function generateAiOpponentResponse(input: AiOpponentResponseInput): Promise<AiOpponentResponseOutput> {
   return generateAiOpponentResponseFlow(input);
 }
@@ -34,11 +35,11 @@ ONLY the word or empty string. NO explanations.
 The word MUST begin with the letter "{{{letter}}}".`;
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vMinimal',
+  name: 'generateAiOpponentResponsePrompt_vMinimalStrict',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema}, // Espera { response: "palabra" }
   prompt: currentPromptText,
-  config: { temperature: 0.2 }, // Añadido para reducir aleatoriedad
+  config: { temperature: 0.2 },
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
@@ -66,26 +67,15 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     if (output && typeof output.response === 'string') {
       const structuredResponseTrimmed = output.response.trim();
       if (structuredResponseTrimmed !== "" && !structuredResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
         return { response: "" };
       }
-      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (estructurada): "${structuredResponseTrimmed}"`);
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
       return { response: structuredResponseTrimmed };
     } 
-    else if (llmResponseTextForLogging && llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text") {
-      const rawResponseTrimmed = llmResponseTextForLogging.trim();
-      if (rawResponseTrimmed !== "" && rawResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Usando texto crudo "${rawResponseTrimmed}" como respuesta de IA porque el output estructurado 'output.response' fue problemático.`);
-        return { response: rawResponseTrimmed };
-      } else if (rawResponseTrimmed.trim() !== "") {
-         console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Texto crudo de IA "${rawResponseTrimmed}" para letra "${input.letter}" no comenzó con la letra correcta. Tratando como vacío.`);
-         return { response: "" };
-      }
-      console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Texto crudo de IA "${rawResponseTrimmed}" estaba vacío o no comenzaba con la letra correcta. Tratando como vacío.`);
-      return { response: "" };
-    }
     
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'response' string válido en output estructurado, ni texto crudo utilizable. Input: ${JSON.stringify(input)}. Defaulting to empty string.`);
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
     return { response: "" };
   }
 );
+

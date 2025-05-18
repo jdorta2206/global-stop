@@ -40,11 +40,11 @@ Answer ONLY with JSON: {"isValid": true} or {"isValid": false}.
 NO OTHER TEXT. NO MARKDOWN. JUST JSON.`;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON_vMinimal',
+  name: 'validatePlayerWordPromptJSON_vMinimal_Strict',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: LLMResponseSchema}, // Espera { isValid: boolean }
+  output: {schema: LLMResponseSchema}, // Espera { isValid: boolean } directamente de Genkit
   prompt: currentPromptText,
-  config: { temperature: 0.2 }, // Añadido para reducir aleatoriedad
+  config: { temperature: 0.2 },
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
@@ -69,54 +69,20 @@ const validatePlayerWordFlow = ai.defineFlow(
     
     const {output, response: rawLLMResponse} = await prompt(input);
     
-    let rawResponseText = "LLM_TEXT_UNAVAILABLE";
+    let rawResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
     try {
-      rawResponseText = (await rawLLMResponse.text()) || "Empty LLM response text";
+      rawResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
     } catch (e: any) {
       console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
     }
-    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${rawResponseText}"`);
+    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${rawResponseTextForLogging}"`);
 
     if (output && typeof output.isValid === 'boolean') {
-      console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema). Palabra: "${input.playerWord}", Letra: "${input.letter}". Resultado: {isValid: ${output.isValid}}.`);
+      console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema de Genkit). Palabra: "${input.playerWord}", Letra: "${input.letter}". Resultado: {isValid: ${output.isValid}}.`);
       return { isValid: output.isValid };
     } else {
-        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano o 'output' fue nulo. Raw output object: ${JSON.stringify(output)}. Raw text: "${rawResponseText}". Se intentará parsear manualmente desde texto crudo.`);
+        console.error(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado. Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
+        return { isValid: false };
     }
-      
-    if (rawResponseText && rawResponseText !== "LLM_TEXT_UNAVAILABLE" && rawResponseText !== "Empty LLM response text") {
-      try {
-        let jsonText = rawResponseText;
-        const markdownMatch = rawResponseText.match(/```json\s*([\s\S]*?)\s*```/);
-        if (markdownMatch && markdownMatch[1]) {
-          jsonText = markdownMatch[1];
-          console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo JSON de bloque markdown: "${jsonText}"`);
-        } else {
-          const firstBrace = rawResponseText.indexOf('{');
-          const lastBrace = rawResponseText.lastIndexOf('}');
-          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-            jsonText = rawResponseText.substring(firstBrace, lastBrace + 1);
-            console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo contenido entre llaves: "${jsonText}"`);
-          } else {
-            console.warn(`[${timestamp}] validatePlayerWordFlow: No se encontró un bloque markdown JSON claro ni un objeto JSON entre llaves en el texto crudo: "${rawResponseText}". No se pudo parsear.`);
-            throw new Error("No clear JSON found in raw text");
-          }
-        }
-
-        const parsedJson = JSON.parse(jsonText);
-        if (typeof parsedJson.isValid === 'boolean') {
-          console.warn(`[${timestamp}] validatePlayerWordFlow: Parseado JSON manualmente desde texto crudo. Resultado: {isValid: ${parsedJson.isValid}}.`);
-          return { isValid: parsedJson.isValid };
-        } else {
-          console.error(`[${timestamp}] validatePlayerWordFlow: JSON parseado manualmente no contenía 'isValid' booleano. JSON parseado: ${JSON.stringify(parsedJson)}`);
-        }
-      } catch (e: any) {
-        console.error(`[${timestamp}] validatePlayerWordFlow: Error al parsear JSON extraído manualmente del texto crudo "${rawResponseText}". Error: ${e.message || e}`);
-      }
-    }
-    
-    console.error(`[${timestamp}] validatePlayerWordFlow: TODOS LOS INTENTOS DE OBTENER UN BOOLEANO 'isValid' HAN FALLADO. Por favor, revisa el "Raw LLM Response Text" logueado arriba. Defaulting to {isValid: false}. Palabra: "${input.playerWord}", Letra: "${input.letter}".`);
-    return { isValid: false };
   }
 );
-
