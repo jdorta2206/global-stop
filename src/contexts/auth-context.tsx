@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Verifica si la apiKey (o cualquier otro campo crítico) sigue siendo un placeholder "TU_..."
     const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_") ||
                                appFirebaseConfig.authDomain.startsWith("TU_") || 
                                appFirebaseConfig.projectId.startsWith("TU_");   
@@ -79,6 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else if (error.code === 'auth/project-not-found' || error.code === 'auth/invalid-project-id') {
         title = "Proyecto de Firebase no encontrado o ID Inválido";
         description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
+    } else if (providerName === "Facebook" && (error.message?.includes("Invalid App ID") || error.message?.includes("Identificador de aplicación no válido"))) {
+        title = "Error de Configuración de Facebook";
+        description = "Facebook indica que el 'Identificador de aplicación' (App ID) no es válido. Verifica que el App ID y el App Secret estén correctamente configurados en Firebase Console (Authentication > Sign-in method > Facebook) y que coincidan con los de tu aplicación en el portal de Facebook Developers.";
     }
 
 
@@ -114,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // Este toast es más general, pero el handleSignInError ahora podría ser más específico
+    // si el error de Facebook es sobre el App ID.
     toast({
       title: "Nota sobre Facebook Login",
       description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
