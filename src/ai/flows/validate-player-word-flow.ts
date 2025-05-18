@@ -28,7 +28,7 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
   return validatePlayerWordFlow(input);
 }
 
-// Prompt actualizado para mayor claridad y robustez
+// Prompt en inglés para mayor consistencia con el modelo, y muy directo.
 const currentPromptText = `Is the Spanish word "{{{playerWord}}}" a valid, correctly-spelled word or common proper name that starts with the letter "{{{letter}}}" (case-insensitive)?
 The word must not be empty.
 The word must be a real Spanish word or a common Spanish proper name (e.g., Paco, París, Zorro, Irene, Sofía).
@@ -73,7 +73,7 @@ const validatePlayerWordFlow = ai.defineFlow(
     
     let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
     try {
-      llmResponseTextForLogging = await rawLLMResponse.text();
+      llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
     } catch (e: any) {
       console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
     }
@@ -84,10 +84,6 @@ const validatePlayerWordFlow = ai.defineFlow(
       console.log(`[${timestamp}] validatePlayerWordFlow: Validación exitosa vía schema. Word: "${input.playerWord}", Letter: "${input.letter}", isValid: ${output.isValid}`);
       return output;
     }
-    
-    // Si el parseo del schema falla, intentamos obtener el texto crudo y parsearlo manualmente.
-    // La variable llmResponseTextForLogging ya contiene el texto crudo o un error.
-    // Si hubo error al obtener el texto crudo, llmResponseTextForLogging contendrá "LLM_TEXT_UNAVAILABLE" o el mensaje de error.
     
     console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano o el objeto output fue nulo/undefined. Input: ${JSON.stringify(input)}. Raw LLM Output Object (schema parsed): ${JSON.stringify(output)}. Raw LLM Response Text (captured): "${llmResponseTextForLogging}". Intentando parsear manualmente desde el texto crudo capturado.`);
       
@@ -112,7 +108,7 @@ const validatePlayerWordFlow = ai.defineFlow(
       console.error(`[${timestamp}] validatePlayerWordFlow: No se pudo obtener texto crudo válido del LLM para parseo manual. Raw text was: "${llmResponseTextForLogging}". Defaulting to false.`);
     }
     
-    console.error(`[${timestamp}] validatePlayerWordFlow: Todos los intentos de obtener un booleano válido para 'isValid' fallaron. Defaulting to false. Word: "${input.playerWord}", Letter: "${input.letter}". LLM Raw Output Object (schema parsed): ${JSON.stringify(output)}, LLM Raw Text (captured): "${llmResponseTextForLogging}"`);
+    console.error(`[${timestamp}] validatePlayerWordFlow: TODOS LOS INTENTOS DE OBTENER UN BOOLEANO 'isValid' HAN FALLADO. Por favor, revisa el "Raw LLM Response Text" logueado arriba para ver qué está devolviendo la IA. Defaulting to {isValid: false}. Word: "${input.playerWord}", Letter: "${input.letter}".`);
     return { isValid: false }; 
   }
 );
