@@ -20,19 +20,13 @@ export const metadata: Metadata = {
   title: 'Juego Global Stop',
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
-  themeColor: '#C0474A', // Color del tema para la barra de estado del navegador en móviles
+  themeColor: '#C0474A', 
   icons: {
-    icon: { url: '/logo_stop_game.png', type: 'image/png' }, // Para favicons modernos
-    shortcut: { url: '/logo_stop_game.png', type: 'image/png' }, // Para navegadores más antiguos y accesos directos
-    apple: [ // Para Apple touch icons
+    icon: { url: '/logo_stop_game.png', type: 'image/png' }, // Asegúrate que la nueva imagen esté en public/logo_stop_game.png
+    shortcut: { url: '/logo_stop_game.png', type: 'image/png' }, // y sea adecuada para favicon
+    apple: [ 
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      // Podrías añadir más tamaños específicos para Apple aquí si los tienes, ej:
-      // { url: '/icons/apple-icon-180x180.png', sizes: '180x180', type: 'image/png' },
     ],
-    // Puedes añadir otros iconos aquí si es necesario, por ejemplo, para Android con propósito "maskable"
-    // other: [
-    //   { rel: 'icon', url: '/icons/icon-maskable-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' }
-    // ]
   },
 };
 
