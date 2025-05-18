@@ -31,21 +31,27 @@ const prompt = ai.definePrompt({
   name: 'validatePlayerWordPrompt',
   input: {schema: ValidatePlayerWordInputSchema},
   output: {schema: ValidatePlayerWordOutputSchema},
-  prompt: `Evalúa la siguiente palabra del jugador para el juego "Stop".
-Contexto:
-- Letra: {{{letter}}}
-- Categoría: {{{category}}}
-- Palabra del Jugador: {{{playerWord}}}
+  prompt: `Tu tarea es validar una palabra para el juego "Stop" en español.
+La palabra a evaluar es: "{{{playerWord}}}"
+La letra con la que DEBE comenzar es: "{{{letter}}}"
+La categoría es: "{{{category}}}" (esta es solo contextual, no la uses para la validación principal).
 
-Considera si la "Palabra del Jugador":
-1. Es una palabra real y comúnmente aceptada en español.
-2. Comienza con la "Letra" especificada (ignora mayúsculas/minúsculas).
-3. No está vacía (la palabra ya debería haber sido pre-filtrada si está vacía antes de esta llamada, pero confírmalo).
+Evalúa ÚNICAMENTE los siguientes criterios para la palabra "{{{playerWord}}}":
+1.  ¿Es "{{{playerWord}}}" una palabra real y existente en el idioma español? (Ignora si es común o no, solo si existe y está bien escrita).
+2.  ¿Comienza "{{{playerWord}}}" con la letra "{{{letter}}}" (sin importar mayúsculas o minúsculas)?
+3.  ¿No está "{{{playerWord}}}" vacía o compuesta solo de espacios?
 
-Devuelve un objeto JSON con una única clave "isValid" (booleano).
-Por ejemplo: {"isValid": true} o {"isValid": false}.
-No te preocupes demasiado por si la palabra encaja perfectamente en la categoría; prioriza su validez como palabra y si comienza con la letra correcta.
-Recuerda, la palabra del jugador que debes evaluar es: {{{playerWord}}}.`,
+Si TODOS los criterios anteriores son VERDADEROS, entonces la palabra es válida.
+Si CUALQUIER criterio es FALSO, la palabra NO es válida.
+
+No consideres si la palabra encaja perfectamente en la categoría para esta validación; prioriza su validez como palabra en español y si comienza con la letra correcta.
+
+Responde estrictamente con un objeto JSON con una única clave "isValid" cuyo valor sea un booleano ('true' o 'false').
+Ejemplos de respuesta:
+{"isValid": true}
+{"isValid": false}
+
+Palabra a validar: {{{playerWord}}}. Letra: {{{letter}}}.`,
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
