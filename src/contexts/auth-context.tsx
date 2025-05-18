@@ -11,7 +11,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { auth, firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; // Asegúrate que la ruta sea correcta
+import { auth, firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; // Importar para la verificación
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -33,6 +33,69 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- Facebook SDK Helper Functions ---
+// These functions are for more manual interaction with the Facebook SDK.
+// The current signInWithFacebook uses Firebase's signInWithPopup, which handles this.
+
+interface FacebookAuthResponse {
+  status: 'connected' | 'not_authorized' | 'unknown';
+  authResponse?: {
+    accessToken: string;
+    expiresIn: number;
+    signedRequest: string;
+    userID: string;
+    grantedScopes?: string;
+  };
+}
+
+/**
+ * A callback function to handle the response from FB.getLoginStatus().
+ * @param response The response object from Facebook.
+ */
+function statusChangeCallback(response: FacebookAuthResponse) {
+  console.log('Facebook statusChangeCallback response:', response);
+  if (response.status === 'connected') {
+    // Logged into your app and Facebook.
+    // You could potentially use response.authResponse.accessToken
+    // to sign in with Firebase using FacebookAuthProvider.credential
+    console.log('Facebook user is connected. UserID:', response.authResponse?.userID);
+  } else if (response.status === 'not_authorized') {
+    // The person is logged into Facebook, but not your app.
+    console.log('Facebook user logged into Facebook, but not authorized for this app.');
+  } else {
+    // The person is not logged into Facebook, so we don't know if
+    // they are logged into this app or not.
+    console.log('Facebook user not logged into Facebook.');
+  }
+}
+
+/**
+ * Checks the current login status of the user with Facebook.
+ * This function needs to be called manually if needed.
+ * Make sure the Facebook SDK (FB object) is loaded before calling this.
+ */
+// To use this function, you might call it from a button click or useEffect:
+// For example:
+// const handleCheckFbStatus = () => {
+//   if (typeof window !== 'undefined' && window.FB) {
+//     checkLoginState();
+//   } else {
+//     console.log('FB SDK not ready yet');
+//   }
+// };
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function checkLoginState() {
+  if (typeof window !== 'undefined' && window.FB) {
+    window.FB.getLoginStatus(function(response: FacebookAuthResponse) {
+      statusChangeCallback(response);
+    });
+  } else {
+    console.warn('FB SDK not loaded or window.FB not available.');
+  }
+}
+// --- End Facebook SDK Helper Functions ---
+
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,9 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_") ||
-                               appFirebaseConfig.authDomain.startsWith("TU_") || 
-                               appFirebaseConfig.projectId.startsWith("TU_");   
+    // Check for placeholder Firebase config
+    const isPlaceholderConfig = 
+      !appFirebaseConfig || // Check if appFirebaseConfig is undefined
+      !appFirebaseConfig.apiKey || appFirebaseConfig.apiKey.startsWith("TU_") ||
+      !appFirebaseConfig.authDomain || appFirebaseConfig.authDomain.startsWith("TU_") || 
+      !appFirebaseConfig.projectId || appFirebaseConfig.projectId.startsWith("TU_");   
 
     if (isPlaceholderConfig) {
       setShowConfigErrorDialog(true);
@@ -60,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let title = `Error de inicio de sesión con ${providerName}`;
     let description = error.message || `No se pudo iniciar sesión con ${providerName}. Revisa la consola del navegador para más detalles y verifica tu configuración de Firebase.`;
     let duration = 9000;
+    const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'el_dominio_actual_de_tu_app';
 
     if (error.code === 'auth/popup-closed-by-user') {
       title = "Inicio de sesión cancelado";
@@ -72,18 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
       title = "¡ACCIÓN REQUERIDA: Dominio no autorizado!";
-      const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'el_dominio_actual_de_tu_app';
       description = `El dominio "${currentHostname}" NO está autorizado en Firebase. DEBES añadirlo a la lista de "Dominios Autorizados" en tu Consola de Firebase: Authentication > Settings. Copia este dominio y añádelo allí.`;
-      duration = 15000; // Dar más tiempo para leer este mensaje crítico
+      duration = 15000; 
     } else if (error.code === 'auth/invalid-api-key') {
       title = "API Key de Firebase Inválida";
       description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
     } else if (error.code === 'auth/project-not-found' || error.code === 'auth/invalid-project-id') {
         title = "Proyecto de Firebase no encontrado o ID Inválido";
         description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
-    } else if (providerName === "Facebook" && (error.message?.includes("Invalid App ID") || error.message?.includes("Identificador de aplicación no válido"))) {
+    } else if (providerName === "Facebook" && (error.message?.includes("Invalid App ID") || error.message?.includes("Identificador de aplicación no válido") || error.message?.includes("App Not Set Up"))) {
         title = "Error de Configuración de Facebook";
-        description = "Facebook indica que el 'Identificador de aplicación' (App ID) no es válido. Verifica que el App ID y el App Secret estén correctamente configurados en Firebase Console (Authentication > Sign-in method > Facebook) y que coincidan con los de tu aplicación en el portal de Facebook Developers.";
+        description = "Facebook indica un problema con la configuración de tu aplicación (App ID inválido o App no configurada). Verifica que el App ID y App Secret estén correctamente configurados en Firebase Console (Authentication > Sign-in method > Facebook) y que coincidan con los de tu aplicación en el portal de Facebook Developers. Asegúrate también de que el URI de redireccionamiento OAuth esté correctamente añadido en Facebook.";
     }
 
 
@@ -96,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    if (appFirebaseConfig.apiKey.startsWith("TU_")) {
+    if (!appFirebaseConfig || appFirebaseConfig.apiKey.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
@@ -114,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithFacebook = async () => {
-    if (appFirebaseConfig.apiKey.startsWith("TU_")) {
+    if (!appFirebaseConfig || appFirebaseConfig.apiKey.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
@@ -189,4 +255,13 @@ export function useAuth() {
     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;
+}
+
+// Ensure FB is declared for use with the Facebook SDK
+// This is often available on the window object after the SDK loads.
+declare global {
+  interface Window {
+    FB: any; // You can replace 'any' with more specific Facebook SDK types if you install them
+    fbAsyncInit: () => void;
+  }
 }
