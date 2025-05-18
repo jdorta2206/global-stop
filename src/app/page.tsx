@@ -174,9 +174,13 @@ export default function GamePage() {
   const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
-    // const currentGameState = gameStateRef.current; // gameStateRef.current is already used via setGameState below
+    
+    console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}`);
 
-    if (!letterForValidation || gameStateRef.current === "EVALUATING") return;
+    if (!letterForValidation || gameStateRef.current === "EVALUATING") {
+      console.log("[GamePage] handleStopInternal: Aborting - No letter or already evaluating.");
+      return;
+    }
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -184,115 +188,140 @@ export default function GamePage() {
     setGameState("EVALUATING");
     setIsLoadingAi(true);
     
+    console.log("[GamePage] Generating AI responses...");
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400)); // Simulate AI thinking time
+        // Simulación de tiempo de pensamiento IA, no crítico para la lógica de respuesta/puntuación
+        // await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200)); 
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
+        console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
       } catch (error) {
-        console.error(`Error al obtener respuesta de IA para ${category}:`, error);
+        console.error(`[GamePage] Error getting AI response for ${category}:`, error);
         tempAiResponses[category] = ""; 
       }
     });
 
     await Promise.all(aiPromises);
     setAiResponses(tempAiResponses); 
+    console.log("[GamePage] AI responses generated:", tempAiResponses);
 
-    console.log("[GamePage] Iniciando validación de palabras del jugador...");
+    console.log("[GamePage] Initiating player word validation...");
     const playerValidationPromises = CATEGORIES.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
       
-      console.log(`[GamePage] Validando para Categoría: ${category}, Palabra: "${playerResponse}", Letra: "${letterForValidation!}"`);
+      console.log(`[GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}"`);
 
       if (playerResponse === "") {
-        console.log(`[GamePage] Palabra vacía para ${category}. No válida.`);
+        console.log(`[GamePage] Player word for ${category} is empty. Marking as invalid locally.`);
         return { category, isValid: false, errorReason: null }; 
       }
       if (!playerResponse.toLowerCase().startsWith(letterForValidation!.toLowerCase())) {
-        console.log(`[GamePage] Palabra "${playerResponse}" no comienza con la letra "${letterForValidation!}" (pre-validación). No válida.`);
+        console.log(`[GamePage] Player word "${playerResponse}" for ${category} does not start with letter "${letterForValidation!}" (frontend check). Marking as invalid locally.`);
         return { category, isValid: false, errorReason: 'format' as 'format' }; 
       }
       try {
         const validationInput: ValidatePlayerWordInput = {
           letter: letterForValidation!,
-          category, // La categoría se envía, aunque el prompt actual de validación se centra en la palabra en sí.
+          category, 
           playerWord: playerResponse,
         };
-        console.log(`[GamePage] Llamando a validatePlayerWord con:`, validationInput);
+        console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, validationInput);
         const validationResult = await validatePlayerWord(validationInput);
-        console.log(`[GamePage] Resultado de validatePlayerWord para "${playerResponse}": ${JSON.stringify(validationResult)}`);
+        console.log(`[GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"): ${JSON.stringify(validationResult)}`);
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
-        console.error(`[GamePage] Error validando palabra del jugador para ${category} ("${playerResponse}"):`, error);
+        console.error(`[GamePage] Error validating player word for ${category} ("${playerResponse}"):`, error);
+        // Ensure a consistent return structure even on API error
         return { category, isValid: false, errorReason: 'api_error' as 'api_error' }; 
       }
     });
 
     const playerValidationResults = await Promise.all(playerValidationPromises);
+    console.log("[GamePage] Raw playerValidationResults from promises:", JSON.stringify(playerValidationResults, null, 2));
+    
     const playerWordValidity: Record<string, {isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason']}> = {};
     playerValidationResults.forEach(res => {
-      playerWordValidity[res.category] = {isValid: res.isValid, errorReason: res.errorReason};
+      if (res && typeof res.category === 'string') { // Defensive check
+         playerWordValidity[res.category] = {isValid: res.isValid, errorReason: res.errorReason};
+      } else {
+        console.warn("[GamePage] Invalid result structure in playerValidationResults, skipping:", res);
+      }
     });
-    console.log("[GamePage] Resultados de validación de palabras del jugador (playerWordValidity):", playerWordValidity);
+    console.log("[GamePage] Constructed playerWordValidity object:", JSON.stringify(playerWordValidity, null, 2));
 
 
     let currentRoundPlayerScore = 0;
     let currentRoundAiScore = 0;
     const detailedRoundResults: RoundResults = {};
 
+    console.log(`\n[GamePage] --- STARTING SCORE CALCULATION FOR LETTER: ${letterForValidation} ---`);
     CATEGORIES.forEach(category => {
+      console.log(`\n[GamePage] Processing Category: "${category}"`);
       const playerResponseRaw = currentResponses[category] || "";
       const playerResponseTrimmed = playerResponseRaw.trim();
       
-      const aiResponseRaw = tempAiResponses[category] || "";
+      const aiResponseRaw = tempAiResponses[category] || ""; // Use tempAiResponses which are fresh
       const aiResponseTrimmed = aiResponseRaw.trim();
       
+      console.log(`  [GamePage] Player Response (Raw): "${playerResponseRaw}", Trimmed: "${playerResponseTrimmed}"`);
+      console.log(`  [GamePage] AI Response (Raw): "${aiResponseRaw}", Trimmed: "${aiResponseTrimmed}"`);
+
       const validationStatus = playerWordValidity[category];
-      // Default to false if validationStatus is undefined (should not happen if CATEGORIES is iterated correctly)
+      console.log(`  [GamePage] Validation Status for Player's word in "${category}":`, JSON.stringify(validationStatus));
+
+      // Default to false if validationStatus or its isValid property is undefined
       const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false; 
+      console.log(`  [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`);
       
       let pScore = 0;
       let aScore = 0;
 
-      // Player's word must pass frontend format check AND AI validation
       const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
-      const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
+      console.log(`  [GamePage] playerPassesFormatCheck (frontend check: not empty, starts with letter): ${playerPassesFormatCheck}`);
       
-      // AI's word must pass format check (we assume AI provides valid words if non-empty)
+      const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
+      console.log(`  [GamePage] isPlayerResponseConsideredValid (passes format AND AI validation): ${isPlayerResponseConsideredValid}`);
+      
       const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
+      console.log(`  [GamePage] isAiResponseValid (AI not empty, starts with letter): ${isAiResponseValid}`);
 
       if (isPlayerResponseConsideredValid && !isAiResponseValid) {
         pScore = 100;
+        console.log(`  [GamePage] Condition: Player valid, AI not. Player gets 100.`);
       } else if (!isPlayerResponseConsideredValid && isAiResponseValid) {
         aScore = 100;
+        console.log(`  [GamePage] Condition: Player not valid, AI valid. AI gets 100.`);
       } else if (isPlayerResponseConsideredValid && isAiResponseValid) {
         if (playerResponseTrimmed.toLowerCase() === aiResponseTrimmed.toLowerCase()) {
           pScore = 50;
           aScore = 50;
+          console.log(`  [GamePage] Condition: Both valid, same response. Player 50, AI 50.`);
         } else {
           pScore = 100;
           aScore = 100;
+          console.log(`  [GamePage] Condition: Both valid, different responses. Player 100, AI 100.`);
         }
+      } else {
+         console.log(`  [GamePage] Condition: Neither player nor AI has a valid response according to rules, or one is invalid and the other empty/invalid. Both 0.`);
       }
-      // If neither response is valid, scores remain 0
-
-      console.log(`[GamePage] Puntuación para Categoría: ${category}
-        - Jugador: "${playerResponseTrimmed}", PasaFormato: ${playerPassesFormatCheck}, ValidadoIA: ${isPlayerWordValidatedByAI}, ConsideradoValido: ${isPlayerResponseConsideredValid}, Score: ${pScore}
-        - IA: "${aiResponseTrimmed}", ValidoIA: ${isAiResponseValid}, Score: ${aScore}`);
       
       detailedRoundResults[category] = { 
         playerScore: pScore, 
         aiScore: aScore, 
-        playerResponse: playerResponseRaw, // Store raw for display
-        aiResponse: aiResponseRaw,       // Store raw for display
-        playerResponseIsValid: isPlayerWordValidatedByAI, // Store AI's verdict
+        playerResponse: playerResponseRaw, 
+        aiResponse: aiResponseRaw,       
+        playerResponseIsValid: isPlayerWordValidatedByAI, 
         playerResponseErrorReason: validationStatus ? validationStatus.errorReason : (playerPassesFormatCheck ? null : 'format'),
       };
+      console.log(`  [GamePage] Scores for "${category}" -> Player: ${pScore}, AI: ${aScore}`);
       currentRoundPlayerScore += pScore;
       currentRoundAiScore += aScore;
     });
+    console.log(`[GamePage] --- END OF SCORE CALCULATION ---`);
+    console.log(`[GamePage] Total Player Round Score: ${currentRoundPlayerScore}, Total AI Round Score: ${currentRoundAiScore}`);
 
     setPlayerRoundScore(currentRoundPlayerScore);
     setAiRoundScore(currentRoundAiScore);
@@ -304,10 +333,10 @@ export default function GamePage() {
       setRoundWinner("¡Jugador Gana la Ronda!");
     } else if (currentRoundAiScore > currentRoundPlayerScore) {
       setRoundWinner("¡IA Gana la Ronda!");
-    } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) { // If both zero, but at least one was positive, it's a tie
-      setRoundWinner("¡Empate en la Ronda!");
-    } else { // Both scored zero
+    } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0) {
       setRoundWinner("Nadie puntuó en esta ronda.");
+    } else { 
+      setRoundWinner("¡Empate en la Ronda!");
     }
 
     setIsLoadingAi(false);
@@ -316,10 +345,7 @@ export default function GamePage() {
   }, [ 
     setGameState, setIsLoadingAi, setAiResponses, 
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
-    setRoundResults, setRoundWinner, toast 
-    // generateAiOpponentResponse and validatePlayerWord are stable imports from AI flows
-    // CATEGORIES is a stable constant
-    // playerResponsesRef, currentLetterRef, gameStateRef are used for reading current values
+    setRoundResults, setRoundWinner, toast
   ]);
 
   const handleStop = useCallback(() => {
@@ -382,7 +408,7 @@ export default function GamePage() {
       console.error('Error al copiar el enlace: ', err);
       toast({
         title: "Error al Copiar",
-        description: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.",
+        description: "No se pudo copiar el enlace. Por favor, inténtalo manually.",
         variant: "destructive",
       });
     }
