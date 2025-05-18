@@ -34,24 +34,22 @@ const prompt = ai.definePrompt({
   prompt: `Tu tarea es validar una palabra para el juego "Stop" en español.
 La palabra a evaluar es: "{{{playerWord}}}"
 La letra con la que DEBE comenzar es: "{{{letter}}}"
-La categoría es: "{{{category}}}" (esta es solo contextual, no la uses para la validación principal).
 
-Evalúa ÚNICAMENTE los siguientes criterios para la palabra "{{{playerWord}}}":
-1.  ¿Es "{{{playerWord}}}" una palabra real y existente en el idioma español? (Ignora si es común o no, solo si existe y está bien escrita).
-2.  ¿Comienza "{{{playerWord}}}" con la letra "{{{letter}}}" (sin importar mayúsculas o minúsculas)?
-3.  ¿No está "{{{playerWord}}}" vacía o compuesta solo de espacios?
+Considera los siguientes criterios para la palabra "{{{playerWord}}}":
+1.  ¿Es "{{{playerWord}}}" una palabra o nombre propio comúnmente reconocido y correctamente escrito en español? (Por ejemplo, "Paco", "París", "pelota" son válidos. "Pxzqr" o una palabra claramente inventada no lo son).
+2.  ¿Comienza "{{{playerWord}}}" con la letra "{{{letter}}}" (ignora mayúsculas/minúsculas)?
+3.  ¿No es "{{{playerWord}}}" una cadena vacía o solo espacios?
 
-Si TODOS los criterios anteriores son VERDADEROS, entonces la palabra es válida.
-Si CUALQUIER criterio es FALSO, la palabra NO es válida.
+Si TODOS estos criterios son VERDADEROS, la palabra es válida.
+Si ALGUNO es FALSO, la palabra NO es válida.
 
-No consideres si la palabra encaja perfectamente en la categoría para esta validación; prioriza su validez como palabra en español y si comienza con la letra correcta.
+La categoría "{{{category}}}" es solo para tu contexto general del juego, NO la uses como criterio principal para decidir la validez de la palabra en sí misma. Concéntrate en si es una palabra o nombre propio existente y bien escrito que empieza con la letra.
 
-Responde estrictamente con un objeto JSON con una única clave "isValid" cuyo valor sea un booleano ('true' o 'false').
-Ejemplos de respuesta:
-{"isValid": true}
-{"isValid": false}
+Responde ÚNICAMENTE con un objeto JSON con una clave "isValid" cuyo valor sea un booleano (true o false). No incluyas explicaciones adicionales.
+Ejemplo si es válida: {"isValid": true}
+Ejemplo si NO es válida: {"isValid": false}
 
-Palabra a validar: {{{playerWord}}}. Letra: {{{letter}}}.`,
+Palabra a validar: {{{playerWord}}}. Letra inicial requerida: {{{letter}}}.`,
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
@@ -67,6 +65,7 @@ const validatePlayerWordFlow = ai.defineFlow(
     }
     // Verificación rápida de la letra inicial (la IA también lo hará, pero es bueno tenerlo aquí)
     if (!input.playerWord.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
+        console.warn(`validatePlayerWordFlow: Palabra "${input.playerWord}" no comienza con la letra "${input.letter}" (verificación frontend).`);
         return { isValid: false };
     }
     
@@ -75,7 +74,6 @@ const validatePlayerWordFlow = ai.defineFlow(
       return output;
     }
     
-    // Log an error or return a default if output is not as expected
     let llmResponseText = "Unavailable";
     try {
       llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
