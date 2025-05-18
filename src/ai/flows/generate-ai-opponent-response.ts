@@ -18,6 +18,7 @@ const AiOpponentResponseInputSchema = z.object({
 });
 export type AiOpponentResponseInput = z.infer<typeof AiOpponentResponseInputSchema>;
 
+// El schema que el flujo expone (lo que GamePage espera)
 const AiOpponentResponseOutputSchema = z.object({
   response: z.string().describe('La respuesta del oponente IA para la letra y categoría dadas.'),
 });
@@ -70,25 +71,27 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
         console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
         return { response: "" };
       }
-      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
-      return { response: structuredResponseTrimmed };
+      // Si la respuesta estructurada está vacía pero el texto crudo no lo está, podríamos haber perdido la palabra. No devolver aquí todavía.
+      if (structuredResponseTrimmed !== "") {
+        console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
+        return { response: structuredResponseTrimmed };
+      }
     } 
     
-    // Si output.response no es un string válido, intentamos usar el texto crudo si es solo una palabra
-    // Esto es un fallback por si el LLM solo devuelve la palabra y no el objeto JSON.
+    // Fallback: Si output.response no es un string válido, o está vacío pero el texto crudo tiene contenido,
+    // intentamos usar el texto crudo si es solo una palabra y cumple las condiciones.
     const rawTextTrimmed = llmResponseTextForLogging.trim();
     if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) { // Heurística: es una sola palabra?
         if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
+            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
             return { response: rawTextTrimmed };
         } else {
-            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido. Raw text "${rawTextTrimmed}" parece una palabra pero no empieza con la letra "${input.letter}". Defaulting to empty string.`);
+            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido o estaba vacío. Raw text "${rawTextTrimmed}" parece una palabra pero no empieza con la letra "${input.letter}". Defaulting to empty string.`);
             return { response: "" };
         }
     }
     
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable (o el texto crudo también falló la validación de letra inicial). Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
     return { response: "" };
   }
 );
-
