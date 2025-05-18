@@ -15,7 +15,7 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus, Sword } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
@@ -28,6 +28,7 @@ import { Progress } from '@/components/ui/progress';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import type { ChatMessage } from '@/components/chat/chat-message-item';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { EnrichedPlayerScore } from '@/components/game/leaderboard-table';
 
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
@@ -50,6 +51,7 @@ export interface PlayerScore {
   name: string;
   score: number;
   avatar?: string;
+  id?: string; // Added for potential unique identification
 }
 
 export interface RoundResultDetail {
@@ -197,6 +199,10 @@ const UI_TEXTS = {
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
   loggedInAs: { es: "Conectado como: {name}", en: "Logged in as: {name}", fr: "Connecté en tant que : {name}", pt: "Conectado como: {name}" },
+  challengePlayerToastTitle: { es: "Desafío Próximamente", en: "Challenge Coming Soon", fr: "Défi Bientôt Disponible", pt: "Desafio Em Breve" },
+  challengePlayerToastDescription: { es: "La funcionalidad para desafiar a '{name}' se añadirá en futuras actualizaciones.", en: "The feature to challenge '{name}' will be added in future updates.", fr: "La fonctionnalité pour défier '{name}' sera ajoutée dans les futures mises à jour.", pt: "A funcionalidade para desafiar '{name}' será adicionada em futuras atualizações." },
+  friendAddedFromGlobalToastTitle: { es: "Amigo Añadido desde Global", en: "Friend Added from Global", fr: "Ami Ajouté depuis Global", pt: "Amigo Adicionado do Global" },
+  friendAddedFromGlobalToastDescription: { es: "'{name}' ha sido añadido a tu lista local de amigos desde la tabla global.", en: "'{name}' has been added to your local friends list from the global leaderboard.", fr: "'{name}' a été ajouté à votre liste d'amis locale depuis le classement mondial.", pt: "'{name}' foi adicionado à sua lista local de amigos do placar global." },
 };
 
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser'>[] = [
@@ -214,7 +220,7 @@ export default function GamePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language, translate } = useLanguage();
-  const { activeRoomId, setActiveRoomId } = useRoom();
+  const { activeRoomId, setActiveRoomId } = useRoom(); 
   const router = useRouter();
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
@@ -258,25 +264,28 @@ export default function GamePage() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // Load friends from localStorage on mount
   useEffect(() => {
     const storedFriends = localStorage.getItem('globalStopFriendsList');
     if (storedFriends) {
       try {
-        const parsedFriends = JSON.parse(storedFriends);
+        const parsedFriends = JSON.parse(storedFriends) as PlayerScore[];
         if (Array.isArray(parsedFriends)) {
-          setFriendsList(parsedFriends);
+          // Ensure all friends have an 'id' for consistency, generate if missing
+          const ensuredFriends = parsedFriends.map(f => ({
+            ...f,
+            id: f.id || `friend-${f.name.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`
+          }));
+          setFriendsList(ensuredFriends);
         }
       } catch (error) {
         console.error("Error parsing friends list from localStorage:", error);
-        localStorage.removeItem('globalStopFriendsList'); // Clear corrupted data
+        localStorage.removeItem('globalStopFriendsList');
       }
     }
   }, []);
 
-  // Save friends to localStorage when friendsList changes
   useEffect(() => {
-    if (friendsList.length > 0 || localStorage.getItem('globalStopFriendsList')) { // Avoid writing empty array on initial load if nothing was there
+    if (friendsList.length > 0 || localStorage.getItem('globalStopFriendsList')) {
       localStorage.setItem('globalStopFriendsList', JSON.stringify(friendsList));
     }
   }, [friendsList]);
@@ -291,7 +300,6 @@ export default function GamePage() {
         avatar: user.photoURL || undefined, 
         isCurrentUser: true 
       });
-      // Add mock players if in a room and user is logged in
       MOCK_PLAYERS_IN_LOBBY.forEach(player => {
         currentPlayers.push({ ...player, isCurrentUser: false });
       });
@@ -300,16 +308,15 @@ export default function GamePage() {
   }, [user, activeRoomId, language, translate]);
 
 
-  const exampleGlobalLeaderboard: PlayerScore[] = [
-    { name: "Star Player", score: 12500 },
-    { name: "StopKing", score: 11800 },
-    { name: "FastLetters", score: 10500 },
-    { name: "ProPlayer123", score: 9800 },
-    { name: "Ana S.", score: 9200 },
+  const exampleGlobalLeaderboard: EnrichedPlayerScore[] = [
+    { id: "global-player-1", name: "Star Player", score: 12500, avatar: "https://placehold.co/40x40.png?text=S" },
+    { id: "global-player-2", name: "StopKing", score: 11800, avatar: "https://placehold.co/40x40.png?text=S" },
+    { id: "global-player-3", name: "FastLetters", score: 10500, avatar: "https://placehold.co/40x40.png?text=F" },
+    { id: "global-player-4", name: "ProPlayer123", score: 9800, avatar: "https://placehold.co/40x40.png?text=P" },
+    { id: "global-player-5", name: "Ana S.", score: 9200, avatar: "https://placehold.co/40x40.png?text=A" },
   ];
 
   useEffect(() => {
-    // Initialize example chat messages
     setChatMessages([
         { id: '1', text: translate(UI_TEXTS.chatLoginTitle), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
         { id: '2', text: translate(UI_TEXTS.welcomeTitle), sender: { name: user?.displayName || translate(UI_TEXTS.playerNameDefault), uid: user?.uid || 'user1', avatar: user?.photoURL || `https://placehold.co/40x40.png?text=${(user?.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}` }, timestamp: new Date(Date.now() - 60000) },
@@ -369,7 +376,7 @@ export default function GamePage() {
   }, []);
 
   const startGame = useCallback(() => {
-    if (gameStateRef.current === "IDLE" && !activeRoomId) { // Only reset scores if starting a new AI game
+    if (gameStateRef.current === "IDLE" && !activeRoomId) {
         setTotalPlayerScore(0);
         setTotalAiScore(0);
     }
@@ -409,7 +416,7 @@ export default function GamePage() {
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
-        console.log(`[GamePage] Calling generateAiOpponentResponse for ${category} with input:`, aiInput);
+        console.log(`[GamePage] Calling generateAiOpponentResponse for ${category} with input:`, JSON.stringify(aiInput));
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
         console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}, lang ${currentLang}): "${aiResult.response}"`);
@@ -421,7 +428,7 @@ export default function GamePage() {
 
     await Promise.all(aiPromises);
     setAiResponses(tempAiResponses);
-    console.log("[GamePage] AI responses generated:", tempAiResponses);
+    console.log("[GamePage] AI responses generated:", JSON.stringify(tempAiResponses));
 
     console.log("[GamePage] Initiating player word validation...");
     const playerValidationPromises = currentCategories.map(async (category) => {
@@ -443,7 +450,7 @@ export default function GamePage() {
           playerWord: playerResponse,
           language: currentLang,
         };
-        console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, validationInput);
+        console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, JSON.stringify(validationInput));
         const validationResult: ValidatePlayerWordOutput = await validatePlayerWord(validationInput);
         console.log(`[GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"): ${JSON.stringify(validationResult)}`);
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
@@ -489,9 +496,6 @@ export default function GamePage() {
       const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
       console.log(`  [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`);
 
-      let pScore = 0;
-      let aScore = 0;
-
       const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
       console.log(`  [GamePage] playerPassesFormatCheck (frontend check: not empty, starts with letter): ${playerPassesFormatCheck}`);
 
@@ -500,6 +504,9 @@ export default function GamePage() {
 
       const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
       console.log(`  [GamePage] isAiResponseValid (AI not empty, starts with letter): ${isAiResponseValid}`);
+      
+      let pScore = 0;
+      let aScore = 0;
 
       if (isPlayerResponseConsideredValid && !isAiResponseValid) {
         pScore = 100;
@@ -666,8 +673,8 @@ export default function GamePage() {
   
   const handleLeaveRoom = () => {
     setActiveRoomId(null);
-    setPlayersInLobby([]); // Clear lobby players on leave
-    setGameState("IDLE"); // Go back to main menu
+    setPlayersInLobby([]);
+    setGameState("IDLE"); 
   };
 
   const handleInviteFriends = () => {
@@ -698,7 +705,17 @@ export default function GamePage() {
   };
 
   const handleAddFriend = (player: PlayerInLobby) => {
-    if (friendsList.find(friend => friend.name === player.name)) {
+    if (!user) { // Ensure user is logged in to add friends
+      toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+      return;
+    }
+    // Check if the player to add is the current user
+    if (player.id === user.uid) {
+        toast({ title: "No puedes agregarte a ti mismo", description: "No puedes ser tu propio amigo en la lista.", variant: "default" });
+        return;
+    }
+
+    if (friendsList.find(friend => friend.id === player.id || friend.name === player.name)) {
       toast({
         title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
         description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', player.name),
@@ -707,14 +724,53 @@ export default function GamePage() {
       return;
     }
     const newFriend: PlayerScore = {
+      id: player.id, // Use the ID from PlayerInLobby
       name: player.name,
-      score: 0, // Friends start with 0 score in the list, can be updated later
+      score: 0, 
       avatar: player.avatar,
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
     toast({
       title: translate(UI_TEXTS.friendAddedToastTitle),
       description: translate(UI_TEXTS.friendAddedToastDescription).replace('{name}', player.name),
+    });
+  };
+  
+  const handleAddFriendFromLeaderboard = (player: EnrichedPlayerScore) => {
+    if (!user) {
+        toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+        return;
+    }
+    if (player.id === user.uid) {
+        toast({ title: "No puedes agregarte a ti mismo", description: "No puedes ser tu propio amigo en la lista.", variant: "default" });
+        return;
+    }
+    if (friendsList.find(friend => friend.id === player.id || friend.name === player.name)) {
+      toast({
+        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
+        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', player.name),
+        variant: "default",
+      });
+      return;
+    }
+    const newFriend: PlayerScore = {
+      id: player.id || `global-${player.name.replace(/\s+/g, '-')}`, // Ensure ID exists
+      name: player.name,
+      score: player.score, // Use score from leaderboard or default to 0
+      avatar: player.avatar,
+    };
+    setFriendsList(prevFriends => [...prevFriends, newFriend]);
+    toast({
+      title: translate(UI_TEXTS.friendAddedFromGlobalToastTitle),
+      description: translate(UI_TEXTS.friendAddedFromGlobalToastDescription).replace('{name}', player.name),
+    });
+  };
+
+  const handleChallengePlayer = (player: EnrichedPlayerScore) => {
+    toast({
+      title: translate(UI_TEXTS.challengePlayerToastTitle),
+      description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
+      variant: "default",
     });
   };
 
@@ -816,8 +872,18 @@ export default function GamePage() {
                 </CardContent>
               </Card>
               <PersonalHighScoreCard highScore={personalHighScore} language={language} />
-              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} language={language} />
-              <FriendsLeaderboardCard leaderboardData={friendsList} language={language} />
+              <GlobalLeaderboardCard 
+                leaderboardData={exampleGlobalLeaderboard} 
+                language={language}
+                currentUserId={user?.uid}
+                onAddFriend={handleAddFriendFromLeaderboard}
+                onChallenge={handleChallengePlayer}
+              />
+              <FriendsLeaderboardCard 
+                leaderboardData={friendsList} 
+                language={language} 
+                onChallenge={handleChallengePlayer}
+              />
             </>
           )}
 
@@ -837,7 +903,7 @@ export default function GamePage() {
                  <Button
                     size="lg"
                     className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-                    disabled // Functionality coming soon
+                    disabled 
                   >
                     <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
                     {translate(UI_TEXTS.startGameWithFriendsButton)}
@@ -881,7 +947,7 @@ export default function GamePage() {
                                 {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate(UI_TEXTS.youSuffix)}</span>}
                               </span>
                             </div>
-                            {!player.isCurrentUser && user && ( // Only show Add Friend if current user is logged in
+                            {!player.isCurrentUser && user && (
                               <Button variant="outline" size="sm" className="text-xs" onClick={() => handleAddFriend(player)}>
                                 <UserPlus className="mr-1 h-3 w-3" /> {translate(UI_TEXTS.addFriendButton)}
                               </Button>
@@ -1070,8 +1136,21 @@ export default function GamePage() {
                   {translate(UI_TEXTS.shareScoreButton)}
                 </Button>
               </div>
-              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} className="animate-fadeInUp" language={language}/>
-              <FriendsLeaderboardCard leaderboardData={friendsList} className="animate-fadeInUp" language={language}/>
+              <GlobalLeaderboardCard 
+                leaderboardData={exampleGlobalLeaderboard} 
+                className="animate-fadeInUp" 
+                language={language}
+                currentUserId={user?.uid}
+                onAddFriend={handleAddFriendFromLeaderboard}
+                onChallenge={handleChallengePlayer}
+              />
+              <FriendsLeaderboardCard 
+                leaderboardData={friendsList} 
+                className="animate-fadeInUp" 
+                language={language}
+                currentUserId={user?.uid}
+                onChallenge={handleChallengePlayer}
+              />
             </>
           )}
         </div>
@@ -1109,3 +1188,4 @@ export default function GamePage() {
     
 
     
+

@@ -2,16 +2,18 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LeaderboardTable } from './leaderboard-table';
-import type { PlayerScore } from '@/app/page';
+import { LeaderboardTable, type EnrichedPlayerScore } from './leaderboard-table';
 import { BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/contexts/language-context';
 
 interface GlobalLeaderboardCardProps {
-  leaderboardData: PlayerScore[];
+  leaderboardData: EnrichedPlayerScore[];
   className?: string;
   language: Language;
+  currentUserId?: string | null;
+  onAddFriend?: (player: EnrichedPlayerScore) => void;
+  onChallenge?: (player: EnrichedPlayerScore) => void;
 }
 
 const TEXTS = {
@@ -30,7 +32,14 @@ const TEXTS = {
   },
 };
 
-export function GlobalLeaderboardCard({ leaderboardData, className, language }: GlobalLeaderboardCardProps) {
+export function GlobalLeaderboardCard({ 
+  leaderboardData, 
+  className, 
+  language,
+  currentUserId,
+  onAddFriend,
+  onChallenge 
+}: GlobalLeaderboardCardProps) {
   const translate = (textKey: keyof typeof TEXTS) => {
     return TEXTS[textKey][language] || TEXTS[textKey]['en'];
   };
@@ -49,7 +58,13 @@ export function GlobalLeaderboardCard({ leaderboardData, className, language }: 
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <LeaderboardTable scores={leaderboardData} language={language}/>
+        <LeaderboardTable 
+          scores={leaderboardData} 
+          language={language}
+          currentUserId={currentUserId}
+          onAddFriend={onAddFriend}
+          onChallenge={onChallenge}
+        />
       </CardContent>
     </Card>
   );
