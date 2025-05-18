@@ -64,26 +64,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleSignInError = (error: any, providerName: string) => {
     console.error(`Error al iniciar sesión con ${providerName}:`, error);
+    let title = `Error de inicio de sesión con ${providerName}`;
+    let description = error.message || `No se pudo iniciar sesión con ${providerName}. Revisa la consola del navegador para más detalles y verifica tu configuración de Firebase.`;
+
     if (error.code === 'auth/popup-closed-by-user') {
-      toast({
-        title: "Inicio de sesión cancelado",
-        description: "Has cerrado la ventana de inicio de sesión.",
-        variant: "default",
-      });
+      title = "Inicio de sesión cancelado";
+      description = "Has cerrado la ventana de inicio de sesión.";
     } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-blocked') {
-        toast({
-            title: "Ventana emergente bloqueada o cerrada",
-            description: "El navegador bloqueó la ventana de inicio de sesión o la cerraste demasiado rápido. Asegúrate de permitir ventanas emergentes para este sitio e inténtalo de nuevo.",
-            variant: "destructive",
-            duration: 9000,
-        });
-    } else {
-      toast({
-        title: `Error de inicio de sesión con ${providerName}`,
-        description: error.message || `No se pudo iniciar sesión con ${providerName}. Revisa la consola del navegador para más detalles y verifica tu configuración de Firebase.`,
-        variant: "destructive",
-      });
+      title = "Ventana emergente bloqueada o cerrada";
+      description = "El navegador bloqueó la ventana de inicio de sesión o la cerraste demasiado rápido. Asegúrate de permitir ventanas emergentes para este sitio e inténtalo de nuevo.";
+    } else if (error.code === 'auth/operation-not-allowed') {
+      title = `Inicio de sesión con ${providerName} no habilitado`;
+      description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
+    } else if (error.code === 'auth/unauthorized-domain') {
+      title = "Dominio no autorizado";
+      description = `El dominio actual no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista. Dominio: ${window.location.hostname}`;
     }
+
+    toast({
+      title: title,
+      description: description,
+      variant: "destructive",
+      duration: 9000,
+    });
   };
 
   const signInWithGoogle = async () => {
@@ -115,9 +118,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setShowConfigErrorDialog(true);
       return;
     }
+
+    // Proactive toast for Facebook specific config
+    toast({
+      title: "Nota sobre Facebook Login",
+      description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
+      variant: "default",
+      duration: 10000,
+    });
+
     setLoading(true);
     try {
-      // No proactive toast for Facebook config here
       const provider = new FacebookAuthProvider();
       await signInWithPopup(auth, provider);
       toast({ title: "¡Bienvenido!", description: "Has iniciado sesión con Facebook." });
@@ -145,11 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const actualPlaceholderKey = "TU_API_KEY";
+  const actualPlaceholderKey = "TU_API_KEY"; // Ejemplo real de un placeholder
   const actualPlaceholderDomain = "TU_AUTH_DOMAIN";
   const actualPlaceholderProjectId = "TU_PROJECT_ID";
 
-  const displayConfigError = showConfigErrorDialog ||
+  const displayConfigError = showConfigErrorDialog || // Mantenemos el estado local para el diálogo
                              appFirebaseConfig.apiKey === actualPlaceholderKey ||
                              appFirebaseConfig.authDomain === actualPlaceholderDomain ||
                              appFirebaseConfig.projectId === actualPlaceholderProjectId ||
@@ -194,3 +205,4 @@ export function useAuth() {
   }
   return context;
 }
+    
