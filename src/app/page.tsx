@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation'; // Importar useRouter
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,21 +15,29 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
+import { useLanguage } from '@/contexts/language-context';
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
 import { Progress } from '@/components/ui/progress';
-import { ChatPanel } from '@/components/chat/chat-panel'; // Importar ChatPanel
-import type { ChatMessage } from '@/components/chat/chat-message-item'; // Importar tipo ChatMessage
+import { ChatPanel } from '@/components/chat/chat-panel';
+import type { ChatMessage } from '@/components/chat/chat-message-item';
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
-const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const ROUND_DURATION_SECONDS = 60; // Duración de la ronda en segundos
+
+const CATEGORIES_BY_LANG: Record<string, string[]> = {
+  es: ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"],
+  en: ["Name", "Place", "Animal", "Thing", "Color", "Fruit or Vegetable"],
+};
+const ALPHABET_BY_LANG: Record<string, string[]> = {
+  es: "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split(""),
+  en: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
+};
+const ROUND_DURATION_SECONDS = 60;
 
 export interface PlayerScore {
   name: string;
@@ -46,6 +55,55 @@ export interface RoundResultDetail {
 }
 export type RoundResults = Record<string, RoundResultDetail>;
 
+const UI_TEXTS = {
+  welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!" },
+  welcomeDescription: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:" },
+  playVsAI: { es: "Jugar vs IA", en: "Play vs AI" },
+  createRoom: { es: "Crear Sala (Amigos)", en: "Create Room (Friends)" },
+  joinRoom: { es: "Unirse a Sala", en: "Join Room" },
+  shareGame: { es: "Compartir Juego", en: "Share Game" },
+  multiplayerNote: { es: "La opción \"Crear Sala\" y \"Unirse a Sala\" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz que te llevará a una página de sala (placeholder).", en: "The \"Create Room\" and \"Join Room\" options are for future multiplayer functionality. For now, only the interface is shown, which will take you to a placeholder room page." },
+  createRoomDialogTitle: { es: "¡Sala Creada (Simulación)!", en: "Room Created (Simulation)!" },
+  createRoomDialogDescription: { es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", en: "Share this ID with your friends. Clicking 'Go to Room' will take you to a page for this room (multiplayer functionality in development)." },
+  roomIdLabel: { es: "ID de Sala:", en: "Room ID:" },
+  copyIdButton: { es: "Copiar ID", en: "Copy ID" },
+  goToRoomButton: { es: "Ir a la Sala", en: "Go to Room" },
+  closeButton: { es: "Cerrar", en: "Close" },
+  joinRoomDialogTitle: { es: "Unirse a una Sala", en: "Join a Room" },
+  joinRoomDialogDescription: { es: "Ingresa el ID de la sala. Al unirte, serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", en: "Enter the Room ID. Upon joining, you'll be taken to a page for this room (multiplayer functionality in development)." },
+  joinRoomIdInputLabel: { es: "ID de la Sala", en: "Room ID" },
+  joinRoomIdInputPlaceholder: { es: "Ej: ABC123XYZ", en: "Ex: ABC123XYZ" },
+  cancelButton: { es: "Cancelar", en: "Cancel" },
+  joinButton: { es: "Unirse", en: "Join" },
+  linkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!" },
+  linkCopiedToastDescription: { es: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!", en: "The game link has been copied to your clipboard. Share it with your friends!"},
+  errorCopyingLinkToastTitle: { es: "Error al Copiar", en: "Error Copying Link" },
+  errorCopyingLinkToastDescription: { es: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.", en: "Could not copy the link. Please try manually." },
+  idCopiedToastTitle: { es: "¡ID de Sala Copiado!", en: "Room ID Copied!" },
+  idCopiedToastDescription: { es: "El ID ha sido copiado. ¡Compártelo con tus amigos!", en: "The ID has been copied. Share it with your friends!" },
+  errorCopyingIdToastTitle: { es: "Error al Copiar ID", en: "Error Copying ID" },
+  errorCopyingIdToastDescription: { es: "No se pudo copiar el ID. Por favor, cópialo manualmente.", en: "Could not copy the ID. Please copy it manually." },
+  emptyRoomIdToastTitle: { es: "ID de Sala Vacío", en: "Empty Room ID" },
+  emptyRoomIdToastDescription: { es: "Por favor, ingresa un ID de sala para unirte.", en: "Please enter a room ID to join." },
+  resultsTitle: { es: "Resultados de la Ronda", en: "Round Results" },
+  roundWinnerPlayer: { es: "¡Jugador Gana la Ronda!", en: "Player Wins the Round!" },
+  roundWinnerAI: { es: "¡IA Gana la Ronda!", en: "AI Wins the Round!" },
+  roundNoScore: { es: "Nadie puntuó en esta ronda.", en: "Nobody scored this round." },
+  roundTie: { es: "¡Empate en la Ronda!", en: "Round Tie!" },
+  yourRoundScore: { es: "Tu Puntuación (Ronda):", en: "Your Score (Round):" },
+  aiRoundScore: { es: "Puntuación IA (Ronda):", en: "AI Score (Round):" },
+  totalScoreLabel: { es: "Puntuación Total Acumulada", en: "Total Accumulated Score" },
+  youLabel: { es: "Tú:", en: "You:" },
+  aiLabel: { es: "IA:", en: "AI:" },
+  nextRoundButton: { es: "Jugar Siguiente Ronda", en: "Play Next Round" },
+  shareScoreButton: { es: "Compartir Puntuación", en: "Share Score" },
+  loadingAIMessage: { es: "IA está Pensando, Validando y Calculando Puntos...", en: "AI is Thinking, Validating and Calculating Scores..." },
+  loadingAIDescription: { es: "Por favor, espera mientras la IA prepara sus respuestas, validamos las tuyas y calculamos las puntuaciones.", en: "Please wait while the AI prepares its responses, we validate yours, and calculate the scores." },
+  chatLoginMessage: { es: "Debes iniciar sesión para chatear.", en: "You must be logged in to chat." },
+  chatLoginTitle: { es: "Inicia sesión para chatear", en: "Login to Chat" },
+  timeLeftLabel: { es: "Tiempo Restante:", en: "Time Left:"},
+  timeEndingWarning: { es: "¡El tiempo se acaba!", en: "Time is running out!"},
+};
 
 export default function GamePage() {
   const [gameState, setGameState] = useState<GameState>("IDLE");
@@ -55,6 +113,8 @@ export default function GamePage() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { language, translate } = useLanguage();
+  const router = useRouter(); // Hook de useRouter
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
@@ -77,13 +137,8 @@ export default function GamePage() {
   const currentLetterRef = useRef(currentLetter);
   const gameStateRef = useRef(gameState);
 
-  // State for Chat
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    // Mock messages for demonstration
-    { id: '1', text: '¡Hola a todos! ¿Listos para jugar?', sender: { name: 'Amigo1', uid: 'amigo1', avatar: 'https://placehold.co/40x40.png?text=A1' }, timestamp: new Date(Date.now() - 60000 * 5) },
-    { id: '2', text: '¡Sí! Buena suerte.', sender: { name: 'Amigo2', uid: 'amigo2', avatar: 'https://placehold.co/40x40.png?text=A2' }, timestamp: new Date(Date.now() - 60000 * 4) },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
 
   useEffect(() => {
@@ -97,6 +152,9 @@ export default function GamePage() {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
+  const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
 
 
   const exampleGlobalLeaderboard: PlayerScore[] = [
@@ -185,8 +243,9 @@ export default function GamePage() {
   const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
+    const lang = language;
     
-    console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}`);
+    console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${lang}`);
 
     if (!letterForValidation || gameStateRef.current === "EVALUATING") {
       console.log("[GamePage] handleStopInternal: Aborting - No letter or already evaluating.");
@@ -201,12 +260,12 @@ export default function GamePage() {
     
     console.log("[GamePage] Generating AI responses...");
     const tempAiResponses: Record<string, string> = {};
-    const aiPromises = CATEGORIES.map(async (category) => {
+    const aiPromises = currentCategories.map(async (category) => {
       try {
-        const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category };
+        const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: lang };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
-        console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
+        console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}, lang ${lang}): "${aiResult.response}"`);
       } catch (error) {
         console.error(`[GamePage] Error getting AI response for ${category}:`, error);
         tempAiResponses[category] = ""; 
@@ -218,10 +277,10 @@ export default function GamePage() {
     console.log("[GamePage] AI responses generated:", tempAiResponses);
 
     console.log("[GamePage] Iniciando validación de palabras del jugador...");
-    const playerValidationPromises = CATEGORIES.map(async (category) => {
+    const playerValidationPromises = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
       
-      console.log(`[GamePage] Validando para Categoría: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}"`);
+      console.log(`[GamePage] Validando para Categoría: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${lang}`);
 
       if (playerResponse === "") {
         console.log(`[GamePage] Player word for ${category} is empty. Marking as invalid locally.`);
@@ -236,6 +295,7 @@ export default function GamePage() {
           letter: letterForValidation!,
           category, 
           playerWord: playerResponse,
+          language: lang,
         };
         console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, validationInput);
         const validationResult = await validatePlayerWord(validationInput);
@@ -266,7 +326,7 @@ export default function GamePage() {
     const detailedRoundResults: RoundResults = {};
 
     console.log(`\n[GamePage] --- STARTING SCORE CALCULATION FOR LETTER: ${letterForValidation} ---`);
-    CATEGORIES.forEach(category => {
+    currentCategories.forEach(category => {
       console.log(`\n[GamePage] Processing Category: "${category}"`);
       const playerResponseRaw = currentResponses[category] || "";
       const playerResponseTrimmed = playerResponseRaw.trim();
@@ -337,13 +397,13 @@ export default function GamePage() {
     setRoundResults(detailedRoundResults);
 
     if (currentRoundPlayerScore > currentRoundAiScore) {
-      setRoundWinner("¡Jugador Gana la Ronda!");
+      setRoundWinner(translate(UI_TEXTS.roundWinnerPlayer));
     } else if (currentRoundAiScore > currentRoundPlayerScore) {
-      setRoundWinner("¡IA Gana la Ronda!");
+      setRoundWinner(translate(UI_TEXTS.roundWinnerAI));
     } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0) {
-      setRoundWinner("Nadie puntuó en esta ronda.");
+      setRoundWinner(translate(UI_TEXTS.roundNoScore));
     } else { 
-      setRoundWinner("¡Empate en la Ronda!");
+      setRoundWinner(translate(UI_TEXTS.roundTie));
     }
 
     setIsLoadingAi(false);
@@ -352,7 +412,7 @@ export default function GamePage() {
   }, [ 
     setGameState, setIsLoadingAi, setAiResponses, 
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
-    setRoundResults, setRoundWinner, toast
+    setRoundResults, setRoundWinner, toast, language, currentCategories, translate
   ]);
 
   const handleStop = useCallback(() => {
@@ -392,12 +452,12 @@ export default function GamePage() {
   }, [startGame]);
 
   const handleShareToWhatsApp = () => {
-    const playerName = user?.displayName ? `${user.displayName} jugó` : "Acabo de jugar a";
+    const playerName = user?.displayName ? `${user.displayName} ${language === 'es' ? 'jugó' : 'played'}` : (language === 'es' ? 'Acabo de jugar a' : 'I just played');
     const message = 
       `${playerName} Global Stop! 🕹️\n\n` +
-      `Mi puntuación total: ${totalPlayerScore}\n` +
-      `Puntuación total de la IA: ${totalAiScore}\n\n` +
-      `¿Crees que puedes superarme? ¡Inténtalo en Global Stop!`;
+      `${language === 'es' ? 'Mi puntuación total' : 'My total score'}: ${totalPlayerScore}\n` +
+      `${language === 'es' ? 'Puntuación total de la IA' : 'AI\'s total score'}: ${totalAiScore}\n\n` +
+      `${language === 'es' ? '¿Crees que puedes superarme? ¡Inténtalo en Global Stop!' : 'Think you can beat me? Try Global Stop!'}`;
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -408,14 +468,14 @@ export default function GamePage() {
       const gameUrl = window.location.href;
       await navigator.clipboard.writeText(gameUrl);
       toast({
-        title: "¡Enlace Copiado!",
-        description: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!",
+        title: translate(UI_TEXTS.linkCopiedToastTitle),
+        description: translate(UI_TEXTS.linkCopiedToastDescription),
       });
     } catch (err) {
       console.error('Error al copiar el enlace: ', err);
       toast({
-        title: "Error al Copiar",
-        description: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.",
+        title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
+        description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
         variant: "destructive",
       });
     }
@@ -427,6 +487,13 @@ export default function GamePage() {
     setShowCreateRoomDialog(true);
   };
 
+  const handleGoToCreatedRoom = () => {
+    if (generatedRoomId) {
+      router.push(`/room/${generatedRoomId}`);
+      setShowCreateRoomDialog(false);
+    }
+  };
+
   const handleOpenJoinRoomDialog = () => {
     setJoinRoomId(""); 
     setShowJoinRoomDialog(true);
@@ -434,10 +501,10 @@ export default function GamePage() {
   
   const handleActualJoinRoom = () => {
     if (joinRoomId.trim() === "") {
-      toast({ title: "ID de Sala Vacío", description: "Por favor, ingresa un ID de sala para unirte.", variant: "destructive" });
+      toast({ title: translate(UI_TEXTS.emptyRoomIdToastTitle), description: translate(UI_TEXTS.emptyRoomIdToastDescription), variant: "destructive" });
       return;
     }
-    toast({ title: "Intentando Unirse a Sala", description: `Te unirías a la sala: ${joinRoomId}. (Funcionalidad no implementada aún)`, duration: 5000 });
+    router.push(`/room/${joinRoomId.trim().toUpperCase()}`);
     setShowJoinRoomDialog(false);
   };
 
@@ -446,13 +513,13 @@ export default function GamePage() {
       try {
         await navigator.clipboard.writeText(generatedRoomId);
         toast({
-          title: "¡ID de Sala Copiado!",
-          description: "El ID ha sido copiado. ¡Compártelo con tus amigos!",
+          title: translate(UI_TEXTS.idCopiedToastTitle),
+          description: translate(UI_TEXTS.idCopiedToastDescription),
         });
       } catch (err) {
         toast({
-          title: "Error al Copiar ID",
-          description: "No se pudo copiar el ID. Por favor, cópialo manualmente.",
+          title: translate(UI_TEXTS.errorCopyingIdToastTitle),
+          description: translate(UI_TEXTS.errorCopyingIdToastDescription),
           variant: "destructive",
         });
       }
@@ -462,24 +529,23 @@ export default function GamePage() {
   const handleSendChatMessage = (text: string) => {
     if (!user) {
       toast({
-        title: "Inicia sesión para chatear",
-        description: "Debes iniciar sesión para enviar mensajes.",
+        title: translate(UI_TEXTS.chatLoginTitle),
+        description: translate(UI_TEXTS.chatLoginMessage),
         variant: "destructive",
       });
       return;
     }
     const newMessage: ChatMessage = {
-      id: Date.now().toString(), // Simple ID for client-side
+      id: Date.now().toString(), 
       text,
       sender: {
-        name: user.displayName || "Jugador",
+        name: user.displayName || (language === 'es' ? "Jugador" : "Player"),
         uid: user.uid,
-        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || "J").charAt(0)}`,
+        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || (language === 'es' ? "J" : "P")).charAt(0)}`,
       },
       timestamp: new Date(),
     };
     setChatMessages((prevMessages) => [...prevMessages, newMessage]);
-    // In a real app, you'd send this message to your backend here
   };
 
   const toggleChat = () => setIsChatOpen(prev => !prev);
@@ -488,14 +554,13 @@ export default function GamePage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center relative">
-        {/* Chat Toggle Button - Floating Action Button style */}
         {(gameState === "PLAYING" || gameState === "RESULTS" || gameState === "IDLE") && (
             <Button
                 onClick={toggleChat}
                 variant="outline"
                 size="icon"
                 className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50 transform transition-all duration-150 ease-in-out hover:scale-110 active:scale-100"
-                aria-label="Abrir chat"
+                aria-label={language === 'es' ? "Abrir chat" : "Open chat"}
             >
                 <MessageSquare className="h-7 w-7" />
             </Button>
@@ -506,9 +571,9 @@ export default function GamePage() {
             <>
               <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
                 <CardHeader className="text-center p-8">
-                  <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">¡Bienvenido a Global Stop!</CardTitle>
+                  <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.welcomeTitle)}</CardTitle>
                   <CardDescription className="text-lg text-muted-foreground mt-3">
-                    Elige cómo quieres jugar:
+                    {translate(UI_TEXTS.welcomeDescription)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-10 px-6">
@@ -520,7 +585,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full"
                   >
                     <PlayCircle className="mr-3 h-7 w-7" />
-                    Jugar vs IA
+                    {translate(UI_TEXTS.playVsAI)}
                   </Button>
                   <Button 
                     onClick={handleOpenCreateRoomDialog}
@@ -531,7 +596,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full"
                   >
                     <PlusCircle className="mr-3 h-7 w-7" />
-                    Crear Sala (Amigos)
+                    {translate(UI_TEXTS.createRoom)}
                   </Button>
                    <Button 
                     onClick={handleOpenJoinRoomDialog}
@@ -542,7 +607,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-secondary/50 rounded-lg w-full"
                   >
                     <LogIn className="mr-3 h-7 w-7" />
-                    Unirse a Sala
+                    {translate(UI_TEXTS.joinRoom)}
                   </Button>
                   <Button 
                     onClick={handleShareGameLink} 
@@ -553,37 +618,39 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-muted/50 rounded-lg w-full"
                   >
                     <Share2 className="mr-3 h-7 w-7" />
-                    Compartir Juego
+                    {translate(UI_TEXTS.shareGame)}
                   </Button>
                 </CardContent>
                  <CardFooter className="text-xs text-muted-foreground text-center block px-6 pb-6">
-                   La opción "Crear Sala" y "Unirse a Sala" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz.
+                   {translate(UI_TEXTS.multiplayerNote)}
                 </CardFooter>
               </Card>
-              <PersonalHighScoreCard highScore={personalHighScore} />
-              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} />
-              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} />
+              <PersonalHighScoreCard highScore={personalHighScore} language={language} />
+              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} language={language} />
+              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} language={language} />
             </>
           )}
 
           <AlertDialog open={showCreateRoomDialog} onOpenChange={setShowCreateRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>¡Sala Creada (Simulación)!</AlertDialogTitle>
+                <AlertDialogTitle>{translate(UI_TEXTS.createRoomDialogTitle)}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Comparte este ID con tus amigos para que se unan a tu sala.
-                  Recuerda, esta es una simulación, la conexión multijugador aún no está activa.
+                 {translate(UI_TEXTS.createRoomDialogDescription)}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="my-4 p-4 bg-muted rounded-md text-center">
-                <p className="text-sm text-muted-foreground">ID de Sala:</p>
+                <p className="text-sm text-muted-foreground">{translate(UI_TEXTS.roomIdLabel)}</p>
                 <p className="text-2xl font-bold text-primary tracking-widest">{generatedRoomId}</p>
                  <Button variant="outline" size="sm" onClick={copyRoomIdToClipboard} className="mt-2">
-                  <Copy className="mr-2 h-4 w-4" /> Copiar ID
+                  <Copy className="mr-2 h-4 w-4" /> {translate(UI_TEXTS.copyIdButton)}
                 </Button>
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cerrar</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setShowCreateRoomDialog(false)}>{translate(UI_TEXTS.closeButton)}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleGoToCreatedRoom}>
+                  {translate(UI_TEXTS.goToRoomButton)} <ArrowRight className="ml-2 h-4 w-4" />
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -591,25 +658,24 @@ export default function GamePage() {
           <AlertDialog open={showJoinRoomDialog} onOpenChange={setShowJoinRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Unirse a una Sala (Simulación)</AlertDialogTitle>
+                <AlertDialogTitle>{translate(UI_TEXTS.joinRoomDialogTitle)}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Ingresa el ID de la sala a la que quieres unirte.
-                  La conexión multijugador aún no está activa.
+                  {translate(UI_TEXTS.joinRoomDialogDescription)}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="my-4 space-y-2">
-                <Label htmlFor="join-room-id" className="text-primary">ID de la Sala</Label>
+                <Label htmlFor="join-room-id" className="text-primary">{translate(UI_TEXTS.joinRoomIdInputLabel)}</Label>
                 <Input 
                   id="join-room-id" 
-                  placeholder="Ej: ABC123XYZ" 
+                  placeholder={translate(UI_TEXTS.joinRoomIdInputPlaceholder)} 
                   value={joinRoomId}
                   onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
                   className="text-lg"
                 />
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={handleActualJoinRoom}>Unirse</AlertDialogAction>
+                <AlertDialogCancel onClick={() => setShowJoinRoomDialog(false)}>{translate(UI_TEXTS.cancelButton)}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleActualJoinRoom}>{translate(UI_TEXTS.joinButton)}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -617,7 +683,12 @@ export default function GamePage() {
 
           {gameState === "SPINNING" && (
             <div className="animate-fadeIn">
-              <RouletteWheel isSpinning={true} onSpinComplete={handleSpinComplete} alphabet={ALPHABET} />
+              <RouletteWheel 
+                isSpinning={true} 
+                onSpinComplete={handleSpinComplete} 
+                alphabet={currentAlphabet} 
+                language={language}
+              />
             </div>
           )}
 
@@ -625,11 +696,11 @@ export default function GamePage() {
             <div className="my-4 w-full max-w-md text-center p-4 bg-card rounded-lg shadow animate-fadeIn">
               <div className="flex items-center justify-center mb-2">
                 <Clock className="h-6 w-6 mr-2 text-primary" />
-                <p className="text-2xl font-semibold text-primary">Tiempo Restante: {timeLeft}s</p>
+                <p className="text-2xl font-semibold text-primary">{translate(UI_TEXTS.timeLeftLabel)} {timeLeft}s</p>
               </div>
               <Progress value={(timeLeft / ROUND_DURATION_SECONDS) * 100} className="w-full h-3 mb-2" />
               {timeLeft <= 10 && timeLeft > 0 && (
-                  <p className="text-destructive font-medium mt-1 animate-pulse">¡El tiempo se acaba!</p>
+                  <p className="text-destructive font-medium mt-1 animate-pulse">{translate(UI_TEXTS.timeEndingWarning)}</p>
               )}
             </div>
           )}
@@ -638,19 +709,20 @@ export default function GamePage() {
              <div className="animate-fadeIn w-full">
               <GameArea
                 letter={currentLetter}
-                categories={CATEGORIES}
+                categories={currentCategories}
                 playerResponses={playerResponses} 
                 onInputChange={handleInputChange}
                 isEvaluating={gameState === "EVALUATING" || isLoadingAi}
                 showResults={gameState === "RESULTS"}
                 roundResults={roundResults} 
+                language={language}
               />
             </div>
           )}
           
           {gameState === "PLAYING" && (
             <div className="flex justify-center animate-fadeInUp mt-6">
-              <StopButton onClick={handleStop} disabled={isLoadingAi || timeLeft <= 0} />
+              <StopButton onClick={handleStop} disabled={isLoadingAi || timeLeft <= 0} language={language} />
             </div>
           )}
 
@@ -658,45 +730,45 @@ export default function GamePage() {
             <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6 w-full">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="text-2xl font-semibold text-primary">IA está Pensando, Validando y Calculando Puntos...</p>
-                <p className="text-muted-foreground">Por favor, espera mientras la IA prepara sus respuestas, validamos las tuyas y calculamos las puntuaciones.</p>
+                <p className="text-2xl font-semibold text-primary">{translate(UI_TEXTS.loadingAIMessage)}</p>
+                <p className="text-muted-foreground">{translate(UI_TEXTS.loadingAIDescription)}</p>
               </CardContent>
             </Card>
           )}
 
-          {gameState === "RESULTS" && (
+          {gameState === "RESULTS" && roundResults && (
             <>
               <Card className="shadow-xl rounded-lg animate-fadeInUp mt-6 w-full">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-2xl text-center text-primary">Resultados de la Ronda</CardTitle>
+                  <CardTitle className="text-2xl text-center text-primary">{translate(UI_TEXTS.resultsTitle)}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-center space-y-3 p-6">
                   {roundWinner && <p className="text-xl font-bold text-accent">{roundWinner}</p>}
                   <div className="grid grid-cols-2 gap-4 text-lg">
                     <div>
-                        <p>Tu Puntuación (Ronda):</p>
+                        <p>{translate(UI_TEXTS.yourRoundScore)}</p>
                         <p className="font-bold text-primary text-2xl">{playerRoundScore}</p>
                     </div>
                     <div>
-                        <p>Puntuación IA (Ronda):</p>
+                        <p>{translate(UI_TEXTS.aiRoundScore)}</p>
                         <p className="font-bold text-primary text-2xl">{aiRoundScore}</p>
                     </div>
                   </div>
                   <Separator className="my-4" />
-                  <p className="text-xl font-semibold">Puntuación Total Acumulada</p>
+                  <p className="text-xl font-semibold">{translate(UI_TEXTS.totalScoreLabel)}</p>
                   <div className="grid grid-cols-2 gap-4 text-lg">
                     <div>
-                        <p>Tú:</p>
+                        <p>{translate(UI_TEXTS.youLabel)}</p>
                         <p className="font-bold text-primary text-2xl">{totalPlayerScore}</p>
                     </div>
                     <div>
-                        <p>IA:</p>
+                        <p>{translate(UI_TEXTS.aiLabel)}</p>
                         <p className="font-bold text-primary text-2xl">{totalAiScore}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <PersonalHighScoreCard highScore={personalHighScore} className="animate-fadeInUp" />
+              <PersonalHighScoreCard highScore={personalHighScore} className="animate-fadeInUp" language={language} />
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4 animate-fadeInUp mt-6">
                 <Button 
                   onClick={startNextRound} 
@@ -706,7 +778,7 @@ export default function GamePage() {
                             focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
                 >
                   <RotateCcw className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
-                  Jugar Siguiente Ronda
+                  {translate(UI_TEXTS.nextRoundButton)}
                 </Button>
                 <Button 
                   onClick={handleShareToWhatsApp} 
@@ -717,11 +789,11 @@ export default function GamePage() {
                             focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
                 >
                   <Share2 className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
-                  Compartir Puntuación
+                  {translate(UI_TEXTS.shareScoreButton)}
                 </Button>
               </div>
-              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} className="animate-fadeInUp" />
-              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} className="animate-fadeInUp" />
+              <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} className="animate-fadeInUp" language={language}/>
+              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} className="animate-fadeInUp" language={language}/>
             </>
           )}
         </div>
@@ -733,9 +805,10 @@ export default function GamePage() {
           currentUserUid={user?.uid}
           currentUserName={user?.displayName}
           currentUserAvatar={user?.photoURL}
+          language={language}
         />
       </main>
-      <AppFooter />
+      <AppFooter language={language} />
       <style jsx global>{`
         .animate-fadeIn {
           animation: fadeIn 0.5s ease-out;

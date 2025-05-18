@@ -2,7 +2,8 @@ import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from '@/contexts/auth-context'; // Importar AuthProvider
+import { AuthProvider } from '@/contexts/auth-context';
+import { LanguageProvider } from '@/contexts/language-context';
 
 const geistSans = Geist({ 
   variable: '--font-geist-sans',
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
   title: 'Juego Global Stop',
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
-  themeColor: '#C0474A', // Moved theme-color here
+  themeColor: '#C0474A',
 };
 
 export default function RootLayout({
@@ -27,13 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      {/* The <head> tag is managed by Next.js through the metadata object and conventions */}
+    <html lang="es"> {/* Establecido estáticamente a 'es'. LanguageProvider maneja la UI. */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider> {/* Envolver la aplicación con AuthProvider */}
-          {children}
-          <Toaster />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
