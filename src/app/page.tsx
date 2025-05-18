@@ -15,11 +15,12 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import { useLanguage, type Language } from '@/contexts/language-context';
+import { useRoom } from '@/contexts/room-context'; // Import useRoom
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
@@ -72,18 +73,12 @@ const UI_TEXTS = {
     fr: "Salut ! Joue à Global Stop avec moi ! C'est très amusant :", 
     pt: "Ei! Jogue Global Stop comigo! É muito divertido:" 
   },
-  multiplayerNote: {
-    es: "La opción \"Crear Sala\" y \"Unirse a Sala\" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz que te llevará a una página de sala (placeholder).",
-    en: "The \"Create Room\" and \"Join Room\" options are for future multiplayer functionality. For now, only the interface is shown, which will take you to a placeholder room page.",
-    fr: "Les options \"Créer une Salle\" et \"Rejoindre une Salle\" sont pour la future fonctionnalité multijoueur. Pour l'instant, seule l'interface est affichée, qui vous mènera à une page de salle (placeholder).",
-    pt: "As opções \"Criar Sala\" e \"Entrar na Sala\" são para futura funcionalidade multijogador. Por enquanto, apenas a interface é mostrada, que o levará a uma página de sala (placeholder)."
-  },
-  createRoomDialogTitle: { es: "¡Sala Creada (Simulación)!", en: "Room Created (Simulation)!", fr: "Salle Créée (Simulation)!", pt: "Sala Criada (Simulação)!" },
+  createRoomDialogTitle: { es: "¡Sala Creada!", en: "Room Created!", fr: "Salle Créée !", pt: "Sala Criada!" },
   createRoomDialogDescription: {
-    es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).",
-    en: "Share this ID with your friends. Clicking 'Go to Room' will take you to a page for this room (multiplayer functionality in development).",
-    fr: "Partagez cet ID avec vos amis. En cliquant sur 'Aller à la Salle', vous serez dirigé vers une page pour cette salle (fonctionnalité multijoueur en développement).",
-    pt: "Compartilhe este ID com seus amigos. Clicar em 'Ir para a Sala' o levará para uma página desta sala (funcionalidade multijogador em desenvolvimento)."
+    es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a la página de esta sala.",
+    en: "Share this ID with your friends. Clicking 'Go to Room' will take you to a page for this room.",
+    fr: "Partagez cet ID avec vos amis. En cliquant sur 'Aller à la Salle', vous serez dirigé vers une page pour cette salle.",
+    pt: "Compartilhe este ID com seus amigos. Clicar em 'Ir para a Sala' o levará para uma página desta sala."
   },
   roomIdLabel: { es: "ID de Sala:", en: "Room ID:", fr: "ID de la Salle :", pt: "ID da Sala:" },
   copyIdButton: { es: "Copiar ID", en: "Copy ID", fr: "Copier l'ID", pt: "Copiar ID" },
@@ -91,30 +86,15 @@ const UI_TEXTS = {
   closeButton: { es: "Cerrar", en: "Close", fr: "Fermer", pt: "Fechar" },
   joinRoomDialogTitle: { es: "Unirse a una Sala", en: "Join a Room", fr: "Rejoindre une Salle", pt: "Entrar em uma Sala" },
   joinRoomDialogDescription: {
-    es: "Ingresa el ID de la sala. Al unirte, serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).",
-    en: "Enter the Room ID. Upon joining, you'll be taken to a page for this room (multiplayer functionality in development).",
-    fr: "Entrez l'ID de la salle. En rejoignant, vous serez dirigé vers une page pour cette salle (fonctionnalité multijoueur en développement).",
-    pt: "Digite o ID da sala. Ao entrar, você será levado para uma página desta sala (funcionalidade multijogador em desenvolvimento)."
+    es: "Ingresa el ID de la sala. Al unirte, serás llevado a una página para esta sala.",
+    en: "Enter the Room ID. Upon joining, you'll be taken to a page for this room.",
+    fr: "Entrez l'ID de la salle. En rejoignant, vous serez dirigé vers une page pour cette salle.",
+    pt: "Digite o ID da sala. Ao entrar, você será levado para uma página desta sala."
   },
   joinRoomIdInputLabel: { es: "ID de la Sala", en: "Room ID", fr: "ID de la Salle", pt: "ID da Sala" },
   joinRoomIdInputPlaceholder: { es: "Ej: ABC123XYZ", en: "Ex: ABC123XYZ", fr: "Ex : ABC123XYZ", pt: "Ex: ABC123XYZ" },
   cancelButton: { es: "Cancelar", en: "Cancel", fr: "Annuler", pt: "Cancelar" },
   joinButton: { es: "Unirse", en: "Join", fr: "Rejoindre", pt: "Entrar" },
-  // Toast messages for copying link are no longer used by the primary share button, but kept for potential other uses
-  linkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!", fr: "Lien Copié !", pt: "Link Copiado!" },
-  linkCopiedToastDescription: { 
-    es: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!", 
-    en: "The game link has been copied to your clipboard. Share it with your friends!",
-    fr: "Le lien du jeu a été copié dans votre presse-papiers. Partagez-le avec vos amis !",
-    pt: "O link do jogo foi copiado para a sua área de transferência. Compartilhe com seus amigos!"
-  },
-  errorCopyingLinkToastTitle: { es: "Error al Copiar", en: "Error Copying Link", fr: "Erreur de Copie", pt: "Erro ao Copiar" },
-  errorCopyingLinkToastDescription: { 
-    es: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.", 
-    en: "Could not copy the link. Please try manually.",
-    fr: "Impossible de copier le lien. Veuillez essayer manuellement.",
-    pt: "Não foi possível copiar o link. Por favor, tente manualmente."
-  },
   idCopiedToastTitle: { es: "¡ID de Sala Copiado!", en: "Room ID Copied!", fr: "ID de Salle Copié !", pt: "ID da Sala Copiado!" },
   idCopiedToastDescription: {
     es: "El ID ha sido copiado. ¡Compártelo con tus amigos!",
@@ -175,7 +155,17 @@ const UI_TEXTS = {
   iJustPlayed: { es: "Acabo de jugar a", en: "I just played", fr: "Je viens de jouer à", pt: "Acabei de jogar" },
   myTotalScore: { es: "Mi puntuación total", en: "My total score", fr: "Mon score total", pt: "Minha pontuação total" },
   aiTotalScore: { es: "Puntuación total de la IA", en: "AI's total score", fr: "Score total de l'IA", pt: "Pontuação total da IA" },
-  canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Global Stop!", en: "Think you can beat me? Try Global Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Global Stop !", pt: "Acha que pode me vencer? Experimente o Global Stop!" }
+  canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Global Stop!", en: "Think you can beat me? Try Global Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Global Stop !", pt: "Acha que pode me vencer? Experimente o Global Stop!" },
+  // New texts for multiplayer lobby
+  lobbyTitle: { es: "Sala de Espera Multijugador", en: "Multiplayer Lobby", fr: "Salon Multijoueur", pt: "Lobby Multijogador" },
+  inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" },
+  startGameWithFriendsButton: { es: "Iniciar Partida (Amigos) - Próximamente", en: "Start Game (Friends) - Coming Soon", fr: "Démarrer la Partie (Amis) - Bientôt disponible", pt: "Iniciar Jogo (Amigos) - Em Breve" },
+  inviteFriendsButton: { es: "Invitar Amigos", en: "Invite Friends", fr: "Inviter des Amis", pt: "Convidar Amigos" },
+  leaveRoomButton: { es: "Salir de la Sala", en: "Leave Room", fr: "Quitter la Salle", pt: "Sair da Sala" },
+  shareRoomLinkMessageWhatsApp: { es: "¡Únete a mi sala en Global Stop! ID:", en: "Join my room in Global Stop! ID:", fr: "Rejoins ma salle sur Global Stop ! ID :", pt: "Entre na minha sala no Global Stop! ID:" },
+  copyRoomLinkButton: { es: "Copiar Enlace de Sala", en: "Copy Room Link", fr: "Copier le Lien de la Salle", pt: "Copiar Link da Sala" },
+  roomLinkCopiedToastTitle: { es: "¡Enlace de Sala Copiado!", en: "Room Link Copied!", fr: "Lien de Salle Copié !", pt: "Link da Sala Copiado!" },
+  roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
 };
 
 export default function GamePage() {
@@ -187,6 +177,7 @@ export default function GamePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language, translate } = useLanguage();
+  const { activeRoomId, setActiveRoomId } = useRoom(); // Use RoomContext
   const router = useRouter();
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
@@ -350,7 +341,6 @@ export default function GamePage() {
     console.log("[GamePage] Initiating player word validation...");
     const playerValidationPromises = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
-
       console.log(`[GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
 
       if (playerResponse === "") {
@@ -549,6 +539,7 @@ export default function GamePage() {
 
   const handleGoToCreatedRoom = () => {
     if (generatedRoomId) {
+      setActiveRoomId(generatedRoomId); // Set active room in context
       router.push(`/room/${generatedRoomId}`);
       setShowCreateRoomDialog(false);
     }
@@ -564,7 +555,9 @@ export default function GamePage() {
       toast({ title: translate(UI_TEXTS.emptyRoomIdToastTitle), description: translate(UI_TEXTS.emptyRoomIdToastDescription), variant: "destructive" });
       return;
     }
-    router.push(`/room/${joinRoomId.trim().toUpperCase()}`);
+    const roomIdToJoin = joinRoomId.trim().toUpperCase();
+    setActiveRoomId(roomIdToJoin); // Set active room in context
+    router.push(`/room/${roomIdToJoin}`);
     setShowJoinRoomDialog(false);
   };
 
@@ -585,6 +578,35 @@ export default function GamePage() {
       }
     }
   };
+  
+  const handleLeaveRoom = () => {
+    setActiveRoomId(null);
+    setGameState("IDLE"); // Go back to main menu
+  };
+
+  const handleInviteFriends = () => {
+    if (activeRoomId) {
+      const roomUrl = `${window.location.origin}/room/${activeRoomId}`;
+      // Option 1: Copy to clipboard
+      navigator.clipboard.writeText(roomUrl).then(() => {
+        toast({
+          title: translate(UI_TEXTS.roomLinkCopiedToastTitle),
+          description: translate(UI_TEXTS.roomLinkCopiedToastDescription),
+        });
+      }).catch(() => {
+        toast({
+          title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
+          description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
+          variant: "destructive",
+        });
+      });
+      // Option 2: Share via WhatsApp (more direct)
+      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId} ${translate('en') === 'en' ? 'Join here:' : 'Únete aquí:'} ${roomUrl}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    }
+  };
+
 
   const handleSendChatMessage = (text: string) => {
     if (!user) {
@@ -627,7 +649,7 @@ export default function GamePage() {
         )}
 
         <div className="w-full max-w-2xl space-y-6">
-          {gameState === "IDLE" && (
+          {gameState === "IDLE" && !activeRoomId && (
             <>
               <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
                 <CardHeader className="text-center p-8">
@@ -681,15 +703,63 @@ export default function GamePage() {
                     {translate(UI_TEXTS.shareGame)}
                   </Button>
                 </CardContent>
-                 <CardFooter className="text-xs text-muted-foreground text-center block px-6 pb-6">
-                   {translate(UI_TEXTS.multiplayerNote)}
-                </CardFooter>
               </Card>
               <PersonalHighScoreCard highScore={personalHighScore} language={language} />
               <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} language={language} />
               <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} language={language} />
             </>
           )}
+
+          {gameState === "IDLE" && activeRoomId && (
+            <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
+              <CardHeader className="text-center p-8">
+                <div className="flex justify-center items-center mb-4">
+                    <PartyPopper className="h-12 w-12 text-primary mr-3" />
+                    <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.lobbyTitle)}</CardTitle>
+                </div>
+                <CardDescription className="text-lg text-muted-foreground mt-3">
+                  {translate(UI_TEXTS.inRoomMessage)} <span className="font-bold text-accent">{activeRoomId}</span>
+                </CardDescription>
+                 {user && <p className="text-md text-muted-foreground mt-1">Conectado como: {user.displayName || translate(UI_TEXTS.playerNameDefault)}</p>}
+              </CardHeader>
+              <CardContent className="space-y-4 py-6 px-6">
+                 <Button
+                    size="lg"
+                    className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                    disabled // Functionality coming soon
+                  >
+                    <Gamepad2 className="mr-3 h-6 w-6" />
+                    {translate(UI_TEXTS.startGameWithFriendsButton)}
+                  </Button>
+                  <Button
+                    onClick={handleInviteFriends}
+                    size="lg"
+                    variant="outline"
+                    className="w-full text-lg py-6 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg"
+                  >
+                    <Share2 className="mr-3 h-6 w-6" />
+                    {translate(UI_TEXTS.inviteFriendsButton)}
+                  </Button>
+                  <div className="pt-4">
+                    <h3 className="text-lg font-semibold text-secondary mb-2 text-center">{translate(UI_TEXTS.playerListTitle['es'])}</h3>
+                    <div className="p-4 bg-muted/30 rounded-md min-h-[80px] text-center text-muted-foreground">
+                        {translate(UI_TEXTS.playerListDescription['es'])}
+                    </div>
+                  </div>
+              </CardContent>
+              <CardFooter className="p-6 border-t">
+                <Button
+                    onClick={handleLeaveRoom}
+                    variant="ghost"
+                    className="w-full text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                >
+                    <LogOut className="mr-2 h-5 w-5" />
+                    {translate(UI_TEXTS.leaveRoomButton)}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+
 
           <AlertDialog open={showCreateRoomDialog} onOpenChange={setShowCreateRoomDialog}>
             <AlertDialogContent>
