@@ -14,7 +14,7 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
@@ -22,6 +22,8 @@ import { PersonalHighScoreCard } from '@/components/game/personal-high-score-car
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
 import { Progress } from '@/components/ui/progress';
+import { ChatPanel } from '@/components/chat/chat-panel'; // Importar ChatPanel
+import type { ChatMessage } from '@/components/chat/chat-message-item'; // Importar tipo ChatMessage
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 const CATEGORIES = ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"];
@@ -74,6 +76,15 @@ export default function GamePage() {
   const playerResponsesRef = useRef(playerResponses);
   const currentLetterRef = useRef(currentLetter);
   const gameStateRef = useRef(gameState);
+
+  // State for Chat
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    // Mock messages for demonstration
+    { id: '1', text: '¡Hola a todos! ¿Listos para jugar?', sender: { name: 'Amigo1', uid: 'amigo1', avatar: 'https://placehold.co/40x40.png?text=A1' }, timestamp: new Date(Date.now() - 60000 * 5) },
+    { id: '2', text: '¡Sí! Buena suerte.', sender: { name: 'Amigo2', uid: 'amigo2', avatar: 'https://placehold.co/40x40.png?text=A2' }, timestamp: new Date(Date.now() - 60000 * 4) },
+  ]);
+
 
   useEffect(() => {
     playerResponsesRef.current = playerResponses;
@@ -267,7 +278,6 @@ export default function GamePage() {
       console.log(`  [GamePage] AI Response (Raw): "${aiResponseRaw}", Trimmed: "${aiResponseTrimmed}"`);
 
       const validationStatus = playerWordValidity[category];
-      // DETAILED LOG FOR VALIDATION STATUS
       console.log(`  [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
 
       const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false; 
@@ -449,11 +459,48 @@ export default function GamePage() {
     }
   };
 
+  const handleSendChatMessage = (text: string) => {
+    if (!user) {
+      toast({
+        title: "Inicia sesión para chatear",
+        description: "Debes iniciar sesión para enviar mensajes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(), // Simple ID for client-side
+      text,
+      sender: {
+        name: user.displayName || "Jugador",
+        uid: user.uid,
+        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || "J").charAt(0)}`,
+      },
+      timestamp: new Date(),
+    };
+    setChatMessages((prevMessages) => [...prevMessages, newMessage]);
+    // In a real app, you'd send this message to your backend here
+  };
+
+  const toggleChat = () => setIsChatOpen(prev => !prev);
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center">
+      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center relative">
+        {/* Chat Toggle Button - Floating Action Button style */}
+        {(gameState === "PLAYING" || gameState === "RESULTS" || gameState === "IDLE") && (
+            <Button
+                onClick={toggleChat}
+                variant="outline"
+                size="icon"
+                className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50 transform transition-all duration-150 ease-in-out hover:scale-110 active:scale-100"
+                aria-label="Abrir chat"
+            >
+                <MessageSquare className="h-7 w-7" />
+            </Button>
+        )}
+
         <div className="w-full max-w-2xl space-y-6">
           {gameState === "IDLE" && (
             <>
@@ -678,6 +725,15 @@ export default function GamePage() {
             </>
           )}
         </div>
+        <ChatPanel
+          messages={chatMessages}
+          onSendMessage={handleSendChatMessage}
+          isOpen={isChatOpen}
+          setIsOpen={setIsChatOpen}
+          currentUserUid={user?.uid}
+          currentUserName={user?.displayName}
+          currentUserAvatar={user?.photoURL}
+        />
       </main>
       <AppFooter />
       <style jsx global>{`
@@ -699,4 +755,3 @@ export default function GamePage() {
     </div>
   );
 }
-
