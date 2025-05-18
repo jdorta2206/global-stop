@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verificar si la configuración de Firebase sigue usando placeholders "TU_"
     const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_") ||
                                appFirebaseConfig.authDomain.startsWith("TU_") || 
                                appFirebaseConfig.projectId.startsWith("TU_");   
@@ -73,13 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
       title = "Dominio no autorizado";
-      description = `El dominio actual (${typeof window !== 'undefined' ? window.location.hostname : 'desconocido'}) no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio a la lista.`;
+      description = `El dominio actual (${typeof window !== 'undefined' ? window.location.hostname : 'desconocido'}) no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio (y tu dominio publicado si es diferente) a la lista.`;
     } else if (error.code === 'auth/invalid-api-key') {
       title = "API Key de Firebase Inválida";
-      description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo.`;
+      description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
     } else if (error.code === 'auth/project-not-found' || error.code === 'auth/invalid-project-id') {
         title = "Proyecto de Firebase no encontrado o ID Inválido";
-        description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo.`;
+        description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
     }
 
 
