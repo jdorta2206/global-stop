@@ -1,12 +1,12 @@
+
 {
-  "name": "Global Stop Juego",
+  "name": "Juego Global Stop",
   "short_name": "GlobalStop",
   "description": "¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#C0474A",
+  "background_color": "#FFFFFF",
   "theme_color": "#C0474A",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
