@@ -8,7 +8,7 @@ import { Globe } from 'lucide-react';
 
 const HEADER_TEXTS = {
   homePageAriaLabel: { es: "Página de inicio de Global Stop", en: "Global Stop Home Page", fr: "Page d'accueil de Global Stop", pt: "Página Inicial do Global Stop" },
-  logoAlt: { es: "Logo de Global Stop Game", en: "Global Stop Game Logo", fr: "Logo du jeu Global Stop", pt: "Logo do Jogo Global Stop" },
+  logoAlt: { es: "Logo del juego Global Stop", en: "Global Stop Game Logo", fr: "Logo du jeu Global Stop", pt: "Logo do Jogo Global Stop" },
   languageSelectorPlaceholder: { es: "Idioma", en: "Language", fr: "Langue", pt: "Idioma" },
 };
 
@@ -27,13 +27,13 @@ export function AppHeader() {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center hover:opacity-90 transition-opacity" aria-label={translate(HEADER_TEXTS.homePageAriaLabel)}>
           <Image
-            src="/logo_stop_game.png" // Asegúrate que la nueva imagen esté en public/logo_stop_game.png
+            src="/logo_stop_game.png" // Asegúrate que esta imagen esté en public/logo_stop_game.png
             alt={translate(HEADER_TEXTS.logoAlt)}
             width={48} // Proporción 1:1, el className controla el tamaño visual
             height={48}
             className="h-10 md:h-12 w-auto"
             priority
-            data-ai-hint="game logo" // Actualizado para ser más genérico
+            data-ai-hint="game logo" // Pista genérica para el logo del juego
           />
         </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">

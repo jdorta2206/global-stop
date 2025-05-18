@@ -23,10 +23,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   themeColor: '#C0474A', 
   icons: {
-    icon: [{ url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }],
-    shortcut: { url: '/logo_stop_game.png', type: 'image/png' },
+    icon: [
+      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Favicon principal
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, // Fallback favicon.ico
+    ],
+    shortcut: { url: '/logo_stop_game.png', type: 'image/png' }, // Para accesos directos
     apple: [ 
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }, // Ícono para Apple
     ],
   },
 };
