@@ -109,6 +109,13 @@ const UI_TEXTS = {
     fr: "Impossible de copier l'ID. Veuillez le copier manuellement.",
     pt: "Não foi possível copiar o ID. Por favor, copie manualmente."
   },
+  errorCopyingLinkToastTitle: { es: "Error al Copiar Enlace", en: "Error Copying Link", fr: "Erreur de Copie du Lien", pt: "Erro ao Copiar Link" },
+  errorCopyingLinkToastDescription: {
+    es: "No se pudo copiar el enlace. Por favor, cópialo manualmente.",
+    en: "Could not copy the link. Please copy it manually.",
+    fr: "Impossible de copier le lien. Veuillez le copier manuellement.",
+    pt: "Não foi possível copiar o link. Por favor, copie manualmente."
+  },
   emptyRoomIdToastTitle: { es: "ID de Sala Vacío", en: "Empty Room ID", fr: "ID de Salle Vide", pt: "ID da Sala Vazio" },
   emptyRoomIdToastDescription: {
     es: "Por favor, ingresa un ID de sala para unirte.",
@@ -156,7 +163,6 @@ const UI_TEXTS = {
   myTotalScore: { es: "Mi puntuación total", en: "My total score", fr: "Mon score total", pt: "Minha pontuação total" },
   aiTotalScore: { es: "Puntuación total de la IA", en: "AI's total score", fr: "Score total de l'IA", pt: "Pontuação total da IA" },
   canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Global Stop!", en: "Think you can beat me? Try Global Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Global Stop !", pt: "Acha que pode me vencer? Experimente o Global Stop!" },
-  // New texts for multiplayer lobby
   lobbyTitle: { es: "Sala de Espera Multijugador", en: "Multiplayer Lobby", fr: "Salon Multijoueur", pt: "Lobby Multijogador" },
   inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" },
   startGameWithFriendsButton: { es: "Iniciar Partida (Amigos) - Próximamente", en: "Start Game (Friends) - Coming Soon", fr: "Démarrer la Partie (Amis) - Bientôt disponible", pt: "Iniciar Jogo (Amigos) - Em Breve" },
@@ -166,6 +172,13 @@ const UI_TEXTS = {
   copyRoomLinkButton: { es: "Copiar Enlace de Sala", en: "Copy Room Link", fr: "Copier le Lien de la Salle", pt: "Copiar Link da Sala" },
   roomLinkCopiedToastTitle: { es: "¡Enlace de Sala Copiado!", en: "Room Link Copied!", fr: "Lien de Salle Copié !", pt: "Link da Sala Copiado!" },
   roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
+  playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
+  playerListDescription: { 
+    es: "Aquí verás la lista de amigos que se han unido. (Funcionalidad completa próximamente)", 
+    en: "Here you will see the list of friends who have joined. (Full functionality coming soon)",
+    fr: "Ici, vous verrez la liste des amis qui ont rejoint. (Fonctionnalité complète bientôt disponible)",
+    pt: "Aqui você verá a lista de amigos que entraram. (Funcionalidade completa em breve)"
+  },
 };
 
 export default function GamePage() {
@@ -232,6 +245,15 @@ export default function GamePage() {
     { name: "Neighbor Sofia", score: 6800 },
     { name: "Colleague Alex", score: 6500 },
   ];
+
+  useEffect(() => {
+    // Initialize example chat messages
+    setChatMessages([
+        { id: '1', text: translate(UI_TEXTS.chatLoginTitle), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
+        { id: '2', text: translate(UI_TEXTS.welcomeTitle), sender: { name: user?.displayName || translate(UI_TEXTS.playerNameDefault), uid: user?.uid || 'user1', avatar: user?.photoURL || `https://placehold.co/40x40.png?text=${(user?.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}` }, timestamp: new Date(Date.now() - 60000) },
+    ]);
+  }, [language, user, translate]);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !audioRef.current) {
@@ -325,6 +347,7 @@ export default function GamePage() {
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
+        console.log(`[GamePage] Calling generateAiOpponentResponse for ${category} with input:`, aiInput);
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
         console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}, lang ${currentLang}): "${aiResult.response}"`);
@@ -348,7 +371,7 @@ export default function GamePage() {
         return { category, isValid: false, errorReason: null };
       }
       if (!playerResponse.toLowerCase().startsWith(letterForValidation!.toLowerCase())) {
-        console.log(`[GamePage] Player word "${playerResponse}" for ${category} does not start with letter "${letterForValidation!}" (frontend check). Marking as invalid locally.`);
+        console.warn(`[GamePage] Player word "${playerResponse}" for ${category} does not start with letter "${letterForValidation!}" (frontend check). Marking as invalid locally.`);
         return { category, isValid: false, errorReason: 'format' as 'format' };
       }
       try {
@@ -601,7 +624,7 @@ export default function GamePage() {
         });
       });
       // Option 2: Share via WhatsApp (more direct)
-      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId} ${translate('en') === 'en' ? 'Join here:' : 'Únete aquí:'} ${roomUrl}`;
+      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId} ${translate(UI_TEXTS.joinHere)} ${roomUrl}`;
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, '_blank');
     }
@@ -720,7 +743,7 @@ export default function GamePage() {
                 <CardDescription className="text-lg text-muted-foreground mt-3">
                   {translate(UI_TEXTS.inRoomMessage)} <span className="font-bold text-accent">{activeRoomId}</span>
                 </CardDescription>
-                 {user && <p className="text-md text-muted-foreground mt-1">Conectado como: {user.displayName || translate(UI_TEXTS.playerNameDefault)}</p>}
+                 {user && <p className="text-md text-muted-foreground mt-1">{translate(UI_TEXTS.loggedInAs, { name: user.displayName || translate(UI_TEXTS.playerNameDefault) })}</p>}
               </CardHeader>
               <CardContent className="space-y-4 py-6 px-6">
                  <Button
@@ -737,13 +760,18 @@ export default function GamePage() {
                     variant="outline"
                     className="w-full text-lg py-6 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg"
                   >
-                    <Share2 className="mr-3 h-6 w-6" />
+                    <Users className="mr-3 h-6 w-6" />
                     {translate(UI_TEXTS.inviteFriendsButton)}
                   </Button>
                   <div className="pt-4">
-                    <h3 className="text-lg font-semibold text-secondary mb-2 text-center">{translate(UI_TEXTS.playerListTitle['es'])}</h3>
-                    <div className="p-4 bg-muted/30 rounded-md min-h-[80px] text-center text-muted-foreground">
-                        {translate(UI_TEXTS.playerListDescription['es'])}
+                    <h3 className="text-xl font-semibold text-secondary mb-2 text-center flex items-center justify-center">
+                      <Users className="mr-2 h-5 w-5" /> {translate(UI_TEXTS.playerListTitle)}
+                    </h3>
+                    <div className="p-4 bg-muted/20 rounded-md min-h-[100px] text-center">
+                        <p className="text-muted-foreground">{translate(UI_TEXTS.playerListDescription)}</p>
+                        {/* Placeholder para la lista real de jugadores */}
+                         {user && <p className="mt-2 text-sm text-foreground">{user.displayName || translate(UI_TEXTS.playerNameDefault)} (Tú)</p>}
+                         <p className="mt-1 text-sm text-muted-foreground italic">Esperando a otros jugadores...</p>
                     </div>
                   </div>
               </CardContent>
@@ -958,3 +986,5 @@ export default function GamePage() {
     </div>
   );
 }
+
+    
