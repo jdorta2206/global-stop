@@ -88,21 +88,40 @@ const validatePlayerWordFlow = ai.defineFlow(
     console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano o el objeto output fue nulo/undefined. Input: ${JSON.stringify(input)}. Raw LLM Output Object (schema parsed): ${JSON.stringify(output)}. Raw LLM Response Text (captured): "${llmResponseTextForLogging}". Intentando parsear manualmente desde el texto crudo capturado.`);
       
     if (llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text" && !llmResponseTextForLogging.startsWith("Error fetching raw text")) {
-      const jsonMatch = llmResponseTextForLogging.match(/\{\s*"isValid"\s*:\s*(true|false)\s*\}/i);
-      if (jsonMatch && jsonMatch[0]) {
-        try {
-          const parsedJson = JSON.parse(jsonMatch[0]);
+      let potentialJsonString = llmResponseTextForLogging;
+      
+      // Intenta extraer contenido de bloques de código markdown JSON
+      const markdownMatch = llmResponseTextForLogging.match(/```json\s*([\s\S]*?)\s*```/i);
+      if (markdownMatch && markdownMatch[1]) {
+        potentialJsonString = markdownMatch[1].trim();
+        console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo JSON de bloque markdown. Potencial JSON: "${potentialJsonString}"`);
+      } else {
+        // Si no hay markdown, intenta encontrar el primer '{' y el último '}'
+        const firstBrace = potentialJsonString.indexOf('{');
+        const lastBrace = potentialJsonString.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          potentialJsonString = potentialJsonString.substring(firstBrace, lastBrace + 1).trim();
+           console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo contenido entre llaves. Potencial JSON: "${potentialJsonString}"`);
+        } else {
+          console.warn(`[${timestamp}] validatePlayerWordFlow: No se encontró un bloque markdown JSON ni un objeto JSON claro entre llaves en el texto crudo: "${llmResponseTextForLogging}"`);
+        }
+      }
+
+      try {
+        // Solo intenta parsear si potentialJsonString parece un objeto JSON
+        if (potentialJsonString.startsWith("{") && potentialJsonString.endsWith("}")) {
+          const parsedJson = JSON.parse(potentialJsonString);
           if (typeof parsedJson.isValid === 'boolean') {
-            console.warn(`[${timestamp}] validatePlayerWordFlow: Parseo manual de JSON desde texto crudo exitoso: ${jsonMatch[0]}. Word: "${input.playerWord}", Letter: "${input.letter}", isValid: ${parsedJson.isValid}`);
+            console.warn(`[${timestamp}] validatePlayerWordFlow: Parseo manual de JSON desde texto crudo exitoso: "${potentialJsonString}". Word: "${input.playerWord}", Letter: "${input.letter}", isValid: ${parsedJson.isValid}`);
             return { isValid: parsedJson.isValid };
           } else {
-            console.error(`[${timestamp}] validatePlayerWordFlow: JSON extraído manualmente no contiene 'isValid' como booleano: "${jsonMatch[0]}". Defaulting to false.`);
+            console.error(`[${timestamp}] validatePlayerWordFlow: JSON extraído manualmente no contiene 'isValid' como booleano: "${potentialJsonString}". Defaulting to false.`);
           }
-        } catch (parseError: any) {
-          console.error(`[${timestamp}] validatePlayerWordFlow: Error al parsear JSON extraído manualmente: "${jsonMatch[0]}". Error: ${parseError.message || parseError}. Defaulting to false.`);
+        } else {
+           console.error(`[${timestamp}] validatePlayerWordFlow: El texto extraído ("${potentialJsonString}") no parece un objeto JSON válido. Original: "${llmResponseTextForLogging}". Defaulting to false.`);
         }
-      } else {
-         console.error(`[${timestamp}] validatePlayerWordFlow: No se encontró un patrón JSON válido ({"isValid": true/false}) en el texto crudo del LLM: "${llmResponseTextForLogging}". Input: ${JSON.stringify(input)}. Defaulting to false.`);
+      } catch (parseError: any) {
+        console.error(`[${timestamp}] validatePlayerWordFlow: Error al parsear JSON extraído manualmente: "${potentialJsonString}". Error: ${parseError.message || parseError}. Defaulting to false.`);
       }
     } else {
       console.error(`[${timestamp}] validatePlayerWordFlow: No se pudo obtener texto crudo válido del LLM para parseo manual. Raw text was: "${llmResponseTextForLogging}". Defaulting to false.`);
@@ -112,3 +131,4 @@ const validatePlayerWordFlow = ai.defineFlow(
     return { isValid: false }; 
   }
 );
+
