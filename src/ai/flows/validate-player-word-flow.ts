@@ -29,27 +29,21 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
 }
 
 // Prompt actualizado para mayor claridad y robustez
-const currentPromptText = `Eres un juez experto para el juego "Stop" (también conocido como Tutti Frutti o Basta) jugado en español.
-Tu tarea específica es determinar si la palabra '{{{playerWord}}}' es una entrada válida para la letra '{{{letter}}}'.
+const currentPromptText = `Is the Spanish word "{{{playerWord}}}" a valid, correctly-spelled word or common proper name that starts with the letter "{{{letter}}}" (case-insensitive)?
+The word must not be empty.
+The word must be a real Spanish word or a common Spanish proper name (e.g., Paco, París, Zorro, Irene, Sofía).
+Do not accept invented words or typos.
 
-Reglas a seguir ESTRICTAMENTE:
-1.  La palabra DEBE comenzar con la letra '{{{letter}}}' (ignora mayúsculas/minúsculas).
-2.  La palabra '{{{playerWord}}}' DEBE ser una palabra española real, comúnmente conocida y correctamente escrita, O un nombre propio común en español (ejemplos: 'Paco', 'París', 'Zaragoza', 'Zorro', 'Irene', 'Sofía'). No debe ser una palabra inventada, un error tipográfico, una cadena aleatoria de letras o una palabra de otro idioma (a menos que sea un préstamo muy común en español como 'hobby' o 'sándwich').
-3.  La palabra NO debe estar vacía ni consistir solo en espacios en blanco.
-
-Palabra del jugador: '{{{playerWord}}}'
-Letra requerida: '{{{letter}}}'
-
-Considerando SOLO las reglas 1, 2 y 3, ¿es válida la palabra del jugador?
-Responde con un objeto JSON en el formato {"isValid": true} si TODAS las reglas se cumplen.
-Responde con un objeto JSON en el formato {"isValid": false} si ALGUNA regla no se cumple.
-TU RESPUESTA COMPLETA DEBE SER ÚNICAMENTE EL OBJETO JSON. SIN TEXTO ADICIONAL.`;
+Respond ONLY with a JSON object in the format: {"isValid": true} or {"isValid": false}.
+No other text, no explanations, no markdown. Just the JSON.
+Example for a valid word: {"isValid": true}
+Example for an invalid word: {"isValid": false}`;
 
 const prompt = ai.definePrompt({
   name: 'validatePlayerWordPrompt',
   input: {schema: ValidatePlayerWordInputSchema},
   output: {schema: ValidatePlayerWordOutputSchema},
-  prompt: currentPromptText, // Usar el texto del prompt definido arriba
+  prompt: currentPromptText, 
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
@@ -73,26 +67,32 @@ const validatePlayerWordFlow = ai.defineFlow(
     }
     
     console.log(`[${timestamp}] validatePlayerWordFlow: Input pasó las pre-validaciones. Llamando al LLM con: ${JSON.stringify(input)}`);
-    // Loguear una porción del prompt actual que se usará
     console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
     
     const {output, response: rawLLMResponse} = await prompt(input);
+    
+    let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
+    try {
+      llmResponseTextForLogging = await rawLLMResponse.text();
+    } catch (e: any) {
+      console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
+    }
+    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
 
-    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}`);
 
     if (output && typeof output.isValid === 'boolean') {
-      // Happy path: Genkit successfully parsed the output according to the schema
       console.log(`[${timestamp}] validatePlayerWordFlow: Validación exitosa vía schema. Word: "${input.playerWord}", Letter: "${input.letter}", isValid: ${output.isValid}`);
       return output;
     }
     
-    // Attempt to parse from raw text if structured output (schema parsing) failed or was incomplete
-    let llmResponseText = "Unavailable";
-    try {
-      llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
-      console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano o el objeto output fue nulo/undefined. Input: ${JSON.stringify(input)}. Raw LLM Output Object: ${JSON.stringify(output)}. Intentando parsear desde texto crudo: "${llmResponseText}"`);
+    // Si el parseo del schema falla, intentamos obtener el texto crudo y parsearlo manualmente.
+    // La variable llmResponseTextForLogging ya contiene el texto crudo o un error.
+    // Si hubo error al obtener el texto crudo, llmResponseTextForLogging contendrá "LLM_TEXT_UNAVAILABLE" o el mensaje de error.
+    
+    console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano o el objeto output fue nulo/undefined. Input: ${JSON.stringify(input)}. Raw LLM Output Object (schema parsed): ${JSON.stringify(output)}. Raw LLM Response Text (captured): "${llmResponseTextForLogging}". Intentando parsear manualmente desde el texto crudo capturado.`);
       
-      const jsonMatch = llmResponseText.match(/\{\s*"isValid"\s*:\s*(true|false)\s*\}/i);
+    if (llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text" && !llmResponseTextForLogging.startsWith("Error fetching raw text")) {
+      const jsonMatch = llmResponseTextForLogging.match(/\{\s*"isValid"\s*:\s*(true|false)\s*\}/i);
       if (jsonMatch && jsonMatch[0]) {
         try {
           const parsedJson = JSON.parse(jsonMatch[0]);
@@ -106,15 +106,14 @@ const validatePlayerWordFlow = ai.defineFlow(
           console.error(`[${timestamp}] validatePlayerWordFlow: Error al parsear JSON extraído manualmente: "${jsonMatch[0]}". Error: ${parseError.message || parseError}. Defaulting to false.`);
         }
       } else {
-         console.error(`[${timestamp}] validatePlayerWordFlow: No se encontró un patrón JSON válido ({"isValid": true/false}) en el texto crudo del LLM: "${llmResponseText}". Input: ${JSON.stringify(input)}. Defaulting to false.`);
+         console.error(`[${timestamp}] validatePlayerWordFlow: No se encontró un patrón JSON válido ({"isValid": true/false}) en el texto crudo del LLM: "${llmResponseTextForLogging}". Input: ${JSON.stringify(input)}. Defaulting to false.`);
       }
-      
-    } catch (fetchTextError: any) {
-      llmResponseText = "Error al obtener texto de respuesta del LLM";
-      console.error(`[${timestamp}] validatePlayerWordFlow: Error al obtener texto crudo de respuesta del LLM para input ${JSON.stringify(input)}. Error: ${fetchTextError.message || fetchTextError}. Defaulting to false.`);
+    } else {
+      console.error(`[${timestamp}] validatePlayerWordFlow: No se pudo obtener texto crudo válido del LLM para parseo manual. Raw text was: "${llmResponseTextForLogging}". Defaulting to false.`);
     }
     
-    console.error(`[${timestamp}] validatePlayerWordFlow: Todos los intentos de obtener un booleano válido para 'isValid' fallaron. Defaulting to false. Word: "${input.playerWord}", Letter: "${input.letter}". LLM Raw Output Object: ${JSON.stringify(output)}, LLM Raw Text: "${llmResponseText}"`);
-    return { isValid: false }; // Default to false if all else fails
+    console.error(`[${timestamp}] validatePlayerWordFlow: Todos los intentos de obtener un booleano válido para 'isValid' fallaron. Defaulting to false. Word: "${input.playerWord}", Letter: "${input.letter}". LLM Raw Output Object (schema parsed): ${JSON.stringify(output)}, LLM Raw Text (captured): "${llmResponseTextForLogging}"`);
+    return { isValid: false }; 
   }
 );
+
