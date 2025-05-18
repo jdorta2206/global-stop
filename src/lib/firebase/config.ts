@@ -1,3 +1,4 @@
+
 // Importa las funciones que necesitas de los SDKs que necesitas
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
@@ -7,13 +8,13 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 // MUY IMPORTANTE: Reemplaza esto con la configuración real de tu proyecto Firebase.
 // Puedes encontrarla en la consola de Firebase > Configuración del proyecto.
 export const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_AUTH_DOMAIN",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_STORAGE_BUCKET",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID",
-  measurementId: "TU_MEASUREMENT_ID" // Opcional, para Google Analytics
+  apiKey: "AIzaSyCz9k9LrLiprDb3tzDrNbMFHqC88-LxUyk",
+  authDomain: "global-stop.firebaseapp.com",
+  projectId: "global-stop",
+  storageBucket: "global-stop.appspot.com", // Corrected to .appspot.com as per common Firebase convention
+  messagingSenderId: "902072408470",
+  appId: "1:902072408470:web:843e9f91308bb4ec4865b7",
+  measurementId: "TU_MEASUREMENT_ID" // Opcional, para Google Analytics - Kept as placeholder
 };
 
 // Inicializar Firebase
