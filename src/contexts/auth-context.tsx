@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verifica si la apiKey (o cualquier otro campo crítico) sigue siendo un placeholder "TU_..."
     const isPlaceholderConfig = appFirebaseConfig.apiKey.startsWith("TU_") ||
                                appFirebaseConfig.authDomain.startsWith("TU_") || 
                                appFirebaseConfig.projectId.startsWith("TU_");   
@@ -72,8 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       title = `Inicio de sesión con ${providerName} no habilitado`;
       description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
     } else if (error.code === 'auth/unauthorized-domain') {
-      title = "Dominio no autorizado";
-      description = `El dominio actual (${typeof window !== 'undefined' ? window.location.hostname : 'desconocido'}) no está autorizado para operaciones de OAuth. Ve a Firebase Console > Authentication > Settings (o Sign-in method > Authorized domains) y añade este dominio (y tu dominio publicado si es diferente) a la lista.`;
+      title = "¡ACCIÓN REQUERIDA: Dominio no autorizado!";
+      const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'el_dominio_actual_de_tu_app';
+      description = `El dominio "${currentHostname}" NO está autorizado en Firebase. DEBES añadirlo a la lista de "Dominios Autorizados" en tu Consola de Firebase: Authentication > Settings. Copia este dominio y añádelo allí.`;
+      duration = 15000; // Dar más tiempo para leer este mensaje crítico
     } else if (error.code === 'auth/invalid-api-key') {
       title = "API Key de Firebase Inválida";
       description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
@@ -118,8 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Este toast es más general, pero el handleSignInError ahora podría ser más específico
-    // si el error de Facebook es sobre el App ID.
     toast({
       title: "Nota sobre Facebook Login",
       description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
