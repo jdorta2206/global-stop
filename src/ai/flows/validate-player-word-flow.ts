@@ -44,6 +44,7 @@ const prompt = ai.definePrompt({
   input: {schema: ValidatePlayerWordInputSchema},
   output: {schema: LLMResponseSchema}, // Espera { isValid: boolean }
   prompt: currentPromptText,
+  config: { temperature: 0.2 }, // Añadido para reducir aleatoriedad
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
@@ -86,13 +87,11 @@ const validatePlayerWordFlow = ai.defineFlow(
     if (rawResponseText && rawResponseText !== "LLM_TEXT_UNAVAILABLE" && rawResponseText !== "Empty LLM response text") {
       try {
         let jsonText = rawResponseText;
-        // Primero, intentar encontrar ```json ... ```
         const markdownMatch = rawResponseText.match(/```json\s*([\s\S]*?)\s*```/);
         if (markdownMatch && markdownMatch[1]) {
           jsonText = markdownMatch[1];
           console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo JSON de bloque markdown: "${jsonText}"`);
         } else {
-          // Si no, intentar encontrar el primer { y el último }
           const firstBrace = rawResponseText.indexOf('{');
           const lastBrace = rawResponseText.lastIndexOf('}');
           if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -100,7 +99,6 @@ const validatePlayerWordFlow = ai.defineFlow(
             console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo contenido entre llaves: "${jsonText}"`);
           } else {
             console.warn(`[${timestamp}] validatePlayerWordFlow: No se encontró un bloque markdown JSON claro ni un objeto JSON entre llaves en el texto crudo: "${rawResponseText}". No se pudo parsear.`);
-            // No se pudo extraer un JSON probable
             throw new Error("No clear JSON found in raw text");
           }
         }
@@ -121,3 +119,4 @@ const validatePlayerWordFlow = ai.defineFlow(
     return { isValid: false };
   }
 );
+

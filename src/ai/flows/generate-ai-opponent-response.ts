@@ -38,6 +38,7 @@ const prompt = ai.definePrompt({
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema}, // Espera { response: "palabra" }
   prompt: currentPromptText,
+  config: { temperature: 0.2 }, // Añadido para reducir aleatoriedad
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
@@ -63,26 +64,23 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
 
 
     if (output && typeof output.response === 'string') {
-      // Respuesta estructurada es válida
       const structuredResponseTrimmed = output.response.trim();
       if (structuredResponseTrimmed !== "" && !structuredResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
         console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
         return { response: "" };
       }
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (estructurada): "${structuredResponseTrimmed}"`);
-      return { response: structuredResponseTrimmed }; // output es { response: string }
+      return { response: structuredResponseTrimmed };
     } 
-    // Fallback: si output.response no es un string, intentar usar el texto crudo
     else if (llmResponseTextForLogging && llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text") {
       const rawResponseTrimmed = llmResponseTextForLogging.trim();
       if (rawResponseTrimmed !== "" && rawResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
         console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Usando texto crudo "${rawResponseTrimmed}" como respuesta de IA porque el output estructurado 'output.response' fue problemático.`);
-        return { response: rawResponseTrimmed }; // Construir el objeto de salida esperado
+        return { response: rawResponseTrimmed };
       } else if (rawResponseTrimmed.trim() !== "") {
          console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Texto crudo de IA "${rawResponseTrimmed}" para letra "${input.letter}" no comenzó con la letra correcta. Tratando como vacío.`);
          return { response: "" };
       }
-      // Si el texto crudo también está vacío o no empieza con la letra, se trata como ""
       console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Texto crudo de IA "${rawResponseTrimmed}" estaba vacío o no comenzaba con la letra correcta. Tratando como vacío.`);
       return { response: "" };
     }
