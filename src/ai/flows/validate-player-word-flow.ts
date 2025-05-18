@@ -70,18 +70,40 @@ const validatePlayerWordFlow = ai.defineFlow(
     }
     
     const {output, response: rawLLMResponse} = await prompt(input);
+
+    // Intento principal de usar la salida estructurada
     if (output && typeof output.isValid === 'boolean') {
       return output;
     }
     
+    // Fallback: Intentar analizar el texto crudo del LLM si 'output' no es como se esperaba.
     let llmResponseText = "Unavailable";
     try {
       llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
-    } catch (e) {
+      // Intentar extraer un JSON del texto crudo. Esto puede ayudar si el LLM añade texto explicativo.
+      const jsonMatch = llmResponseText.match(/\{[\s\S]*\}/); // Busca la primera ocurrencia de {...}
+      if (jsonMatch && jsonMatch[0]) {
+        const potentialJson = jsonMatch[0];
+        try {
+          const parsedText = JSON.parse(potentialJson);
+          if (typeof parsedText.isValid === 'boolean') {
+            console.warn(`validatePlayerWordFlow: Salida directa del LLM no coincidió con el esquema. Se analizó manualmente el texto del LLM: "${potentialJson}". Objeto 'output' original: ${JSON.stringify(output)}`);
+            return { isValid: parsedText.isValid };
+          }
+        } catch (parseError) {
+          // Este error ocurre si el JSON extraído no es válido
+          console.error(`validatePlayerWordFlow: Fallo al analizar manualmente el JSON sospechoso del texto del LLM: "${potentialJson}". Error de parseo:`, parseError, `Texto completo del LLM: "${llmResponseText}"`);
+        }
+      }
+    } catch (fetchTextError) {
+      // Este error ocurre si rawLLMResponse.text() falla
       llmResponseText = "Error fetching LLM response text";
+      console.error(`validatePlayerWordFlow: Error al obtener el texto crudo de la respuesta del LLM. Input: ${JSON.stringify(input)}`, fetchTextError);
     }
-    console.error(`validatePlayerWordFlow: LLM did not return valid output for input: ${JSON.stringify(input)}. Raw response text: ${llmResponseText}. Output object: ${JSON.stringify(output)}`);
-    return { isValid: false }; // Default to not valid if LLM response is problematic
+    
+    // Si llegamos aquí, ni la salida estructurada ni el análisis manual funcionaron.
+    console.error(`validatePlayerWordFlow: LLM no devolvió una salida válida para el input: ${JSON.stringify(input)}. Texto crudo de respuesta del LLM: "${llmResponseText}". Objeto 'output' original: ${JSON.stringify(output)}`);
+    return { isValid: false }; // Por defecto, no es válido si la respuesta del LLM es problemática
   }
 );
 
