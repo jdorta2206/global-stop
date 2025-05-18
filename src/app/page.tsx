@@ -166,7 +166,9 @@ const UI_TEXTS = {
   },
   chatLoginTitle: { es: "Inicia sesión para chatear", en: "Login to Chat", fr: "Connectez-vous pour discuter", pt: "Faça login para conversar" },
   timeLeftLabel: { es: "Tiempo Restante:", en: "Time Left:", fr: "Temps Restant :", pt: "Tempo Restante:"},
-  timeEndingWarning: { es: "¡El tiempo se acaba!", en: "Time is running out!", fr: "Le temps presse !", pt: "O tempo está acabando!"},
+  timeEndingSoon: { es: "¡Solo 10 segundos!", en: "Only 10 seconds left!", fr: "Plus que 10 secondes !", pt: "Apenas 10 segundos!" },
+  timeAlmostUp: { es: "¡5 segundos! ¡RÁPIDO!", en: "5 seconds! QUICK!", fr: "5 secondes ! VITE !", pt: "5 segundos! RÁPIDO!" },
+  timeFinalCountdown: { es: "¡3... 2... 1...!", en: "3... 2... 1...!", fr: "3... 2... 1... !", pt: "3... 2... 1...!" },
   openChatLabel: { es: "Abrir chat", en: "Open chat", fr: "Ouvrir le chat", pt: "Abrir chat" },
   playerNameDefault: { es: "Jugador", en: "Player", fr: "Joueur", pt: "Jogador" },
   playedText: { es: "jugó", en: "played", fr: "a joué", pt: "jogou" },
@@ -237,8 +239,13 @@ export default function GamePage() {
   const [joinRoomId, setJoinRoomId] = useState<string>("");
 
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
+  const [countdownWarningText, setCountdownWarningText] = useState<string>("");
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+  const countdownTickAudioRef = useRef<HTMLAudioElement | null>(null);
+  const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
+
 
   const playerResponsesRef = useRef(playerResponses);
   const currentLetterRef = useRef(currentLetter);
@@ -270,7 +277,6 @@ export default function GamePage() {
       try {
         const parsedFriends = JSON.parse(storedFriends) as PlayerScore[];
         if (Array.isArray(parsedFriends)) {
-          // Ensure all friends have an 'id' for consistency, generate if missing
           const ensuredFriends = parsedFriends.map(f => ({
             ...f,
             id: f.id || `friend-${f.name.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`
@@ -325,24 +331,34 @@ export default function GamePage() {
 
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !audioRef.current) {
-      audioRef.current = new Audio('/music/tension-music.mp3');
-      audioRef.current.loop = true;
+    if (typeof window !== 'undefined') {
+      if (!backgroundAudioRef.current) {
+        backgroundAudioRef.current = new Audio('/music/tension-music.mp3'); // Asegúrate que este archivo exista
+        backgroundAudioRef.current.loop = true;
+      }
+      if (!countdownTickAudioRef.current) {
+        // Sonido suave para cada segundo (opcional, puede ser mucho)
+        // countdownTickAudioRef.current = new Audio('/music/countdown_tick.mp3'); 
+      }
+      if (!countdownUrgentAudioRef.current) {
+        // Sonido para los últimos segundos
+        countdownUrgentAudioRef.current = new Audio('/music/countdown_urgent.mp3'); // Asegúrate que este archivo exista
+      }
     }
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
+      backgroundAudioRef.current?.pause();
+      // countdownTickAudioRef.current?.pause(); // Si lo usas
+      countdownUrgentAudioRef.current?.pause();
     };
   }, []);
 
   useEffect(() => {
-    if (audioRef.current) {
+    if (backgroundAudioRef.current) {
       if (gameState === "PLAYING" && currentLetter) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(error => console.error("Error playing audio:", error));
+        backgroundAudioRef.current.currentTime = 0;
+        backgroundAudioRef.current.play().catch(error => console.error("Error playing background audio:", error));
       } else {
-        audioRef.current.pause();
+        backgroundAudioRef.current.pause();
       }
     }
   }, [gameState, currentLetter]);
@@ -370,6 +386,7 @@ export default function GamePage() {
     setRoundResults(null);
     setRoundWinner(null);
     setTimeLeft(ROUND_DURATION_SECONDS);
+    setCountdownWarningText("");
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
@@ -576,6 +593,7 @@ export default function GamePage() {
     if (gameState === "PLAYING" && currentLetter) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       setTimeLeft(ROUND_DURATION_SECONDS);
+      setCountdownWarningText("");
 
       timerIntervalRef.current = setInterval(() => {
         setTimeLeft(prevTime => {
@@ -584,6 +602,24 @@ export default function GamePage() {
             handleStop();
             return 0;
           }
+          
+          // Countdown sounds and text updates
+          if (prevTime === 11) { // At 11, so at 10 it shows
+            setCountdownWarningText(translate(UI_TEXTS.timeEndingSoon));
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
+          } else if (prevTime === 6) { // At 6, so at 5 it shows
+            setCountdownWarningText(translate(UI_TEXTS.timeAlmostUp));
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
+          } else if (prevTime === 4) { // At 4, so at 3 it shows
+            setCountdownWarningText(translate(UI_TEXTS.timeFinalCountdown));
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
+          } else if (prevTime > 10) {
+            setCountdownWarningText(""); // Clear warning if above 10
+          }
+          
+          // Optional: Play tick sound every second
+          // countdownTickAudioRef.current?.play().catch(e => console.error("Error playing tick audio:", e));
+
           return prevTime - 1;
         });
       }, 1000);
@@ -591,13 +627,14 @@ export default function GamePage() {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
+      setCountdownWarningText("");
     }
     return () => {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [gameState, currentLetter, handleStop]);
+  }, [gameState, currentLetter, handleStop, translate]);
 
 
   const startNextRound = useCallback(() => {
@@ -705,11 +742,10 @@ export default function GamePage() {
   };
 
   const handleAddFriend = (player: PlayerInLobby) => {
-    if (!user) { // Ensure user is logged in to add friends
+    if (!user) { 
       toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
       return;
     }
-    // Check if the player to add is the current user
     if (player.id === user.uid) {
         toast({ title: "No puedes agregarte a ti mismo", description: "No puedes ser tu propio amigo en la lista.", variant: "default" });
         return;
@@ -724,7 +760,7 @@ export default function GamePage() {
       return;
     }
     const newFriend: PlayerScore = {
-      id: player.id, // Use the ID from PlayerInLobby
+      id: player.id, 
       name: player.name,
       score: 0, 
       avatar: player.avatar,
@@ -754,9 +790,9 @@ export default function GamePage() {
       return;
     }
     const newFriend: PlayerScore = {
-      id: player.id || `global-${player.name.replace(/\s+/g, '-')}`, // Ensure ID exists
+      id: player.id || `global-${player.name.replace(/\s+/g, '-')}`, 
       name: player.name,
-      score: player.score, // Use score from leaderboard or default to 0
+      score: player.score, 
       avatar: player.avatar,
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
@@ -882,6 +918,7 @@ export default function GamePage() {
               <FriendsLeaderboardCard 
                 leaderboardData={friendsList} 
                 language={language} 
+                currentUserId={user?.uid}
                 onChallenge={handleChallengePlayer}
               />
             </>
@@ -1043,8 +1080,8 @@ export default function GamePage() {
                 <p className="text-2xl font-semibold text-primary">{translate(UI_TEXTS.timeLeftLabel)} {timeLeft}s</p>
               </div>
               <Progress value={(timeLeft / ROUND_DURATION_SECONDS) * 100} className="w-full h-3 mb-2" />
-              {timeLeft <= 10 && timeLeft > 0 && (
-                  <p className="text-destructive font-medium mt-1 animate-pulse">{translate(UI_TEXTS.timeEndingWarning)}</p>
+              {countdownWarningText && (
+                  <p className="text-destructive font-medium mt-1 animate-pulse">{countdownWarningText}</p>
               )}
             </div>
           )}
@@ -1188,4 +1225,5 @@ export default function GamePage() {
     
 
     
+
 
