@@ -18,17 +18,13 @@ const ValidatePlayerWordInputSchema = z.object({
 });
 export type ValidatePlayerWordInput = z.infer<typeof ValidatePlayerWordInputSchema>;
 
-// Este es el tipo de salida que GamePage espera. El flujo interno manejará la conversión.
-// REMOVED 'export' from the Zod schema object below
 const ValidatePlayerWordOutputSchema = z.object({
   isValid: z.boolean().describe('True si la palabra es válida, bien escrita y comienza con la letra especificada; false en caso contrario.'),
 });
 export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSchema>;
 
-// Nuevo esquema de salida que el *prompt* espera del LLM (texto plano)
-const PlainTextValidationOutputSchema = z.object({
-  validationStatus: z.string().describe("Una sola palabra: 'VALIDO' o 'INVALIDO'."),
-});
+// El prompt ahora espera que el LLM devuelva un string: "VALIDO" o "INVALIDO"
+const LLMValidationStringOutputSchema = z.string().describe("Una sola palabra: 'VALIDO' o 'INVALIDO'.");
 
 export async function validatePlayerWord(input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> {
   return validatePlayerWordFlow(input);
@@ -48,9 +44,9 @@ RESPONDE CON UNA SOLA PALABRA: VALIDO o INVALIDO.
 NO uses JSON. NO uses markdown. NO añadas ningún otro texto. Solo la palabra VALIDO o INVALIDO.`;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptPlainText', // Nombre diferente para evitar conflictos si se cachea
+  name: 'validatePlayerWordPromptPlainText',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: PlainTextValidationOutputSchema}, // Usar el nuevo esquema para el prompt
+  output: {schema: LLMValidationStringOutputSchema}, // Espera un string directamente
   prompt: currentPromptText,
 });
 
@@ -58,7 +54,7 @@ const validatePlayerWordFlow = ai.defineFlow(
   {
     name: 'validatePlayerWordFlow',
     inputSchema: ValidatePlayerWordInputSchema,
-    outputSchema: ValidatePlayerWordOutputSchema, // El flujo aún expone el schema original
+    outputSchema: ValidatePlayerWordOutputSchema, // El flujo aún expone el schema original {isValid: boolean}
   },
   async (input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> => {
     const timestamp = new Date().toISOString();
@@ -74,57 +70,50 @@ const validatePlayerWordFlow = ai.defineFlow(
     }
     
     console.log(`[${timestamp}] validatePlayerWordFlow: Input para LLM: ${JSON.stringify(input)}`);
-    console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando VALIDO/INVALIDO): "${currentPromptText.substring(0,300)}..."`);
+    console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando VALIDO/INVALIDO como string): "${currentPromptText.substring(0,300)}..."`);
     
-    const {output, response: rawLLMResponse} = await prompt(input);
+    // 'llmOutputString' es el string "VALIDO" o "INVALIDO" si Genkit lo parsea correctamente del LLM.
+    const {output: llmOutputString, response: rawLLMResponse} = await prompt(input);
     
-    let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
+    let rawResponseText = "LLM_TEXT_UNAVAILABLE";
     try {
-      llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
-    } catch (e: any)
-{
+      rawResponseText = (await rawLLMResponse.text()) || "Empty LLM response text";
+    } catch (e: any) {
       console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
     }
-    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Structured Output (Genkit schema expecting validationStatus string): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
+    console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output String (from Genkit schema): "${llmOutputString}", Raw LLM Response Text: "${rawResponseText}"`);
 
-    // Prioritize the structured output if available and valid
-    if (output && typeof output.validationStatus === 'string') {
-      const status = output.validationStatus.trim().toUpperCase();
+    // Prioritizar el output string si Genkit lo parseó correctamente
+    if (typeof llmOutputString === 'string' && llmOutputString.trim() !== "") {
+      const status = llmOutputString.trim().toUpperCase();
       if (status === "VALIDO") {
-        console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió "VALIDO" (vía schema). Palabra: "${input.playerWord}", Letra: "${input.letter}". Mapeando a {isValid: true}.`);
+        console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió "VALIDO" (vía schema string). Palabra: "${input.playerWord}", Letra: "${input.letter}". Mapeando a {isValid: true}.`);
         return { isValid: true };
       } else if (status === "INVALIDO") {
-        console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió "INVALIDO" (vía schema). Palabra: "${input.playerWord}", Letra: "${input.letter}". Mapeando a {isValid: false}.`);
+        console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió "INVALIDO" (vía schema string). Palabra: "${input.playerWord}", Letra: "${input.letter}". Mapeando a {isValid: false}.`);
         return { isValid: false };
       } else {
-        // The schema parsed, but the string wasn't VALIDO or INVALIDO. Log it and try raw text.
-        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM devolvió un estado inesperado por schema: "${output.validationStatus}". Respuesta cruda: "${llmResponseTextForLogging}". Se intentará parsear texto crudo.`);
-        // Continue to try parsing raw text
+        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM Output String (schema parsed) fue "${llmOutputString}", no VALIDO/INVALIDO. Se intentará parsear texto crudo.`);
       }
     } else {
-        // Schema parsing failed or output.validationStatus wasn't a string.
-        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.validationStatus) no fue un string o 'output' fue nulo. Respuesta cruda: "${llmResponseTextForLogging}". Se intentará parsear texto crudo.`);
+        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM Output String (schema parsed) no fue un string o fue vacío. Respuesta cruda: "${rawResponseText}". Se intentará parsear texto crudo.`);
     }
       
-    // Fallback: attempt to interpret the raw LLM text directly if schema parsing failed or gave unexpected content
-    if (llmResponseTextForLogging && llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text") {
-      const rawTextUpper = llmResponseTextForLogging.trim().toUpperCase();
+    // Fallback: attempt to interpret the raw LLM text directly
+    if (rawResponseText && rawResponseText !== "LLM_TEXT_UNAVAILABLE" && rawResponseText !== "Empty LLM response text") {
+      const rawTextUpper = rawResponseText.trim().toUpperCase();
       if (rawTextUpper === "VALIDO") {
-          console.warn(`[${timestamp}] validatePlayerWordFlow: Parseado "VALIDO" directamente desde texto crudo: "${llmResponseTextForLogging}". Mapeando a {isValid: true}.`);
+          console.warn(`[${timestamp}] validatePlayerWordFlow: Parseado "VALIDO" directamente desde texto crudo: "${rawResponseText}". Mapeando a {isValid: true}.`);
           return { isValid: true };
       } else if (rawTextUpper === "INVALIDO") {
-          console.warn(`[${timestamp}] validatePlayerWordFlow: Parseado "INVALIDO" directamente desde texto crudo: "${llmResponseTextForLogging}". Mapeando a {isValid: false}.`);
+          console.warn(`[${timestamp}] validatePlayerWordFlow: Parseado "INVALIDO" directamente desde texto crudo: "${rawResponseText}". Mapeando a {isValid: false}.`);
           return { isValid: false };
       } else {
-          // Raw text was something else entirely
-          console.warn(`[${timestamp}] validatePlayerWordFlow: Texto crudo ("${llmResponseTextForLogging}") no es ni "VALIDO" ni "INVALIDO".`);
+          console.warn(`[${timestamp}] validatePlayerWordFlow: Texto crudo ("${rawResponseText}") no es ni "VALIDO" ni "INVALIDO".`);
       }
     }
     
-    // If all attempts failed
     console.error(`[${timestamp}] validatePlayerWordFlow: TODOS LOS INTENTOS DE OBTENER VALIDO/INVALIDO HAN FALLADO. Por favor, revisa el "Raw LLM Response Text" logueado arriba para ver qué está devolviendo la IA. Defaulting to {isValid: false}. Palabra: "${input.playerWord}", Letra: "${input.letter}".`);
-    return { isValid: false }; // Default to false if all parsing fails
+    return { isValid: false };
   }
 );
-
-    

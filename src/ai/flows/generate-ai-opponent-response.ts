@@ -27,7 +27,6 @@ export async function generateAiOpponentResponse(input: AiOpponentResponseInput)
   return generateAiOpponentResponseFlow(input);
 }
 
-// Prompt ultra-directo en inglés
 const currentPromptText = `You are an AI playing the game "Stop" (also known as Tutti Frutti).
 Current letter: "{{{letter}}}"
 Current category: "{{{category}}}"
@@ -40,7 +39,7 @@ The word MUST begin with the letter "{{{letter}}}".`;
 const prompt = ai.definePrompt({
   name: 'generateAiOpponentResponsePrompt',
   input: {schema: AiOpponentResponseInputSchema},
-  output: {schema: AiOpponentResponseOutputSchema},
+  output: {schema: AiOpponentResponseOutputSchema}, // Espera { response: "palabra" }
   prompt: currentPromptText,
 });
 
@@ -67,17 +66,28 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
 
 
     if (output && typeof output.response === 'string') {
-      // Defensive check: Ensure AI's response actually starts with the correct letter,
-      // even though the prompt instructs it to.
+      // Respuesta estructurada es válida
       if (output.response.trim() !== "" && !output.response.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
-        return { response: "" }; // Treat as invalid if it doesn't adhere to the primary rule
+        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured) "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        return { response: "" };
       }
-      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada y validada (formato letra): "${output.response}"`);
-      return output;
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (estructurada): "${output.response}"`);
+      return output; // output es { response: string }
+    } 
+    // Fallback: si output.response no es un string, intentar usar el texto crudo
+    else if (llmResponseTextForLogging && llmResponseTextForLogging !== "LLM_TEXT_UNAVAILABLE" && llmResponseTextForLogging !== "Empty LLM response text") {
+      const rawResponseTrimmed = llmResponseTextForLogging.trim();
+      if (rawResponseTrimmed !== "" && rawResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
+        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Usando texto crudo "${rawResponseTrimmed}" como respuesta de IA porque el output estructurado 'output.response' fue problemático.`);
+        return { response: rawResponseTrimmed }; // Construir el objeto de salida esperado
+      } else if (rawResponseTrimmed.trim() !== "") {
+         console.warn(`[${timestamp}] generateAiOpponentResponseFlow: Texto crudo de IA "${rawResponseTrimmed}" para letra "${input.letter}" no comenzó con la letra correcta. Tratando como vacío.`);
+         return { response: "" };
+      }
+      // Si el texto crudo también está vacío, el siguiente error lo manejará.
     }
     
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM did not return valid 'response' string in structured output. Input: ${JSON.stringify(input)}. Raw LLM Output Object (schema parsed): ${JSON.stringify(output)}. Raw LLM Response Text (captured): "${llmResponseTextForLogging}". Defaulting to empty string.`);
-    return { response: "" }; // Default to empty string if LLM response is problematic
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'response' string válido en output estructurado, ni texto crudo utilizable. Input: ${JSON.stringify(input)}. Defaulting to empty string.`);
+    return { response: "" };
   }
 );
