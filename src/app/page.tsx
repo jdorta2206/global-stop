@@ -71,7 +71,6 @@ export default function GamePage() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Refs for values needed by handleStopInternal to keep it stable
   const playerResponsesRef = useRef(playerResponses);
   const currentLetterRef = useRef(currentLetter);
   const gameStateRef = useRef(gameState);
@@ -155,13 +154,13 @@ export default function GamePage() {
   }, []);
 
   const startGame = useCallback(() => {
-    if (gameState === "IDLE") { 
+    if (gameStateRef.current === "IDLE") { 
         setTotalPlayerScore(0);
         setTotalAiScore(0);
     }
     resetRound();
     setGameState("SPINNING");
-  }, [resetRound, gameState]);
+  }, [resetRound]);
 
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
@@ -175,9 +174,9 @@ export default function GamePage() {
   const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
-    const currentGameState = gameStateRef.current;
+    // const currentGameState = gameStateRef.current; // gameStateRef.current is already used via setGameState below
 
-    if (!letterForValidation || currentGameState === "EVALUATING") return;
+    if (!letterForValidation || gameStateRef.current === "EVALUATING") return;
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -188,7 +187,7 @@ export default function GamePage() {
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
+        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400)); // Simulate AI thinking time
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
@@ -201,24 +200,32 @@ export default function GamePage() {
     await Promise.all(aiPromises);
     setAiResponses(tempAiResponses); 
 
+    console.log("[GamePage] Iniciando validación de palabras del jugador...");
     const playerValidationPromises = CATEGORIES.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
+      
+      console.log(`[GamePage] Validando para Categoría: ${category}, Palabra: "${playerResponse}", Letra: "${letterForValidation!}"`);
+
       if (playerResponse === "") {
+        console.log(`[GamePage] Palabra vacía para ${category}. No válida.`);
         return { category, isValid: false, errorReason: null }; 
       }
       if (!playerResponse.toLowerCase().startsWith(letterForValidation!.toLowerCase())) {
+        console.log(`[GamePage] Palabra "${playerResponse}" no comienza con la letra "${letterForValidation!}" (pre-validación). No válida.`);
         return { category, isValid: false, errorReason: 'format' as 'format' }; 
       }
       try {
         const validationInput: ValidatePlayerWordInput = {
           letter: letterForValidation!,
-          category,
+          category, // La categoría se envía, aunque el prompt actual de validación se centra en la palabra en sí.
           playerWord: playerResponse,
         };
+        console.log(`[GamePage] Llamando a validatePlayerWord con:`, validationInput);
         const validationResult = await validatePlayerWord(validationInput);
+        console.log(`[GamePage] Resultado de validatePlayerWord para "${playerResponse}": ${JSON.stringify(validationResult)}`);
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
-        console.error(`Error validando palabra del jugador para ${category} ("${playerResponse}"):`, error);
+        console.error(`[GamePage] Error validando palabra del jugador para ${category} ("${playerResponse}"):`, error);
         return { category, isValid: false, errorReason: 'api_error' as 'api_error' }; 
       }
     });
@@ -228,6 +235,8 @@ export default function GamePage() {
     playerValidationResults.forEach(res => {
       playerWordValidity[res.category] = {isValid: res.isValid, errorReason: res.errorReason};
     });
+    console.log("[GamePage] Resultados de validación de palabras del jugador (playerWordValidity):", playerWordValidity);
+
 
     let currentRoundPlayerScore = 0;
     let currentRoundAiScore = 0;
@@ -241,14 +250,17 @@ export default function GamePage() {
       const aiResponseTrimmed = aiResponseRaw.trim();
       
       const validationStatus = playerWordValidity[category];
-      const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
+      // Default to false if validationStatus is undefined (should not happen if CATEGORIES is iterated correctly)
+      const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false; 
       
       let pScore = 0;
       let aScore = 0;
 
+      // Player's word must pass frontend format check AND AI validation
       const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
       const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
       
+      // AI's word must pass format check (we assume AI provides valid words if non-empty)
       const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
 
       if (isPlayerResponseConsideredValid && !isAiResponseValid) {
@@ -264,14 +276,19 @@ export default function GamePage() {
           aScore = 100;
         }
       }
+      // If neither response is valid, scores remain 0
+
+      console.log(`[GamePage] Puntuación para Categoría: ${category}
+        - Jugador: "${playerResponseTrimmed}", PasaFormato: ${playerPassesFormatCheck}, ValidadoIA: ${isPlayerWordValidatedByAI}, ConsideradoValido: ${isPlayerResponseConsideredValid}, Score: ${pScore}
+        - IA: "${aiResponseTrimmed}", ValidoIA: ${isAiResponseValid}, Score: ${aScore}`);
       
       detailedRoundResults[category] = { 
         playerScore: pScore, 
         aiScore: aScore, 
-        playerResponse: playerResponseRaw,
-        aiResponse: aiResponseRaw,
-        playerResponseIsValid: isPlayerWordValidatedByAI,
-        playerResponseErrorReason: validationStatus ? validationStatus.errorReason : null,
+        playerResponse: playerResponseRaw, // Store raw for display
+        aiResponse: aiResponseRaw,       // Store raw for display
+        playerResponseIsValid: isPlayerWordValidatedByAI, // Store AI's verdict
+        playerResponseErrorReason: validationStatus ? validationStatus.errorReason : (playerPassesFormatCheck ? null : 'format'),
       };
       currentRoundPlayerScore += pScore;
       currentRoundAiScore += aScore;
@@ -287,9 +304,9 @@ export default function GamePage() {
       setRoundWinner("¡Jugador Gana la Ronda!");
     } else if (currentRoundAiScore > currentRoundPlayerScore) {
       setRoundWinner("¡IA Gana la Ronda!");
-    } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) {
+    } else if (currentRoundPlayerScore > 0 || currentRoundAiScore > 0) { // If both zero, but at least one was positive, it's a tie
       setRoundWinner("¡Empate en la Ronda!");
-    } else { 
+    } else { // Both scored zero
       setRoundWinner("Nadie puntuó en esta ronda.");
     }
 
@@ -299,10 +316,10 @@ export default function GamePage() {
   }, [ 
     setGameState, setIsLoadingAi, setAiResponses, 
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
-    setRoundResults, setRoundWinner, toast
-    // Note: generateAiOpponentResponse and validatePlayerWord are stable imports
+    setRoundResults, setRoundWinner, toast 
+    // generateAiOpponentResponse and validatePlayerWord are stable imports from AI flows
     // CATEGORIES is a stable constant
-    // currentLetterRef, playerResponsesRef, gameStateRef are used internally
+    // playerResponsesRef, currentLetterRef, gameStateRef are used for reading current values
   ]);
 
   const handleStop = useCallback(() => {
@@ -659,3 +676,4 @@ export default function GamePage() {
     </div>
   );
 }
+
