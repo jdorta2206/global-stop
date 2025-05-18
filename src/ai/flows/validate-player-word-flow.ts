@@ -33,27 +33,16 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
   return validatePlayerWordFlow(input);
 }
 
-const currentPromptText = `Eres un juez experto para el juego "Stop" (también conocido como Tutti Frutti o Basta) jugado en español.
-Tu tarea específica es determinar si la palabra '{{{playerWord}}}' es una entrada válida para la letra '{{{letter}}}'.
-
-Reglas a seguir ESTRICTAMENTE:
-1.  La palabra DEBE comenzar con la letra '{{{letter}}}' (ignora mayúsculas/minúsculas).
-2.  La palabra '{{{playerWord}}}' DEBE ser una palabra española real, comúnmente conocida y correctamente escrita, O un nombre propio común en español (ejemplos: 'Paco', 'París', 'Zaragoza', 'Zorro', 'Irene', 'Sofía'). No debe ser una palabra inventada, un error tipográfico, una cadena aleatoria de letras o una palabra de otro idioma (a menos que sea un préstamo muy común en español como 'hobby' o 'sándwich').
-3.  La palabra NO debe estar vacía ni consistir solo en espacios en blanco.
-
-Palabra del jugador: '{{{playerWord}}}'
-Letra requerida: '{{{letter}}}'
-
-Considerando SOLO las reglas 1, 2 y 3, ¿es válida la palabra del jugador?
-Responde con un objeto JSON en el formato {"isValid": true} si TODAS las reglas se cumplen.
-Responde con un objeto JSON en el formato {"isValid": false} si ALGUNA regla no se cumple.
-TU RESPUESTA COMPLETA DEBE SER ÚNICAMENTE EL OBJETO JSON. SIN TEXTO ADICIONAL NI MARKDOWN.
-`;
+const currentPromptText = `Word: "{{{playerWord}}}"
+Letter: "{{{letter}}}"
+Is the Spanish word "{{{playerWord}}}" a real, correctly-spelled word OR a common Spanish proper name that starts with the letter "{{{letter}}}" (case-insensitive)?
+Answer ONLY with JSON: {"isValid": true} or {"isValid": false}.
+NO OTHER TEXT. NO MARKDOWN. JUST JSON.`;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON',
+  name: 'validatePlayerWordPromptJSON_vMinimal',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: LLMResponseSchema},
+  output: {schema: LLMResponseSchema}, // Espera { isValid: boolean }
   prompt: currentPromptText,
 });
 
@@ -66,6 +55,7 @@ const validatePlayerWordFlow = ai.defineFlow(
   async (input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] validatePlayerWordFlow: Iniciando validación para input: ${JSON.stringify(input)}`);
+    console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando JSON {"isValid": boolean}): "${currentPromptText.substring(0,300)}..."`);
 
     if (input.playerWord.trim() === "") {
       console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra vacía recibida. Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
@@ -75,9 +65,6 @@ const validatePlayerWordFlow = ai.defineFlow(
         console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra "${input.playerWord}" no comienza con la letra "${input.letter}". Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
         return { isValid: false };
     }
-    
-    console.log(`[${timestamp}] validatePlayerWordFlow: Input para LLM: ${JSON.stringify(input)}`);
-    console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando JSON {"isValid": boolean}): "${currentPromptText.substring(0,300)}..."`);
     
     const {output, response: rawLLMResponse} = await prompt(input);
     
@@ -99,18 +86,22 @@ const validatePlayerWordFlow = ai.defineFlow(
     if (rawResponseText && rawResponseText !== "LLM_TEXT_UNAVAILABLE" && rawResponseText !== "Empty LLM response text") {
       try {
         let jsonText = rawResponseText;
+        // Primero, intentar encontrar ```json ... ```
         const markdownMatch = rawResponseText.match(/```json\s*([\s\S]*?)\s*```/);
         if (markdownMatch && markdownMatch[1]) {
           jsonText = markdownMatch[1];
           console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo JSON de bloque markdown: "${jsonText}"`);
         } else {
+          // Si no, intentar encontrar el primer { y el último }
           const firstBrace = rawResponseText.indexOf('{');
           const lastBrace = rawResponseText.lastIndexOf('}');
           if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
             jsonText = rawResponseText.substring(firstBrace, lastBrace + 1);
             console.warn(`[${timestamp}] validatePlayerWordFlow: Se extrajo contenido entre llaves: "${jsonText}"`);
           } else {
-            console.warn(`[${timestamp}] validatePlayerWordFlow: No se encontró un bloque markdown JSON claro ni un objeto JSON entre llaves en el texto crudo: "${rawResponseText}"`);
+            console.warn(`[${timestamp}] validatePlayerWordFlow: No se encontró un bloque markdown JSON claro ni un objeto JSON entre llaves en el texto crudo: "${rawResponseText}". No se pudo parsear.`);
+            // No se pudo extraer un JSON probable
+            throw new Error("No clear JSON found in raw text");
           }
         }
 
