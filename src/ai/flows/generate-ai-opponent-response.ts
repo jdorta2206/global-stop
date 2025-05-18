@@ -35,7 +35,7 @@ ONLY the word or empty string. NO explanations.
 The word MUST begin with the letter "{{{letter}}}".`;
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vMinimalStrict',
+  name: 'generateAiOpponentResponsePrompt_vMinimalStrict', // Nombre actualizado
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema}, // Espera { response: "palabra" }
   prompt: currentPromptText,
@@ -74,7 +74,20 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       return { response: structuredResponseTrimmed };
     } 
     
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
+    // Si output.response no es un string válido, intentamos usar el texto crudo si es solo una palabra
+    // Esto es un fallback por si el LLM solo devuelve la palabra y no el objeto JSON.
+    const rawTextTrimmed = llmResponseTextForLogging.trim();
+    if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) { // Heurística: es una sola palabra?
+        if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
+            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
+            return { response: rawTextTrimmed };
+        } else {
+            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido. Raw text "${rawTextTrimmed}" parece una palabra pero no empieza con la letra "${input.letter}". Defaulting to empty string.`);
+            return { response: "" };
+        }
+    }
+    
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
     return { response: "" };
   }
 );
