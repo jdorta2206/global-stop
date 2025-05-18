@@ -4,9 +4,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaderboardTable } from './leaderboard-table';
 import type { PlayerScore } from '@/app/page';
-import { Users } from 'lucide-react';
+import { Users, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/contexts/language-context';
+import { Button } from '@/components/ui/button';
 
 interface FriendsLeaderboardCardProps {
   leaderboardData: PlayerScore[];
@@ -22,11 +23,12 @@ const TEXTS = {
     fr: "Rivalisez avec vos amis et voyez qui mène.", 
     pt: "Compita com seus amigos e veja quem está liderando." 
   },
+  addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
   comingSoon: { 
-    es: "(Funcionalidad de añadir amigos y puntuaciones reales de amigos es una futura mejora)", 
-    en: "(Functionality to add friends and real friends' scores is a future improvement)", 
-    fr: "(La fonctionnalité d'ajout d'amis et les scores réels des amis sont une amélioration future)", 
-    pt: "(Funcionalidade de adicionar amigos e pontuações reais de amigos é uma melhoria futura)" 
+    es: "Próximamente: ¡Conéctate con amigos y compite en tiempo real!", 
+    en: "Coming Soon: Connect with friends and compete in real-time!", 
+    fr: "Bientôt disponible : Connectez-vous avec des amis et concourez en temps réel !", 
+    pt: "Em Breve: Conecte-se com amigos e compita em tempo real!" 
   },
 };
 
@@ -39,14 +41,20 @@ export function FriendsLeaderboardCard({ leaderboardData, className, language }:
   return (
     <Card className={cn("shadow-lg rounded-xl", className)}>
       <CardHeader>
-         <div className="flex items-center space-x-3">
-            <Users className="h-7 w-7 text-primary" />
-            <CardTitle className="text-2xl font-semibold text-primary">{translate('title')}</CardTitle>
+         <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+                <Users className="h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl font-semibold text-primary">{translate('title')}</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" disabled className="whitespace-nowrap">
+                <UserPlus className="mr-2 h-4 w-4" />
+                {translate('addFriendButton')}
+            </Button>
         </div>
-        <CardDescription>
+        <CardDescription className="mt-2">
           {translate('description')}
           <br />
-          <span className="text-xs text-muted-foreground/80">{translate('comingSoon')}</span>
+          <span className="text-xs text-muted-foreground/80 font-semibold">{translate('comingSoon')}</span>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -55,3 +63,4 @@ export function FriendsLeaderboardCard({ leaderboardData, className, language }:
     </Card>
   );
 }
+
