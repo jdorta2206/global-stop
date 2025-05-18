@@ -3,7 +3,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { AuthStatus } from '@/components/auth/auth-status';
 import { useLanguage, LANGUAGES, type LanguageOption } from '@/contexts/language-context';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Globe } from 'lucide-react';
 
@@ -34,7 +33,7 @@ export function AppHeader() {
             height={48}
             className="h-10 md:h-12 w-auto"
             priority
-            data-ai-hint="roulette logo" // Actualizado para el nuevo estilo de logo
+            data-ai-hint="game logo" // Actualizado para ser más genérico
           />
         </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">
