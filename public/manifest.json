@@ -5,7 +5,7 @@
   "description": "¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
+  "background_color": "#C0474A",
   "theme_color": "#C0474A",
   "icons": [
     {
@@ -54,7 +54,7 @@
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

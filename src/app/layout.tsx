@@ -22,10 +22,17 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   themeColor: '#C0474A', // Color del tema para la barra de estado del navegador en móviles
   icons: {
-    icon: '/logo_stop_game.png', // Icono principal (favicon y otros usos)
-    apple: '/icons/icon-192x192.png', // Para Apple touch icon
-    // Puedes añadir más tamaños o tipos aquí si es necesario
-    // shortcut: '/icons/icon-96x96.png', // Para accesos directos de PWA
+    icon: { url: '/logo_stop_game.png', type: 'image/png' }, // Para favicons modernos
+    shortcut: { url: '/logo_stop_game.png', type: 'image/png' }, // Para navegadores más antiguos y accesos directos
+    apple: [ // Para Apple touch icons
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      // Podrías añadir más tamaños específicos para Apple aquí si los tienes, ej:
+      // { url: '/icons/apple-icon-180x180.png', sizes: '180x180', type: 'image/png' },
+    ],
+    // Puedes añadir otros iconos aquí si es necesario, por ejemplo, para Android con propósito "maskable"
+    // other: [
+    //   { rel: 'icon', url: '/icons/icon-maskable-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' }
+    // ]
   },
 };
 
