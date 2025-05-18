@@ -17,7 +17,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Juego Global Stop',
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
-  manifest: '/manifest.json', // Añadido enlace al manifest
+  manifest: '/manifest.json',
+  themeColor: '#C0474A', // Moved theme-color here
 };
 
 export default function RootLayout({
@@ -27,9 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <head>
-        <meta name="theme-color" content="#C0474A" /> {/* Añadido theme-color */}
-      </head>
+      {/* The <head> tag is managed by Next.js through the metadata object and conventions */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AuthProvider> {/* Envolver la aplicación con AuthProvider */}
           {children}
