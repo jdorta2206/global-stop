@@ -43,11 +43,13 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
   async input => {
     const {output, response: rawLLMResponse} = await prompt(input);
 
+    console.log(`generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object: ${JSON.stringify(output)}`);
+
     if (output && typeof output.response === 'string') {
       // Defensive check: Ensure AI's response actually starts with the correct letter,
       // even though the prompt instructs it to.
       if (output.response.trim() !== "" && !output.response.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        console.warn(`generateAiOpponentResponseFlow: AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
         return { response: "" }; // Treat as invalid if it doesn't adhere to the primary rule
       }
       return output;
@@ -59,7 +61,7 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     } catch (e) {
       llmResponseText = "Error fetching LLM response text";
     }
-    console.error(`generateAiOpponentResponseFlow: LLM did not return valid output for input ${JSON.stringify(input)}. Raw response text: ${llmResponseText}. Output object: ${JSON.stringify(output)}`);
+    console.error(`generateAiOpponentResponseFlow: LLM did not return valid 'response' string. Input: ${JSON.stringify(input)}. Raw LLM Output: ${JSON.stringify(output)}. Raw response text: "${llmResponseText}". Defaulting to empty string.`);
     return { response: "" }; // Default to empty string if LLM response is problematic
   }
 );
