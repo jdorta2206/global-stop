@@ -41,7 +41,7 @@ export function LeaderboardTable({ scores, caption }: LeaderboardTableProps) {
                 </Avatar>
               </TableCell>
               <TableCell>{player.name}</TableCell>
-              <TableCell className="text-right font-semibold">{player.score.toLocaleString()}</TableCell>
+              <TableCell className="text-right font-semibold">{player.score}</TableCell>
             </TableRow>
           ))}
         </TableBody>
