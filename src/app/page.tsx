@@ -192,8 +192,6 @@ export default function GamePage() {
     const tempAiResponses: Record<string, string> = {};
     const aiPromises = CATEGORIES.map(async (category) => {
       try {
-        // Simulación de tiempo de pensamiento IA, no crítico para la lógica de respuesta/puntuación
-        // await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200)); 
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
@@ -208,11 +206,11 @@ export default function GamePage() {
     setAiResponses(tempAiResponses); 
     console.log("[GamePage] AI responses generated:", tempAiResponses);
 
-    console.log("[GamePage] Initiating player word validation...");
+    console.log("[GamePage] Iniciando validación de palabras del jugador...");
     const playerValidationPromises = CATEGORIES.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
       
-      console.log(`[GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}"`);
+      console.log(`[GamePage] Validando para Categoría: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}"`);
 
       if (playerResponse === "") {
         console.log(`[GamePage] Player word for ${category} is empty. Marking as invalid locally.`);
@@ -234,7 +232,6 @@ export default function GamePage() {
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
         console.error(`[GamePage] Error validating player word for ${category} ("${playerResponse}"):`, error);
-        // Ensure a consistent return structure even on API error
         return { category, isValid: false, errorReason: 'api_error' as 'api_error' }; 
       }
     });
@@ -244,7 +241,7 @@ export default function GamePage() {
     
     const playerWordValidity: Record<string, {isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason']}> = {};
     playerValidationResults.forEach(res => {
-      if (res && typeof res.category === 'string') { // Defensive check
+      if (res && typeof res.category === 'string') { 
          playerWordValidity[res.category] = {isValid: res.isValid, errorReason: res.errorReason};
       } else {
         console.warn("[GamePage] Invalid result structure in playerValidationResults, skipping:", res);
@@ -263,16 +260,16 @@ export default function GamePage() {
       const playerResponseRaw = currentResponses[category] || "";
       const playerResponseTrimmed = playerResponseRaw.trim();
       
-      const aiResponseRaw = tempAiResponses[category] || ""; // Use tempAiResponses which are fresh
+      const aiResponseRaw = tempAiResponses[category] || ""; 
       const aiResponseTrimmed = aiResponseRaw.trim();
       
       console.log(`  [GamePage] Player Response (Raw): "${playerResponseRaw}", Trimmed: "${playerResponseTrimmed}"`);
       console.log(`  [GamePage] AI Response (Raw): "${aiResponseRaw}", Trimmed: "${aiResponseTrimmed}"`);
 
       const validationStatus = playerWordValidity[category];
-      console.log(`  [GamePage] Validation Status for Player's word in "${category}":`, JSON.stringify(validationStatus));
+      // DETAILED LOG FOR VALIDATION STATUS
+      console.log(`  [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
 
-      // Default to false if validationStatus or its isValid property is undefined
       const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false; 
       console.log(`  [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`);
       
@@ -408,7 +405,7 @@ export default function GamePage() {
       console.error('Error al copiar el enlace: ', err);
       toast({
         title: "Error al Copiar",
-        description: "No se pudo copiar el enlace. Por favor, inténtalo manually.",
+        description: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.",
         variant: "destructive",
       });
     }
