@@ -13,7 +13,7 @@ import {z} from 'genkit';
 
 const ValidatePlayerWordInputSchema = z.object({
   letter: z.string().describe('La letra para la ronda actual.'),
-  category: z.string().describe('La categoría para la ronda actual (aunque la validación de la palabra debe ser general).'),
+  category: z.string().describe('La categoría para la ronda actual (informativo, la validación debe ser general).'),
   playerWord: z.string().describe('La palabra ingresada por el jugador.'),
 });
 export type ValidatePlayerWordInput = z.infer<typeof ValidatePlayerWordInputSchema>;
@@ -24,26 +24,28 @@ const ValidatePlayerWordOutputSchema = z.object({
 export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSchema>;
 
 export async function validatePlayerWord(input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> {
-  // Llamamos directamente al flujo que invoca al LLM.
   return validatePlayerWordFlow(input);
 }
 
-// Prompt en inglés para mayor consistencia con el modelo, y muy directo.
-const currentPromptText = `Is the Spanish word "{{{playerWord}}}" a valid, correctly-spelled word or common proper name that starts with the letter "{{{letter}}}" (case-insensitive)?
-The word must not be empty.
-The word must be a real Spanish word or a common Spanish proper name (e.g., Paco, París, Zorro, Irene, Sofía).
-Do not accept invented words or typos.
+// Prompt ultra-directo en inglés
+const currentPromptText = `Task: Validate a Spanish word for a game.
+Word: "{{{playerWord}}}"
+Must start with letter: "{{{letter}}}" (case-insensitive)
 
-Respond ONLY with a JSON object in the format: {"isValid": true} or {"isValid": false}.
-No other text, no explanations, no markdown. Just the JSON.
-Example for a valid word: {"isValid": true}
-Example for an invalid word: {"isValid": false}`;
+Rules:
+1. Word must start with "{{{letter}}}".
+2. Word must be a real, correctly-spelled Spanish word or common Spanish proper name.
+3. Word must not be empty.
+
+Is the word valid according to ALL rules?
+Respond ONLY with this JSON: {"isValid": true} or {"isValid": false}
+NO OTHER TEXT. NO MARKDOWN. JUST THE JSON.`;
 
 const prompt = ai.definePrompt({
   name: 'validatePlayerWordPrompt',
   input: {schema: ValidatePlayerWordInputSchema},
   output: {schema: ValidatePlayerWordOutputSchema},
-  prompt: currentPromptText, 
+  prompt: currentPromptText,
 });
 
 const validatePlayerWordFlow = ai.defineFlow(
@@ -56,7 +58,6 @@ const validatePlayerWordFlow = ai.defineFlow(
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] validatePlayerWordFlow: Iniciando validación para input: ${JSON.stringify(input)}`);
 
-    // Pre-validación en el flujo (defensiva)
     if (input.playerWord.trim() === "") {
       console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra vacía recibida. Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
       return { isValid: false };
@@ -78,7 +79,6 @@ const validatePlayerWordFlow = ai.defineFlow(
       console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
     }
     console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
-
 
     if (output && typeof output.isValid === 'boolean') {
       console.log(`[${timestamp}] validatePlayerWordFlow: Validación exitosa vía schema. Word: "${input.playerWord}", Letter: "${input.letter}", isValid: ${output.isValid}`);
@@ -112,4 +112,3 @@ const validatePlayerWordFlow = ai.defineFlow(
     return { isValid: false }; 
   }
 );
-

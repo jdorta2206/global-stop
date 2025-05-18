@@ -27,11 +27,21 @@ export async function generateAiOpponentResponse(input: AiOpponentResponseInput)
   return generateAiOpponentResponseFlow(input);
 }
 
+// Prompt ultra-directo en inglés
+const currentPromptText = `You are an AI playing the game "Stop" (also known as Tutti Frutti).
+Current letter: "{{{letter}}}"
+Current category: "{{{category}}}"
+
+Your task: Generate ONE valid Spanish word for this category that STARTS WITH the letter "{{{letter}}}".
+If you cannot generate a valid word that starts with the letter, respond with an empty string.
+DO NOT include explanations. Only the word itself or an empty string.
+The word MUST begin with the letter "{{{letter}}}".`;
+
 const prompt = ai.definePrompt({
   name: 'generateAiOpponentResponsePrompt',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
-  prompt: `Eres un oponente de IA jugando al juego Stop (también conocido como Tutti Frutti, Lápiz Quieto o Basta). Tu tarea es generar una respuesta plausible y relevante para la letra y categoría dadas. La palabra DEBE comenzar con la letra "{{{letter}}}". La categoría es "{{{category}}}". Genera solo la palabra. No incluyas información adicional ni explicaciones. Si no puedes generar una palabra válida que comience con la letra especificada para la categoría, responde con una cadena vacía.`,
+  prompt: currentPromptText,
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
@@ -41,28 +51,33 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     outputSchema: AiOpponentResponseOutputSchema,
   },
   async input => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
+    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
+
     const {output, response: rawLLMResponse} = await prompt(input);
 
-    console.log(`generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object: ${JSON.stringify(output)}`);
+    let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
+    try {
+      llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
+    } catch (e: any) {
+      console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
+    }
+    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
+
 
     if (output && typeof output.response === 'string') {
       // Defensive check: Ensure AI's response actually starts with the correct letter,
       // even though the prompt instructs it to.
       if (output.response.trim() !== "" && !output.response.trim().toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`generateAiOpponentResponseFlow: AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response "${output.response}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
         return { response: "" }; // Treat as invalid if it doesn't adhere to the primary rule
       }
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada y validada (formato letra): "${output.response}"`);
       return output;
     }
     
-    let llmResponseText = "Unavailable";
-    try {
-      llmResponseText = await rawLLMResponse.text() || "Empty LLM response text";
-    } catch (e) {
-      llmResponseText = "Error fetching LLM response text";
-    }
-    console.error(`generateAiOpponentResponseFlow: LLM did not return valid 'response' string. Input: ${JSON.stringify(input)}. Raw LLM Output: ${JSON.stringify(output)}. Raw response text: "${llmResponseText}". Defaulting to empty string.`);
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM did not return valid 'response' string in structured output. Input: ${JSON.stringify(input)}. Raw LLM Output Object (schema parsed): ${JSON.stringify(output)}. Raw LLM Response Text (captured): "${llmResponseTextForLogging}". Defaulting to empty string.`);
     return { response: "" }; // Default to empty string if LLM response is problematic
   }
 );
-
