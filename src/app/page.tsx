@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation'; // Importar useRouter
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3,
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
-import { useLanguage } from '@/contexts/language-context';
+import { useLanguage, type Language } from '@/contexts/language-context';
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
@@ -29,13 +29,17 @@ import type { ChatMessage } from '@/components/chat/chat-message-item';
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 
-const CATEGORIES_BY_LANG: Record<string, string[]> = {
+const CATEGORIES_BY_LANG: Record<Language, string[]> = {
   es: ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"],
   en: ["Name", "Place", "Animal", "Thing", "Color", "Fruit or Vegetable"],
+  fr: ["Nom", "Lieu", "Animal", "Chose", "Couleur", "Fruit ou Légume"],
+  pt: ["Nome", "Lugar", "Animal", "Coisa", "Cor", "Fruta ou Legume"],
 };
-const ALPHABET_BY_LANG: Record<string, string[]> = {
+const ALPHABET_BY_LANG: Record<Language, string[]> = {
   es: "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split(""),
   en: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
+  fr: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), // Could add Ç, É, etc. if desired for roulette
+  pt: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""), // Could add Ç, Ã, etc.
 };
 const ROUND_DURATION_SECONDS = 60;
 
@@ -56,53 +60,115 @@ export interface RoundResultDetail {
 export type RoundResults = Record<string, RoundResultDetail>;
 
 const UI_TEXTS = {
-  welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!" },
-  welcomeDescription: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:" },
-  playVsAI: { es: "Jugar vs IA", en: "Play vs AI" },
-  createRoom: { es: "Crear Sala (Amigos)", en: "Create Room (Friends)" },
-  joinRoom: { es: "Unirse a Sala", en: "Join Room" },
-  shareGame: { es: "Compartir Juego", en: "Share Game" },
-  multiplayerNote: { es: "La opción \"Crear Sala\" y \"Unirse a Sala\" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz que te llevará a una página de sala (placeholder).", en: "The \"Create Room\" and \"Join Room\" options are for future multiplayer functionality. For now, only the interface is shown, which will take you to a placeholder room page." },
-  createRoomDialogTitle: { es: "¡Sala Creada (Simulación)!", en: "Room Created (Simulation)!" },
-  createRoomDialogDescription: { es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", en: "Share this ID with your friends. Clicking 'Go to Room' will take you to a page for this room (multiplayer functionality in development)." },
-  roomIdLabel: { es: "ID de Sala:", en: "Room ID:" },
-  copyIdButton: { es: "Copiar ID", en: "Copy ID" },
-  goToRoomButton: { es: "Ir a la Sala", en: "Go to Room" },
-  closeButton: { es: "Cerrar", en: "Close" },
-  joinRoomDialogTitle: { es: "Unirse a una Sala", en: "Join a Room" },
-  joinRoomDialogDescription: { es: "Ingresa el ID de la sala. Al unirte, serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", en: "Enter the Room ID. Upon joining, you'll be taken to a page for this room (multiplayer functionality in development)." },
-  joinRoomIdInputLabel: { es: "ID de la Sala", en: "Room ID" },
-  joinRoomIdInputPlaceholder: { es: "Ej: ABC123XYZ", en: "Ex: ABC123XYZ" },
-  cancelButton: { es: "Cancelar", en: "Cancel" },
-  joinButton: { es: "Unirse", en: "Join" },
-  linkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!" },
-  linkCopiedToastDescription: { es: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!", en: "The game link has been copied to your clipboard. Share it with your friends!"},
-  errorCopyingLinkToastTitle: { es: "Error al Copiar", en: "Error Copying Link" },
-  errorCopyingLinkToastDescription: { es: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.", en: "Could not copy the link. Please try manually." },
-  idCopiedToastTitle: { es: "¡ID de Sala Copiado!", en: "Room ID Copied!" },
-  idCopiedToastDescription: { es: "El ID ha sido copiado. ¡Compártelo con tus amigos!", en: "The ID has been copied. Share it with your friends!" },
-  errorCopyingIdToastTitle: { es: "Error al Copiar ID", en: "Error Copying ID" },
-  errorCopyingIdToastDescription: { es: "No se pudo copiar el ID. Por favor, cópialo manualmente.", en: "Could not copy the ID. Please copy it manually." },
-  emptyRoomIdToastTitle: { es: "ID de Sala Vacío", en: "Empty Room ID" },
-  emptyRoomIdToastDescription: { es: "Por favor, ingresa un ID de sala para unirte.", en: "Please enter a room ID to join." },
-  resultsTitle: { es: "Resultados de la Ronda", en: "Round Results" },
-  roundWinnerPlayer: { es: "¡Jugador Gana la Ronda!", en: "Player Wins the Round!" },
-  roundWinnerAI: { es: "¡IA Gana la Ronda!", en: "AI Wins the Round!" },
-  roundNoScore: { es: "Nadie puntuó en esta ronda.", en: "Nobody scored this round." },
-  roundTie: { es: "¡Empate en la Ronda!", en: "Round Tie!" },
-  yourRoundScore: { es: "Tu Puntuación (Ronda):", en: "Your Score (Round):" },
-  aiRoundScore: { es: "Puntuación IA (Ronda):", en: "AI Score (Round):" },
-  totalScoreLabel: { es: "Puntuación Total Acumulada", en: "Total Accumulated Score" },
-  youLabel: { es: "Tú:", en: "You:" },
-  aiLabel: { es: "IA:", en: "AI:" },
-  nextRoundButton: { es: "Jugar Siguiente Ronda", en: "Play Next Round" },
-  shareScoreButton: { es: "Compartir Puntuación", en: "Share Score" },
-  loadingAIMessage: { es: "IA está Pensando, Validando y Calculando Puntos...", en: "AI is Thinking, Validating and Calculating Scores..." },
-  loadingAIDescription: { es: "Por favor, espera mientras la IA prepara sus respuestas, validamos las tuyas y calculamos las puntuaciones.", en: "Please wait while the AI prepares its responses, we validate yours, and calculate the scores." },
-  chatLoginMessage: { es: "Debes iniciar sesión para chatear.", en: "You must be logged in to chat." },
-  chatLoginTitle: { es: "Inicia sesión para chatear", en: "Login to Chat" },
-  timeLeftLabel: { es: "Tiempo Restante:", en: "Time Left:"},
-  timeEndingWarning: { es: "¡El tiempo se acaba!", en: "Time is running out!"},
+  welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!", fr: "Bienvenue à Global Stop!", pt: "Bem-vindo ao Global Stop!" },
+  welcomeDescription: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:", fr: "Choisissez comment vous voulez jouer :", pt: "Escolha como você quer jogar:" },
+  playVsAI: { es: "Jugar vs IA", en: "Play vs AI", fr: "Jouer contre l'IA", pt: "Jogar vs IA" },
+  createRoom: { es: "Crear Sala (Amigos)", en: "Create Room (Friends)", fr: "Créer une Salle (Amis)", pt: "Criar Sala (Amigos)" },
+  joinRoom: { es: "Unirse a Sala", en: "Join Room", fr: "Rejoindre une Salle", pt: "Entrar na Sala" },
+  shareGame: { es: "Compartir Juego", en: "Share Game", fr: "Partager le Jeu", pt: "Compartilhar Jogo" },
+  multiplayerNote: { 
+    es: "La opción \"Crear Sala\" y \"Unirse a Sala\" son para la futura funcionalidad multijugador. Por ahora, solo se muestra la interfaz que te llevará a una página de sala (placeholder).", 
+    en: "The \"Create Room\" and \"Join Room\" options are for future multiplayer functionality. For now, only the interface is shown, which will take you to a placeholder room page.",
+    fr: "Les options \"Créer une Salle\" et \"Rejoindre une Salle\" sont pour la future fonctionnalité multijoueur. Pour l'instant, seule l'interface est affichée, qui vous mènera à une page de salle (placeholder).",
+    pt: "As opções \"Criar Sala\" e \"Entrar na Sala\" são para futura funcionalidade multijogador. Por enquanto, apenas a interface é mostrada, que o levará a uma página de sala (placeholder)."
+  },
+  createRoomDialogTitle: { es: "¡Sala Creada (Simulación)!", en: "Room Created (Simulation)!", fr: "Salle Créée (Simulation)!", pt: "Sala Criada (Simulação)!" },
+  createRoomDialogDescription: { 
+    es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", 
+    en: "Share this ID with your friends. Clicking 'Go to Room' will take you to a page for this room (multiplayer functionality in development).",
+    fr: "Partagez cet ID avec vos amis. En cliquant sur 'Aller à la Salle', vous serez dirigé vers une page pour cette salle (fonctionnalité multijoueur en développement).",
+    pt: "Compartilhe este ID com seus amigos. Clicar em 'Ir para a Sala' o levará para uma página desta sala (funcionalidade multijogador em desenvolvimento)."
+  },
+  roomIdLabel: { es: "ID de Sala:", en: "Room ID:", fr: "ID de la Salle :", pt: "ID da Sala:" },
+  copyIdButton: { es: "Copiar ID", en: "Copy ID", fr: "Copier l'ID", pt: "Copiar ID" },
+  goToRoomButton: { es: "Ir a la Sala", en: "Go to Room", fr: "Aller à la Salle", pt: "Ir para a Sala" },
+  closeButton: { es: "Cerrar", en: "Close", fr: "Fermer", pt: "Fechar" },
+  joinRoomDialogTitle: { es: "Unirse a una Sala", en: "Join a Room", fr: "Rejoindre une Salle", pt: "Entrar em uma Sala" },
+  joinRoomDialogDescription: { 
+    es: "Ingresa el ID de la sala. Al unirte, serás llevado a una página para esta sala (funcionalidad multijugador en desarrollo).", 
+    en: "Enter the Room ID. Upon joining, you'll be taken to a page for this room (multiplayer functionality in development).",
+    fr: "Entrez l'ID de la salle. En rejoignant, vous serez dirigé vers une page pour cette salle (fonctionnalité multijoueur en développement).",
+    pt: "Digite o ID da sala. Ao entrar, você será levado para uma página desta sala (funcionalidade multijogador em desenvolvimento)."
+  },
+  joinRoomIdInputLabel: { es: "ID de la Sala", en: "Room ID", fr: "ID de la Salle", pt: "ID da Sala" },
+  joinRoomIdInputPlaceholder: { es: "Ej: ABC123XYZ", en: "Ex: ABC123XYZ", fr: "Ex : ABC123XYZ", pt: "Ex: ABC123XYZ" },
+  cancelButton: { es: "Cancelar", en: "Cancel", fr: "Annuler", pt: "Cancelar" },
+  joinButton: { es: "Unirse", en: "Join", fr: "Rejoindre", pt: "Entrar" },
+  linkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!", fr: "Lien Copié !", pt: "Link Copiado!" },
+  linkCopiedToastDescription: { 
+    es: "El enlace del juego ha sido copiado a tu portapapeles. ¡Compártelo con tus amigos!", 
+    en: "The game link has been copied to your clipboard. Share it with your friends!",
+    fr: "Le lien du jeu a été copié dans votre presse-papiers. Partagez-le avec vos amis !",
+    pt: "O link do jogo foi copiado para a sua área de transferência. Compartilhe com seus amigos!"
+  },
+  errorCopyingLinkToastTitle: { es: "Error al Copiar", en: "Error Copying Link", fr: "Erreur de Copie", pt: "Erro ao Copiar" },
+  errorCopyingLinkToastDescription: { 
+    es: "No se pudo copiar el enlace. Por favor, inténtalo manualmente.", 
+    en: "Could not copy the link. Please try manually.",
+    fr: "Impossible de copier le lien. Veuillez essayer manuellement.",
+    pt: "Não foi possível copiar o link. Por favor, tente manualmente."
+  },
+  idCopiedToastTitle: { es: "¡ID de Sala Copiado!", en: "Room ID Copied!", fr: "ID de Salle Copié !", pt: "ID da Sala Copiado!" },
+  idCopiedToastDescription: { 
+    es: "El ID ha sido copiado. ¡Compártelo con tus amigos!", 
+    en: "The ID has been copied. Share it with your friends!",
+    fr: "L'ID a été copié. Partagez-le avec vos amis !",
+    pt: "O ID foi copiado. Compartilhe com seus amigos!"
+  },
+  errorCopyingIdToastTitle: { es: "Error al Copiar ID", en: "Error Copying ID", fr: "Erreur de Copie d'ID", pt: "Erro ao Copiar ID" },
+  errorCopyingIdToastDescription: { 
+    es: "No se pudo copiar el ID. Por favor, cópialo manualmente.", 
+    en: "Could not copy the ID. Please copy it manually.",
+    fr: "Impossible de copier l'ID. Veuillez le copier manuellement.",
+    pt: "Não foi possível copiar o ID. Por favor, copie manualmente."
+  },
+  emptyRoomIdToastTitle: { es: "ID de Sala Vacío", en: "Empty Room ID", fr: "ID de Salle Vide", pt: "ID da Sala Vazio" },
+  emptyRoomIdToastDescription: { 
+    es: "Por favor, ingresa un ID de sala para unirte.", 
+    en: "Please enter a room ID to join.",
+    fr: "Veuillez entrer un ID de salle pour rejoindre.",
+    pt: "Por favor, insira um ID de sala para entrar."
+  },
+  resultsTitle: { es: "Resultados de la Ronda", en: "Round Results", fr: "Résultats de la Manche", pt: "Resultados da Rodada" },
+  roundWinnerPlayer: { es: "¡Jugador Gana la Ronda!", en: "Player Wins the Round!", fr: "Le Joueur Gagne la Manche !", pt: "Jogador Vence a Rodada!" },
+  roundWinnerAI: { es: "¡IA Gana la Ronda!", en: "AI Wins the Round!", fr: "L'IA Gagne la Manche !", pt: "IA Vence a Rodada!" },
+  roundNoScore: { es: "Nadie puntuó en esta ronda.", en: "Nobody scored this round.", fr: "Personne n'a marqué dans cette manche.", pt: "Ninguém pontuou nesta rodada." },
+  roundTie: { es: "¡Empate en la Ronda!", en: "Round Tie!", fr: "Égalité dans la Manche !", pt: "Empate na Rodada!" },
+  yourRoundScore: { es: "Tu Puntuación (Ronda):", en: "Your Score (Round):", fr: "Votre Score (Manche) :", pt: "Sua Pontuação (Rodada):" },
+  aiRoundScore: { es: "Puntuación IA (Ronda):", en: "AI Score (Round):", fr: "Score IA (Manche) :", pt: "Pontuação IA (Rodada):" },
+  totalScoreLabel: { es: "Puntuación Total Acumulada", en: "Total Accumulated Score", fr: "Score Total Accumulé", pt: "Pontuação Total Acumulada" },
+  youLabel: { es: "Tú:", en: "You:", fr: "Vous :", pt: "Você:" },
+  aiLabel: { es: "IA:", en: "AI:", fr: "IA :", pt: "IA:" },
+  nextRoundButton: { es: "Jugar Siguiente Ronda", en: "Play Next Round", fr: "Jouer la Prochaine Manche", pt: "Jogar Próxima Rodada" },
+  shareScoreButton: { es: "Compartir Puntuación", en: "Share Score", fr: "Partager le Score", pt: "Compartilhar Pontuação" },
+  loadingAIMessage: { 
+    es: "IA está Pensando, Validando y Calculando Puntos...", 
+    en: "AI is Thinking, Validating and Calculating Scores...",
+    fr: "L'IA réfléchit, valide et calcule les scores...",
+    pt: "IA está Pensando, Validando e Calculando Pontos..."
+  },
+  loadingAIDescription: { 
+    es: "Por favor, espera mientras la IA prepara sus respuestas, validamos las tuyas y calculamos las puntuaciones.", 
+    en: "Please wait while the AI prepares its responses, we validate yours, and calculate the scores.",
+    fr: "Veuillez patienter pendant que l'IA prépare ses réponses, que nous validons les vôtres et calculons les scores.",
+    pt: "Por favor, aguarde enquanto a IA prepara suas respostas, validamos as suas e calculamos as pontuações."
+  },
+  chatLoginMessage: { 
+    es: "Debes iniciar sesión para chatear.", 
+    en: "You must be logged in to chat.",
+    fr: "Vous devez être connecté pour discuter.",
+    pt: "Você precisa estar logado para conversar."
+  },
+  chatLoginTitle: { es: "Inicia sesión para chatear", en: "Login to Chat", fr: "Connectez-vous pour discuter", pt: "Faça login para conversar" },
+  timeLeftLabel: { es: "Tiempo Restante:", en: "Time Left:", fr: "Temps Restant :", pt: "Tempo Restante:"},
+  timeEndingWarning: { es: "¡El tiempo se acaba!", en: "Time is running out!", fr: "Le temps presse !", pt: "O tempo está acabando!"},
+  openChatLabel: { es: "Abrir chat", en: "Open chat", fr: "Ouvrir le chat", pt: "Abrir chat" },
+  playerNameDefault: { es: "Jugador", en: "Player", fr: "Joueur", pt: "Jogador" },
+  playedText: { es: "jugó", en: "played", fr: "a joué", pt: "jogou" },
+  iJustPlayed: { es: "Acabo de jugar a", en: "I just played", fr: "Je viens de jouer à", pt: "Acabei de jogar" },
+  myTotalScore: { es: "Mi puntuación total", en: "My total score", fr: "Mon score total", pt: "Minha pontuação total" },
+  aiTotalScore: { es: "Puntuación total de la IA", en: "AI's total score", fr: "Score total de l'IA", pt: "Pontuação total da IA" },
+  canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Global Stop!", en: "Think you can beat me? Try Global Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Global Stop !", pt: "Acha que pode me vencer? Experimente o Global Stop!" }
 };
 
 export default function GamePage() {
@@ -114,7 +180,7 @@ export default function GamePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language, translate } = useLanguage();
-  const router = useRouter(); // Hook de useRouter
+  const router = useRouter();
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
@@ -140,6 +206,8 @@ export default function GamePage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
+  const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
+  const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
 
   useEffect(() => {
     playerResponsesRef.current = playerResponses;
@@ -153,22 +221,18 @@ export default function GamePage() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
-  const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
-
-
   const exampleGlobalLeaderboard: PlayerScore[] = [
-    { name: "Jugador Estrella", score: 12500 },
-    { name: "ReyDelStop", score: 11800 },
-    { name: "LetrasVeloces", score: 10500 },
-    { name: "ProPlayer123", score: 9800 },
+    { name: translate({es: "Jugador Estrella", en: "Star Player", fr: "Joueur Étoile", pt: "Jogador Estrela"}), score: 12500 },
+    { name: translate({es: "ReyDelStop", en: "StopKing", fr: "RoiDuStop", pt: "ReiDoStop"}), score: 11800 },
+    { name: translate({es: "LetrasVeloces", en: "FastLetters", fr: "LettresRapides", pt: "LetrasRápidas"}), score: 10500 },
+    { name: translate({es: "ProPlayer123", en: "ProPlayer123", fr: "JoueurPro123", pt: "JogadorPro123"}), score: 9800 },
     { name: "Ana S.", score: 9200 },
   ];
 
   const exampleFriendsLeaderboard: PlayerScore[] = [
-    { name: "Amigo Juan", score: 7500 },
-    { name: "Vecina Sofia", score: 6800 },
-    { name: "Compañero Alex", score: 6500 },
+    { name: translate({es: "Amigo Juan", en: "Friend John", fr: "Ami Jean", pt: "Amigo João"}), score: 7500 },
+    { name: translate({es: "Vecina Sofia", en: "Neighbor Sofia", fr: "Voisine Sophie", pt: "Vizinha Sofia"}), score: 6800 },
+    { name: translate({es: "Compañero Alex", en: "Colleague Alex", fr: "Collègue Alex", pt: "Colega Alex"}), score: 6500 },
   ];
 
   useEffect(() => {
@@ -187,7 +251,7 @@ export default function GamePage() {
     if (audioRef.current) {
       if (gameState === "PLAYING" && currentLetter) {
         audioRef.current.currentTime = 0; 
-        audioRef.current.play().catch(error => console.error("Error al reproducir audio:", error));
+        audioRef.current.play().catch(error => console.error("Error playing audio:", error));
       } else {
         audioRef.current.pause();
       }
@@ -240,12 +304,12 @@ export default function GamePage() {
     setPlayerResponses(prev => ({ ...prev, [category]: value }));
   }, []);
 
-  const handleStopInternal = useCallback(async () => {
+ const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
-    const lang = language;
+    const currentLang = language; // Capture current language
     
-    console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${lang}`);
+    console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
     if (!letterForValidation || gameStateRef.current === "EVALUATING") {
       console.log("[GamePage] handleStopInternal: Aborting - No letter or already evaluating.");
@@ -260,12 +324,13 @@ export default function GamePage() {
     
     console.log("[GamePage] Generating AI responses...");
     const tempAiResponses: Record<string, string> = {};
+    // Pass language to AI response generation
     const aiPromises = currentCategories.map(async (category) => {
       try {
-        const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: lang };
+        const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
         const aiResult = await generateAiOpponentResponse(aiInput);
         tempAiResponses[category] = aiResult.response;
-        console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}, lang ${lang}): "${aiResult.response}"`);
+        console.log(`[GamePage] AI response for ${category} (letter ${letterForValidation}, lang ${currentLang}): "${aiResult.response}"`);
       } catch (error) {
         console.error(`[GamePage] Error getting AI response for ${category}:`, error);
         tempAiResponses[category] = ""; 
@@ -276,11 +341,11 @@ export default function GamePage() {
     setAiResponses(tempAiResponses); 
     console.log("[GamePage] AI responses generated:", tempAiResponses);
 
-    console.log("[GamePage] Iniciando validación de palabras del jugador...");
+    console.log("[GamePage] Initiating player word validation...");
     const playerValidationPromises = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
       
-      console.log(`[GamePage] Validando para Categoría: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${lang}`);
+      console.log(`[GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
 
       if (playerResponse === "") {
         console.log(`[GamePage] Player word for ${category} is empty. Marking as invalid locally.`);
@@ -291,11 +356,12 @@ export default function GamePage() {
         return { category, isValid: false, errorReason: 'format' as 'format' }; 
       }
       try {
+        // Pass language to player word validation
         const validationInput: ValidatePlayerWordInput = {
           letter: letterForValidation!,
           category, 
           playerWord: playerResponse,
-          language: lang,
+          language: currentLang, 
         };
         console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, validationInput);
         const validationResult = await validatePlayerWord(validationInput);
@@ -412,7 +478,7 @@ export default function GamePage() {
   }, [ 
     setGameState, setIsLoadingAi, setAiResponses, 
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore, 
-    setRoundResults, setRoundWinner, toast, language, currentCategories, translate
+    setRoundResults, setRoundWinner, toast, language, currentCategories, translate // Added language and currentCategories
   ]);
 
   const handleStop = useCallback(() => {
@@ -452,12 +518,12 @@ export default function GamePage() {
   }, [startGame]);
 
   const handleShareToWhatsApp = () => {
-    const playerName = user?.displayName ? `${user.displayName} ${language === 'es' ? 'jugó' : 'played'}` : (language === 'es' ? 'Acabo de jugar a' : 'I just played');
+    const playerName = user?.displayName ? `${user.displayName} ${translate(UI_TEXTS.playedText)}` : translate(UI_TEXTS.iJustPlayed);
     const message = 
       `${playerName} Global Stop! 🕹️\n\n` +
-      `${language === 'es' ? 'Mi puntuación total' : 'My total score'}: ${totalPlayerScore}\n` +
-      `${language === 'es' ? 'Puntuación total de la IA' : 'AI\'s total score'}: ${totalAiScore}\n\n` +
-      `${language === 'es' ? '¿Crees que puedes superarme? ¡Inténtalo en Global Stop!' : 'Think you can beat me? Try Global Stop!'}`;
+      `${translate(UI_TEXTS.myTotalScore)}: ${totalPlayerScore}\n` +
+      `${translate(UI_TEXTS.aiTotalScore)}: ${totalAiScore}\n\n` +
+      translate(UI_TEXTS.canYouBeatMe);
     
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -472,7 +538,7 @@ export default function GamePage() {
         description: translate(UI_TEXTS.linkCopiedToastDescription),
       });
     } catch (err) {
-      console.error('Error al copiar el enlace: ', err);
+      console.error('Error copying link: ', err);
       toast({
         title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
         description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
@@ -539,9 +605,9 @@ export default function GamePage() {
       id: Date.now().toString(), 
       text,
       sender: {
-        name: user.displayName || (language === 'es' ? "Jugador" : "Player"),
+        name: user.displayName || translate(UI_TEXTS.playerNameDefault),
         uid: user.uid,
-        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || (language === 'es' ? "J" : "P")).charAt(0)}`,
+        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
       },
       timestamp: new Date(),
     };
@@ -560,7 +626,7 @@ export default function GamePage() {
                 variant="outline"
                 size="icon"
                 className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50 transform transition-all duration-150 ease-in-out hover:scale-110 active:scale-100"
-                aria-label={language === 'es' ? "Abrir chat" : "Open chat"}
+                aria-label={translate(UI_TEXTS.openChatLabel)}
             >
                 <MessageSquare className="h-7 w-7" />
             </Button>

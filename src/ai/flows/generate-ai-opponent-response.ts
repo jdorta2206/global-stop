@@ -11,14 +11,15 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { Language } from '@/contexts/language-context'; // Import Language type
 
 const AiOpponentResponseInputSchema = z.object({
   letter: z.string().describe('La letra para la ronda actual.'),
   category: z.string().describe('La categoría para la ronda actual.'),
+  language: z.custom<Language>().describe('El idioma para la respuesta (es, en, fr, pt).'), // Add language
 });
 export type AiOpponentResponseInput = z.infer<typeof AiOpponentResponseInputSchema>;
 
-// El schema que el flujo expone (lo que GamePage espera)
 const AiOpponentResponseOutputSchema = z.object({
   response: z.string().describe('La respuesta del oponente IA para la letra y categoría dadas.'),
 });
@@ -29,18 +30,23 @@ export async function generateAiOpponentResponse(input: AiOpponentResponseInput)
   return generateAiOpponentResponseFlow(input);
 }
 
-const currentPromptText = `Game: "Stop". Letter: "{{{letter}}}". Category: "{{{category}}}".
-Task: ONE valid Spanish word for this category starting with "{{{letter}}}".
+// Updated prompt to include language
+const currentPromptText = `Game: "Stop". Language: "{{{language}}}". Letter: "{{{letter}}}". Category: "{{{category}}}".
+Task: ONE valid word in {{{language}}} for this category starting with "{{{letter}}}".
 If no word, respond with an empty string.
 ONLY the word or empty string. NO explanations.
-The word MUST begin with the letter "{{{letter}}}".`;
+The word MUST begin with the letter "{{{letter}}}".
+Example for letter "P", category "Fruit", language "en": "Peach"
+Example for letter "M", category "Animal", language "es": "Mono"
+Example for letter "C", category "Couleur", language "fr": "Citron"
+`;
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vMinimalStrict', // Nombre actualizado
+  name: 'generateAiOpponentResponsePrompt_vMinimalStrict_MultiLang',
   input: {schema: AiOpponentResponseInputSchema},
-  output: {schema: AiOpponentResponseOutputSchema}, // Espera { response: "palabra" }
+  output: {schema: AiOpponentResponseOutputSchema},
   prompt: currentPromptText,
-  config: { temperature: 0.2 },
+  config: { temperature: 0.3 }, // Slightly higher temp for more varied but still focused answers
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
@@ -64,24 +70,20 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     }
     console.log(`[${timestamp}] generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
 
-
     if (output && typeof output.response === 'string') {
       const structuredResponseTrimmed = output.response.trim();
       if (structuredResponseTrimmed !== "" && !structuredResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" did not start with the correct letter. Correcting to empty string.`);
+        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" (lang ${input.language}) did not start with the correct letter. Correcting to empty string.`);
         return { response: "" };
       }
-      // Si la respuesta estructurada está vacía pero el texto crudo no lo está, podríamos haber perdido la palabra. No devolver aquí todavía.
       if (structuredResponseTrimmed !== "") {
         console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
         return { response: structuredResponseTrimmed };
       }
     } 
     
-    // Fallback: Si output.response no es un string válido, o está vacío pero el texto crudo tiene contenido,
-    // intentamos usar el texto crudo si es solo una palabra y cumple las condiciones.
     const rawTextTrimmed = llmResponseTextForLogging.trim();
-    if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) { // Heurística: es una sola palabra?
+    if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) { 
         if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
             console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
             return { response: rawTextTrimmed };
@@ -91,7 +93,7 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
         }
     }
     
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable (o el texto crudo también falló la validación de letra inicial). Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
+    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
     return { response: "" };
   }
 );

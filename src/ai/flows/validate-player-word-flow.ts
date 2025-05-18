@@ -10,22 +10,21 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import type { Language } from '@/contexts/language-context'; // Import Language type
 
 const ValidatePlayerWordInputSchema = z.object({
   letter: z.string().describe('La letra para la ronda actual.'),
   category: z.string().describe('La categoría para la ronda actual (informativo, la validación debe ser general).'),
   playerWord: z.string().describe('La palabra ingresada por el jugador.'),
+  language: z.custom<Language>().describe('El idioma de la palabra a validar (es, en, fr, pt).'), // Add language
 });
 export type ValidatePlayerWordInput = z.infer<typeof ValidatePlayerWordInputSchema>;
 
-// El schema que el flujo expone (lo que GamePage espera)
 const ValidatePlayerWordOutputSchema = z.object({
   isValid: z.boolean().describe('True si la palabra es válida, bien escrita y comienza con la letra especificada; false en caso contrario.'),
 });
 export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSchema>;
 
-// El schema de lo que esperamos que el LLM devuelva (usado en ai.definePrompt)
-// Esperamos que el LLM devuelva "true" o "false" como strings.
 const LLMResponseSchema = z.object({
     isValid: z.string().describe("Un string: 'true' si la palabra es válida, 'false' en caso contrario."),
 });
@@ -34,16 +33,25 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
   return validatePlayerWordFlow(input);
 }
 
+// Updated prompt to include language
 const currentPromptText = `Word: "{{{playerWord}}}"
 Letter: "{{{letter}}}"
-Is the Spanish word "{{{playerWord}}}" a real, correctly-spelled word OR a common Spanish proper name that starts with the letter "{{{letter}}}" (case-insensitive)?
+Language: "{{{language}}}"
+Is the word "{{{playerWord}}}" a real, correctly-spelled word in {{{language}}} OR a common proper name in {{{language}}} that starts with the letter "{{{letter}}}" (case-insensitive)?
+Examples: 
+- If language is "es", letter "P", word "Paco" -> {"isValid": "true"}
+- If language is "en", letter "A", word "Apple" -> {"isValid": "true"}
+- If language is "fr", letter "C", word "Chien" -> {"isValid": "true"}
+- If language is "pt", letter "B", word "Brasil" -> {"isValid": "true"}
+- If word is "Xyzzy" (invented) -> {"isValid": "false"}
+
 Answer ONLY with JSON: {"isValid": "true"} or {"isValid": "false"}. (Important: "true" or "false" as STRINGS).
 NO OTHER TEXT. NO MARKDOWN. JUST JSON.`;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON_vMinimal_Strict', // Nombre actualizado
+  name: 'validatePlayerWordPromptJSON_vMinimal_Strict_MultiLang',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: LLMResponseSchema}, // Espera { isValid: "string_true_o_false" }
+  output: {schema: LLMResponseSchema}, 
   prompt: currentPromptText,
   config: { temperature: 0.2 },
 });
@@ -52,7 +60,7 @@ const validatePlayerWordFlow = ai.defineFlow(
   {
     name: 'validatePlayerWordFlow',
     inputSchema: ValidatePlayerWordInputSchema,
-    outputSchema: ValidatePlayerWordOutputSchema, // El flujo sigue exponiendo un booleano
+    outputSchema: ValidatePlayerWordOutputSchema,
   },
   async (input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> => {
     const timestamp = new Date().toISOString();
@@ -88,10 +96,16 @@ const validatePlayerWordFlow = ai.defineFlow(
         return { isValid: false };
       } else {
         console.error(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) pero output.isValid ("${output.isValid}") no es "true" ni "false". Raw text: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
+        // Attempt manual parse from raw text if specific format expected
+        if (rawResponseTextForLogging.includes('"isValid": "true"')) return { isValid: true };
+        if (rawResponseTextForLogging.includes('"isValid": "false"')) return { isValid: false };
         return { isValid: false };
       }
     } else {
         console.error(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un string, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":"string"}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
+        // Attempt manual parse from raw text
+        if (rawResponseTextForLogging.includes('"isValid": "true"')) return { isValid: true };
+        if (rawResponseTextForLogging.includes('"isValid": "false"')) return { isValid: false };
         return { isValid: false };
     }
   }

@@ -4,25 +4,37 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-type Language = 'es' | 'en';
+export type Language = 'es' | 'en' | 'fr' | 'pt'; // Added 'fr' and 'pt'
+
+export interface LanguageOption {
+  code: Language;
+  name: string;
+}
+
+export const LANGUAGES: LanguageOption[] = [
+  { code: 'es', name: 'Español' },
+  { code: 'en', name: 'English' },
+  { code: 'fr', name: 'Français' },
+  { code: 'pt', name: 'Português' },
+];
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  translate: (textObject: Record<Language, string> | undefined) => string;
+  translate: (textObject: Record<string, string> | undefined) => string; // Allow any string key for general use
+  currentLanguageOption: LanguageOption | undefined;
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+const defaultLanguage: Language = 'es';
 
-const defaultLanguage: Language = 'es'; // Default to Spanish
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(defaultLanguage);
 
   useEffect(() => {
-    // Get language from localStorage on initial client-side load
     const storedLang = localStorage.getItem('globalStopLanguage') as Language | null;
-    if (storedLang) {
+    if (storedLang && LANGUAGES.some(l => l.code === storedLang)) {
       setLanguageState(storedLang);
       document.documentElement.lang = storedLang;
     } else {
@@ -33,19 +45,22 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('globalStopLanguage', lang);
-    document.documentElement.lang = lang; // Also update the html lang attribute
+    document.documentElement.lang = lang;
   }, []);
 
   const translate = useCallback(
-    (textObject: Record<Language, string> | undefined): string => {
+    (textObject: Record<string, string> | undefined): string => {
       if (!textObject) return '';
-      return textObject[language] || textObject[defaultLanguage] || Object.values(textObject)[0] || '';
+      // Try current language, then default, then English as a fallback, then first available
+      return textObject[language] || textObject[defaultLanguage] || textObject['en'] || Object.values(textObject)[0] || '';
     },
     [language]
   );
 
+  const currentLanguageOption = LANGUAGES.find(l => l.code === language);
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, translate }}>
+    <LanguageContext.Provider value={{ language, setLanguage, translate, currentLanguageOption }}>
       {children}
     </LanguageContext.Provider>
   );
