@@ -6,11 +6,20 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon } from 'lucide-react';
+import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Gamepad2 } from 'lucide-react';
 import { useLanguage, type Language } from '@/contexts/language-context';
-import { useRoom } from '@/contexts/room-context'; // Import useRoom
+import { useRoom } from '@/contexts/room-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+interface PlayerInRoom {
+  id: string;
+  name: string;
+  avatar?: string;
+  isCurrentUser?: boolean;
+}
 
 const ROOM_TEXTS = {
   title: { es: "Sala de Juego:", en: "Game Room:", fr: "Salle de Jeu :", pt: "Sala de Jogo:" },
@@ -21,12 +30,12 @@ const ROOM_TEXTS = {
     fr: "Ceci est actuellement une page de remplacement. La fonctionnalité complète pour les jeux multijoueurs dans cette salle sera implémentée dans les futures mises à jour.",
     pt: "Esta é atualmente uma página de placeholder. A funcionalidade completa para jogos multiplayer nesta sala será implementada em futuras atualizações."
   },
-  playerListTitle: { es: "Jugadores en la Sala (Próximamente)", en: "Players in Room (Coming Soon)", fr: "Joueurs dans la Salle (Bientôt disponible)", pt: "Jogadores na Sala (Em breve)" },
+  playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
   playerListDescription: { 
-    es: "Aquí verás la lista de amigos que se han unido.", 
-    en: "Here you will see the list of friends who have joined.",
-    fr: "Ici, vous verrez la liste des amis qui ont rejoint.",
-    pt: "Aqui você verá a lista de amigos que entraram."
+    es: "Aquí verás la lista de amigos que se han unido. (Funcionalidad completa próximamente)", 
+    en: "Here you will see the list of friends who have joined. (Full functionality coming soon)",
+    fr: "Ici, vous verrez la liste des amis qui ont rejoint. (Fonctionnalité complète bientôt disponible)",
+    pt: "Aqui você verá a lista de amigos que entraram. (Funcionalidade completa em breve)"
   },
   gameInfoTitle: { es: "Información del Juego (Próximamente)", en: "Game Info (Coming Soon)", fr: "Infos sur le Jeu (Bientôt disponible)", pt: "Informações do Jogo (Em breve)" },
   gameInfoDescription: { 
@@ -57,6 +66,9 @@ const ROOM_TEXTS = {
     pt: "Entre na minha sala do Global Stop! ID da Sala:" 
   },
   joinHere: { es: "Únete aquí:", en: "Join here:", fr: "Rejoindre ici:", pt: "Entre aqui:"},
+  addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
+  youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
+  startGameButton: { es: "Iniciar Partida (Próximamente)", en: "Start Game (Coming Soon)", fr: "Démarrer la Partie (Bientôt disponible)", pt: "Iniciar Jogo (Em Breve)"},
 };
 
 export default function RoomPage() {
@@ -64,19 +76,34 @@ export default function RoomPage() {
   const router = useRouter();
   const { language, translate: translateContext } = useLanguage();
   const { setActiveRoomId } = useRoom();
+  const { user } = useAuth(); // Get current user
   const { toast } = useToast();
   const roomId = params.roomId as string;
+
+  const [playersInRoom, setPlayersInRoom] = useState<PlayerInRoom[]>([]);
 
   const translate = (textKey: keyof typeof ROOM_TEXTS) => {
     return translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]['en'];
   }
 
-  // Ensure this room is set as active if accessed directly via URL
   useEffect(() => {
     if (roomId) {
       setActiveRoomId(roomId);
     }
-  }, [roomId, setActiveRoomId]);
+    // Simulate fetching players in the room
+    const mockPlayers: PlayerInRoom[] = [
+      { id: 'player2', name: 'Amigo Juan', avatar: `https://placehold.co/40x40.png?text=J` },
+      { id: 'player3', name: 'Vecina Sofía', avatar: `https://placehold.co/40x40.png?text=S` },
+    ];
+    if (user) {
+      setPlayersInRoom([
+        { id: user.uid, name: user.displayName || 'Jugador Actual', avatar: user.photoURL || undefined, isCurrentUser: true },
+        ...mockPlayers,
+      ]);
+    } else {
+      setPlayersInRoom(mockPlayers);
+    }
+  }, [roomId, setActiveRoomId, user]);
 
   const handleLeaveRoom = () => {
     setActiveRoomId(null);
@@ -108,7 +135,7 @@ export default function RoomPage() {
   };
 
   if (!roomId) {
-    return ( // Or a more sophisticated loading/error state
+    return ( 
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         <AppHeader />
         <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center">
@@ -139,6 +166,15 @@ export default function RoomPage() {
               </p>
             </div>
 
+            <Button 
+              size="lg" 
+              className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+              disabled // Functionality coming soon
+            >
+              <Gamepad2 className="mr-3 h-6 w-6" /> 
+              {translate('startGameButton')}
+            </Button>
+
             <div className="space-y-4 p-4 border border-dashed border-border rounded-lg">
               <h3 className="text-xl font-semibold text-secondary flex items-center">
                 <Share2 className="mr-2 h-5 w-5" /> {translate('shareRoomTitle')}
@@ -166,28 +202,38 @@ export default function RoomPage() {
                </Button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 p-4 border border-border rounded-lg bg-card">
               <h3 className="text-xl font-semibold text-secondary flex items-center">
                 <Users className="mr-2 h-5 w-5" /> {translate('playerListTitle')}
               </h3>
               <p className="text-muted-foreground text-sm">
                 {translate('playerListDescription')}
               </p>
-              <div className="p-4 bg-muted/50 rounded-md min-h-[50px]">
-                {/* Placeholder for player list */}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-secondary flex items-center">
-                <Info className="mr-2 h-5 w-5" /> {translate('gameInfoTitle')}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {translate('gameInfoDescription')}
-              </p>
-              <div className="p-4 bg-muted/50 rounded-md min-h-[50px]">
-                {/* Placeholder for game info */}
-              </div>
+              {playersInRoom.length > 0 ? (
+                <ul className="space-y-3">
+                  {playersInRoom.map((player) => (
+                    <li key={player.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md shadow-sm">
+                      <div className="flex items-center space-x-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={player.avatar} alt={player.name} data-ai-hint="avatar person" />
+                          <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium text-card-foreground">
+                          {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
+                        </span>
+                      </div>
+                      {!player.isCurrentUser && (
+                        <Button variant="outline" size="sm" disabled>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          {translate('addFriendButton')}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                 <p className="text-muted-foreground text-sm text-center py-2">{translateContext(UI_TEXTS.waitingForPlayers)}</p>
+              )}
             </div>
             
             <div className="mt-8 text-center">
@@ -202,3 +248,9 @@ export default function RoomPage() {
     </div>
   );
 }
+// Need to reference UI_TEXTS from page.tsx for waitingForPlayers
+const UI_TEXTS = {
+  waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
+};
+
+    

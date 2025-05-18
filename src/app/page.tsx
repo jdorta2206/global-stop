@@ -15,18 +15,20 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
 import { useLanguage, type Language } from '@/contexts/language-context';
-import { useRoom } from '@/contexts/room-context'; // Import useRoom
+import { useRoom } from '@/contexts/room-context'; 
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
 import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
 import { Progress } from '@/components/ui/progress';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import type { ChatMessage } from '@/components/chat/chat-message-item';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
 
@@ -59,6 +61,13 @@ export interface RoundResultDetail {
   playerResponseErrorReason?: 'format' | 'invalid_word' | 'api_error' | null;
 }
 export type RoundResults = Record<string, RoundResultDetail>;
+
+interface PlayerInLobby {
+  id: string;
+  name: string;
+  avatar?: string;
+  isCurrentUser?: boolean;
+}
 
 const UI_TEXTS = {
   welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!", fr: "Bienvenue à Global Stop!", pt: "Bem-vindo ao Global Stop!" },
@@ -169,6 +178,7 @@ const UI_TEXTS = {
   inviteFriendsButton: { es: "Invitar Amigos", en: "Invite Friends", fr: "Inviter des Amis", pt: "Convidar Amigos" },
   leaveRoomButton: { es: "Salir de la Sala", en: "Leave Room", fr: "Quitter la Salle", pt: "Sair da Sala" },
   shareRoomLinkMessageWhatsApp: { es: "¡Únete a mi sala en Global Stop! ID:", en: "Join my room in Global Stop! ID:", fr: "Rejoins ma salle sur Global Stop ! ID :", pt: "Entre na minha sala no Global Stop! ID:" },
+  joinHere: { es: "Únete aquí:", en: "Join here:", fr: "Rejoindre ici:", pt: "Entre aqui:" },
   copyRoomLinkButton: { es: "Copiar Enlace de Sala", en: "Copy Room Link", fr: "Copier le Lien de la Salle", pt: "Copiar Link da Sala" },
   roomLinkCopiedToastTitle: { es: "¡Enlace de Sala Copiado!", en: "Room Link Copied!", fr: "Lien de Salle Copié !", pt: "Link da Sala Copiado!" },
   roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
@@ -177,8 +187,12 @@ const UI_TEXTS = {
     es: "Aquí verás la lista de amigos que se han unido. (Funcionalidad completa próximamente)", 
     en: "Here you will see the list of friends who have joined. (Full functionality coming soon)",
     fr: "Ici, vous verrez la liste des amis qui ont rejoint. (Fonctionnalité complète bientôt disponible)",
-    pt: "Aqui você verá a lista de amigos que entraram. (Funcionalidade completa em breve)"
+    pt: "Aqui você verá la lista de amigos que entraram. (Funcionalidade completa em breve)"
   },
+  addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
+  youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
+  waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
+  loggedInAs: { es: "Conectado como: {name}", en: "Logged in as: {name}", fr: "Connecté en tant que : {name}", pt: "Conectado como: {name}" },
 };
 
 export default function GamePage() {
@@ -190,7 +204,7 @@ export default function GamePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language, translate } = useLanguage();
-  const { activeRoomId, setActiveRoomId } = useRoom(); // Use RoomContext
+  const { activeRoomId, setActiveRoomId } = useRoom();
   const router = useRouter();
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
@@ -216,6 +230,7 @@ export default function GamePage() {
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [playersInLobby, setPlayersInLobby] = useState<PlayerInLobby[]>([]);
 
   const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
@@ -231,6 +246,23 @@ export default function GamePage() {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  useEffect(() => {
+    // Simulate fetching players for the lobby
+    const mockPlayers: PlayerInLobby[] = [
+      { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
+      { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A` },
+    ];
+    if (user && activeRoomId) { // Only populate if in a room and user exists
+      setPlayersInLobby([
+        { id: user.uid, name: user.displayName || translate(UI_TEXTS.playerNameDefault), avatar: user.photoURL || undefined, isCurrentUser: true },
+        ...mockPlayers,
+      ]);
+    } else {
+      setPlayersInLobby([]); // Clear if not in a room or no user
+    }
+  }, [user, activeRoomId, language, translate]);
+
 
   const exampleGlobalLeaderboard: PlayerScore[] = [
     { name: "Star Player", score: 12500 },
@@ -307,13 +339,13 @@ export default function GamePage() {
   }, []);
 
   const startGame = useCallback(() => {
-    if (gameStateRef.current === "IDLE") {
+    if (gameStateRef.current === "IDLE" && !activeRoomId) { // Only reset scores if starting a new AI game
         setTotalPlayerScore(0);
         setTotalAiScore(0);
     }
     resetRound();
     setGameState("SPINNING");
-  }, [resetRound]);
+  }, [resetRound, activeRoomId]);
 
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
@@ -562,7 +594,7 @@ export default function GamePage() {
 
   const handleGoToCreatedRoom = () => {
     if (generatedRoomId) {
-      setActiveRoomId(generatedRoomId); // Set active room in context
+      setActiveRoomId(generatedRoomId); 
       router.push(`/room/${generatedRoomId}`);
       setShowCreateRoomDialog(false);
     }
@@ -579,7 +611,7 @@ export default function GamePage() {
       return;
     }
     const roomIdToJoin = joinRoomId.trim().toUpperCase();
-    setActiveRoomId(roomIdToJoin); // Set active room in context
+    setActiveRoomId(roomIdToJoin); 
     router.push(`/room/${roomIdToJoin}`);
     setShowJoinRoomDialog(false);
   };
@@ -604,29 +636,34 @@ export default function GamePage() {
   
   const handleLeaveRoom = () => {
     setActiveRoomId(null);
+    setPlayersInLobby([]); // Clear lobby players on leave
     setGameState("IDLE"); // Go back to main menu
   };
 
   const handleInviteFriends = () => {
     if (activeRoomId) {
       const roomUrl = `${window.location.origin}/room/${activeRoomId}`;
-      // Option 1: Copy to clipboard
-      navigator.clipboard.writeText(roomUrl).then(() => {
-        toast({
-          title: translate(UI_TEXTS.roomLinkCopiedToastTitle),
-          description: translate(UI_TEXTS.roomLinkCopiedToastDescription),
-        });
-      }).catch(() => {
-        toast({
-          title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
-          description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
-          variant: "destructive",
-        });
-      });
-      // Option 2: Share via WhatsApp (more direct)
-      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId} ${translate(UI_TEXTS.joinHere)} ${roomUrl}`;
+      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId}. ${translate(UI_TEXTS.joinHere)} ${roomUrl}`;
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, '_blank');
+    }
+  };
+
+  const handleCopyRoomLink = () => {
+    if (activeRoomId) {
+        const roomUrl = `${window.location.origin}/room/${activeRoomId}`;
+        navigator.clipboard.writeText(roomUrl).then(() => {
+            toast({
+            title: translate(UI_TEXTS.roomLinkCopiedToastTitle),
+            description: translate(UI_TEXTS.roomLinkCopiedToastDescription),
+            });
+        }).catch(() => {
+            toast({
+            title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
+            description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
+            variant: "destructive",
+            });
+        });
     }
   };
 
@@ -735,47 +772,79 @@ export default function GamePage() {
 
           {gameState === "IDLE" && activeRoomId && (
             <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
-              <CardHeader className="text-center p-8">
-                <div className="flex justify-center items-center mb-4">
-                    <PartyPopper className="h-12 w-12 text-primary mr-3" />
-                    <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.lobbyTitle)}</CardTitle>
+              <CardHeader className="text-center p-6 sm:p-8">
+                <div className="flex justify-center items-center mb-3">
+                    <PartyPopper className="h-10 w-10 sm:h-12 sm:w-12 text-primary mr-2 sm:mr-3" />
+                    <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.lobbyTitle)}</CardTitle>
                 </div>
-                <CardDescription className="text-lg text-muted-foreground mt-3">
+                <CardDescription className="text-md sm:text-lg text-muted-foreground mt-2">
                   {translate(UI_TEXTS.inRoomMessage)} <span className="font-bold text-accent">{activeRoomId}</span>
                 </CardDescription>
-                 {user && <p className="text-md text-muted-foreground mt-1">{translate(UI_TEXTS.loggedInAs, { name: user.displayName || translate(UI_TEXTS.playerNameDefault) })}</p>}
+                 {user && <p className="text-sm sm:text-md text-muted-foreground mt-1">{translate(UI_TEXTS.loggedInAs).replace('{name}', user.displayName || translate(UI_TEXTS.playerNameDefault))}</p>}
               </CardHeader>
-              <CardContent className="space-y-4 py-6 px-6">
+              <CardContent className="space-y-4 py-6 px-4 sm:px-6">
                  <Button
                     size="lg"
-                    className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                    className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                     disabled // Functionality coming soon
                   >
-                    <Gamepad2 className="mr-3 h-6 w-6" />
+                    <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
                     {translate(UI_TEXTS.startGameWithFriendsButton)}
                   </Button>
-                  <Button
-                    onClick={handleInviteFriends}
-                    size="lg"
-                    variant="outline"
-                    className="w-full text-lg py-6 border-accent text-accent-foreground hover:bg-accent/10 shadow-lg"
-                  >
-                    <Users className="mr-3 h-6 w-6" />
-                    {translate(UI_TEXTS.inviteFriendsButton)}
-                  </Button>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      onClick={handleInviteFriends}
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:flex-1 text-md sm:text-lg py-4 sm:py-5 border-accent text-accent-foreground hover:bg-accent/10 shadow-md"
+                    >
+                      <Users className="mr-2 h-5 w-5" />
+                      {translate(UI_TEXTS.inviteFriendsButton)} (WhatsApp)
+                    </Button>
+                    <Button
+                      onClick={handleCopyRoomLink}
+                      size="lg"
+                      variant="outline"
+                      className="w-full sm:flex-1 text-md sm:text-lg py-4 sm:py-5 border-secondary text-secondary-foreground hover:bg-secondary/10 shadow-md"
+                    >
+                      <LinkIcon className="mr-2 h-5 w-5" />
+                      {translate(UI_TEXTS.copyRoomLinkButton)}
+                    </Button>
+                  </div>
+
                   <div className="pt-4">
-                    <h3 className="text-xl font-semibold text-secondary mb-2 text-center flex items-center justify-center">
+                    <h3 className="text-lg sm:text-xl font-semibold text-secondary mb-2 text-center flex items-center justify-center">
                       <Users className="mr-2 h-5 w-5" /> {translate(UI_TEXTS.playerListTitle)}
                     </h3>
-                    <div className="p-4 bg-muted/20 rounded-md min-h-[100px] text-center">
-                        <p className="text-muted-foreground">{translate(UI_TEXTS.playerListDescription)}</p>
-                        {/* Placeholder para la lista real de jugadores */}
-                         {user && <p className="mt-2 text-sm text-foreground">{user.displayName || translate(UI_TEXTS.playerNameDefault)} (Tú)</p>}
-                         <p className="mt-1 text-sm text-muted-foreground italic">Esperando a otros jugadores...</p>
+                    <div className="p-3 sm:p-4 bg-muted/20 rounded-md min-h-[120px] space-y-2">
+                      {playersInLobby.length > 0 ? (
+                        playersInLobby.map(player => (
+                          <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
+                            <div className="flex items-center space-x-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={player.avatar} alt={player.name} data-ai-hint="avatar person"/>
+                                <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-sm text-card-foreground">
+                                {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate(UI_TEXTS.youSuffix)}</span>}
+                              </span>
+                            </div>
+                            {!player.isCurrentUser && (
+                              <Button variant="ghost" size="sm" className="text-xs" disabled>
+                                <UserPlus className="mr-1 h-3 w-3" /> {translate(UI_TEXTS.addFriendButton)}
+                              </Button>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                         <p className="text-sm text-muted-foreground text-center py-2">{translate(UI_TEXTS.waitingForPlayers)}</p>
+                      )}
+                        <p className="text-xs text-muted-foreground text-center pt-2">{translate(UI_TEXTS.playerListDescription)}</p>
                     </div>
                   </div>
               </CardContent>
-              <CardFooter className="p-6 border-t">
+              <CardFooter className="p-4 sm:p-6 border-t">
                 <Button
                     onClick={handleLeaveRoom}
                     variant="ghost"
@@ -986,5 +1055,7 @@ export default function GamePage() {
     </div>
   );
 }
+
+    
 
     
