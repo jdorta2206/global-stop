@@ -190,10 +190,20 @@ const UI_TEXTS = {
     pt: "Aqui você verá la lista de amigos que entraram. (Funcionalidade completa em breve)"
   },
   addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
+  friendAddedToastTitle: { es: "¡Amigo Añadido!", en: "Friend Added!", fr: "Ami Ajouté !", pt: "Amigo Adicionado!"},
+  friendAddedToastDescription: { es: "{name} ha sido añadido a tu lista local de amigos.", en: "{name} has been added to your local friends list.", fr: "{name} a été ajouté à votre liste d'amis locale.", pt: "{name} foi adicionado à sua lista local de amigos."},
+  friendAlreadyExistsToastTitle: { es: "Amigo ya Existe", en: "Friend Already Exists", fr: "Ami Existe Déjà", pt: "Amigo Já Existe"},
+  friendAlreadyExistsToastDescription: { es: "{name} ya está en tu lista de amigos.", en: "{name} is already on your friends list.", fr: "{name} est déjà dans votre liste d'amis.", pt: "{name} já está na sua lista de amigos."},
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
   loggedInAs: { es: "Conectado como: {name}", en: "Logged in as: {name}", fr: "Connecté en tant que : {name}", pt: "Conectado como: {name}" },
 };
+
+const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser'>[] = [
+  { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
+  { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A` },
+  { id: 'player4', name: 'Vecina Laura', avatar: `https://placehold.co/40x40.png?text=L` },
+];
 
 export default function GamePage() {
   const [gameState, setGameState] = useState<GameState>("IDLE");
@@ -231,6 +241,7 @@ export default function GamePage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [playersInLobby, setPlayersInLobby] = useState<PlayerInLobby[]>([]);
+  const [friendsList, setFriendsList] = useState<PlayerScore[]>([]);
 
   const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
@@ -247,20 +258,45 @@ export default function GamePage() {
     gameStateRef.current = gameState;
   }, [gameState]);
 
+  // Load friends from localStorage on mount
   useEffect(() => {
-    // Simulate fetching players for the lobby
-    const mockPlayers: PlayerInLobby[] = [
-      { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
-      { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A` },
-    ];
-    if (user && activeRoomId) { // Only populate if in a room and user exists
-      setPlayersInLobby([
-        { id: user.uid, name: user.displayName || translate(UI_TEXTS.playerNameDefault), avatar: user.photoURL || undefined, isCurrentUser: true },
-        ...mockPlayers,
-      ]);
-    } else {
-      setPlayersInLobby([]); // Clear if not in a room or no user
+    const storedFriends = localStorage.getItem('globalStopFriendsList');
+    if (storedFriends) {
+      try {
+        const parsedFriends = JSON.parse(storedFriends);
+        if (Array.isArray(parsedFriends)) {
+          setFriendsList(parsedFriends);
+        }
+      } catch (error) {
+        console.error("Error parsing friends list from localStorage:", error);
+        localStorage.removeItem('globalStopFriendsList'); // Clear corrupted data
+      }
     }
+  }, []);
+
+  // Save friends to localStorage when friendsList changes
+  useEffect(() => {
+    if (friendsList.length > 0 || localStorage.getItem('globalStopFriendsList')) { // Avoid writing empty array on initial load if nothing was there
+      localStorage.setItem('globalStopFriendsList', JSON.stringify(friendsList));
+    }
+  }, [friendsList]);
+
+
+  useEffect(() => {
+    const currentPlayers: PlayerInLobby[] = [];
+    if (user && activeRoomId) {
+      currentPlayers.push({ 
+        id: user.uid, 
+        name: user.displayName || translate(UI_TEXTS.playerNameDefault), 
+        avatar: user.photoURL || undefined, 
+        isCurrentUser: true 
+      });
+      // Add mock players if in a room and user is logged in
+      MOCK_PLAYERS_IN_LOBBY.forEach(player => {
+        currentPlayers.push({ ...player, isCurrentUser: false });
+      });
+    }
+    setPlayersInLobby(currentPlayers);
   }, [user, activeRoomId, language, translate]);
 
 
@@ -270,12 +306,6 @@ export default function GamePage() {
     { name: "FastLetters", score: 10500 },
     { name: "ProPlayer123", score: 9800 },
     { name: "Ana S.", score: 9200 },
-  ];
-
-  const exampleFriendsLeaderboard: PlayerScore[] = [
-    { name: "Friend John", score: 7500 },
-    { name: "Neighbor Sofia", score: 6800 },
-    { name: "Colleague Alex", score: 6500 },
   ];
 
   useEffect(() => {
@@ -414,7 +444,7 @@ export default function GamePage() {
           language: currentLang,
         };
         console.log(`[GamePage] Calling validatePlayerWord for ${category} with input:`, validationInput);
-        const validationResult = await validatePlayerWord(validationInput);
+        const validationResult: ValidatePlayerWordOutput = await validatePlayerWord(validationInput);
         console.log(`[GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"): ${JSON.stringify(validationResult)}`);
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
@@ -667,6 +697,27 @@ export default function GamePage() {
     }
   };
 
+  const handleAddFriend = (player: PlayerInLobby) => {
+    if (friendsList.find(friend => friend.name === player.name)) {
+      toast({
+        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
+        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', player.name),
+        variant: "default",
+      });
+      return;
+    }
+    const newFriend: PlayerScore = {
+      name: player.name,
+      score: 0, // Friends start with 0 score in the list, can be updated later
+      avatar: player.avatar,
+    };
+    setFriendsList(prevFriends => [...prevFriends, newFriend]);
+    toast({
+      title: translate(UI_TEXTS.friendAddedToastTitle),
+      description: translate(UI_TEXTS.friendAddedToastDescription).replace('{name}', player.name),
+    });
+  };
+
 
   const handleSendChatMessage = (text: string) => {
     if (!user) {
@@ -766,7 +817,7 @@ export default function GamePage() {
               </Card>
               <PersonalHighScoreCard highScore={personalHighScore} language={language} />
               <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} language={language} />
-              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} language={language} />
+              <FriendsLeaderboardCard leaderboardData={friendsList} language={language} />
             </>
           )}
 
@@ -830,8 +881,8 @@ export default function GamePage() {
                                 {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate(UI_TEXTS.youSuffix)}</span>}
                               </span>
                             </div>
-                            {!player.isCurrentUser && (
-                              <Button variant="ghost" size="sm" className="text-xs" disabled>
+                            {!player.isCurrentUser && user && ( // Only show Add Friend if current user is logged in
+                              <Button variant="outline" size="sm" className="text-xs" onClick={() => handleAddFriend(player)}>
                                 <UserPlus className="mr-1 h-3 w-3" /> {translate(UI_TEXTS.addFriendButton)}
                               </Button>
                             )}
@@ -1020,7 +1071,7 @@ export default function GamePage() {
                 </Button>
               </div>
               <GlobalLeaderboardCard leaderboardData={exampleGlobalLeaderboard} className="animate-fadeInUp" language={language}/>
-              <FriendsLeaderboardCard leaderboardData={exampleFriendsLeaderboard} className="animate-fadeInUp" language={language}/>
+              <FriendsLeaderboardCard leaderboardData={friendsList} className="animate-fadeInUp" language={language}/>
             </>
           )}
         </div>
@@ -1055,7 +1106,6 @@ export default function GamePage() {
     </div>
   );
 }
-
     
 
     
