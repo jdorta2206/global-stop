@@ -8,8 +8,8 @@
     "standalone",
     "minimal-ui"
   ],
-  "background_color": "#C0474A",
-  "theme_color": "#C0474A",
+  "background_color": "#E5F5FC",
+  "theme_color": "#29ABE2",
   "orientation": "any",
   "icons": [
     {
@@ -53,6 +53,22 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/screenshot-desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Vista del Juego en Escritorio"
+    },
+    {
+      "src": "/screenshots/screenshot-mobile-1.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Vista del Juego en Móvil"
     }
   ],
   "scope": "/",
