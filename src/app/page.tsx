@@ -76,7 +76,7 @@ interface PlayerInLobby {
   isOnline?: boolean;
 }
 
-const UI_TEXTS = {
+export const UI_TEXTS = {
   welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!", fr: "Bienvenue à Global Stop!", pt: "Bem-vindo ao Global Stop!" },
   welcomeDescription: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:", fr: "Choisissez comment vous voulez jouer :", pt: "Escolha como você quer jogar:" },
   playVsAI: { es: "Jugar vs IA", en: "Play vs AI", fr: "Jouer contre l'IA", pt: "Jogar vs IA" },
@@ -362,15 +362,19 @@ export default function GamePage() {
         }
         setChatMessages(loadedMessages);
       });
-      return () => unsubscribe();
+      return () => {
+        off(messagesRef); // Detach the listener when the component unmounts or activeRoomId changes
+      };
     } else {
       // Default messages if not in a room or for local chat panel
+      const defaultPlayerName = user?.displayName || translate(UI_TEXTS.playerNameDefault);
+      const defaultPlayerAvatar = user?.photoURL || `https://placehold.co/40x40.png?text=${defaultPlayerName.charAt(0)}`;
       setChatMessages([
-          { id: '1', text: translate(UI_TEXTS.chatLoginTitle), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
-          { id: '2', text: translate(UI_TEXTS.welcomeTitle), sender: { name: user?.displayName || translate(UI_TEXTS.playerNameDefault), uid: user?.uid || 'user1', avatar: user?.photoURL || `https://placehold.co/40x40.png?text=${(user?.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}` }, timestamp: new Date(Date.now() - 60000) },
+          { id: 'system-1', text: translate(UI_TEXTS.chatLoginTitle), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
+          { id: 'user-welcome-1', text: translate(UI_TEXTS.welcomeTitle), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) },
       ]);
     }
-  }, [activeRoomId, language, user, translate]);
+  }, [activeRoomId, language, user, translate, db]);
 
 
   useEffect(() => {
@@ -849,16 +853,18 @@ export default function GamePage() {
   };
 
   const handleChallengePlayer = (player: EnrichedPlayerScore) => {
-    toast({
-      title: translate(UI_TEXTS.challengePlayerToastTitle),
-      description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
-      variant: "default", 
-    });
+    // Navigate to challenge setup page if player.id exists
     if (player.id) { 
-        router.push(`/challenge-setup/${player.id}?name=${encodeURIComponent(player.name)}`);
-    } else {
-        console.warn("Attempted to challenge player without an ID:", player);
-        router.push(`/challenge-setup/unknown?name=${encodeURIComponent(player.name)}`);
+      router.push(`/challenge-setup/${player.id}?name=${encodeURIComponent(player.name)}`);
+    } else { // Fallback or different handling if no ID (e.g., for manually added friends without a global ID)
+      console.warn("Attempted to challenge player without a unique ID or with only a local ID:", player);
+      // For now, we can still try to navigate, the page will handle missing ID as "unknown"
+      router.push(`/challenge-setup/unknown?name=${encodeURIComponent(player.name)}`);
+      toast({
+        title: translate(UI_TEXTS.challengePlayerToastTitle), // Kept for consistency if navigation itself isn't the "feature"
+        description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
+        variant: "default", 
+      });
     }
   };
 
@@ -906,15 +912,32 @@ export default function GamePage() {
       });
       return;
     }
+    
+    if (!activeRoomId) { // Handle local chat messages if not in a room
+        const newMessage: ChatMessage = {
+            id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            text,
+            sender: {
+                name: user.displayName || translate(UI_TEXTS.playerNameDefault),
+                uid: user.uid,
+                avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
+            },
+            timestamp: new Date(),
+        };
+        setChatMessages(prev => [...prev, newMessage]);
+        return;
+    }
+
+    // If in a room, send to Firebase
     const newMessageRef = push(child(ref(db), `rooms/${activeRoomId}/chatMessages`));
-    const messageData: Omit<ChatMessage, 'id'> = { // Omit id as Firebase will generate it
+    const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
       text,
       sender: {
         name: user.displayName || translate(UI_TEXTS.playerNameDefault),
         uid: user.uid,
         avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
       },
-      timestamp: serverTimestamp() as any, // Cast to any for Firebase ServerValue
+      timestamp: serverTimestamp(), 
     };
 
     set(newMessageRef, messageData)
@@ -1050,10 +1073,18 @@ export default function GamePage() {
                         size="lg"
                         className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                         onClick={() => {
+                          if (!user) {
+                            toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+                            return;
+                          }
                           const gameRef = ref(db, `rooms/${activeRoomId}/currentGameData`);
-                          update(gameRef, { status: "SPINNING" });
+                          update(gameRef, { status: "SPINNING" })
+                            .catch(err => {
+                                console.error("Error starting game in room:", err);
+                                toast({ title: "Error", description: `Could not start game: ${err.message}`, variant: "destructive" });
+                            });
                         }}
-                        disabled={!user}
+                        disabled={!user} 
                     >
                         <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
                         {translate(UI_TEXTS.startGameWithFriendsButton)}
@@ -1118,7 +1149,7 @@ export default function GamePage() {
                           </div>
                         ))
                       ) : (
-                         <p className="text-sm text-muted-foreground text-center py-2">{translate(UI_TEXTS.waitingForPlayers)}</p>
+                         <p className="text-sm text-muted-foreground text-center py-2">{user ? translate(UI_TEXTS.waitingForPlayers) : translate(UI_TEXTS.chatLoginMessage) }</p>
                       )}
                         <p className="text-xs text-muted-foreground text-center pt-2">{translate(UI_TEXTS.playerListDescription)}</p>
                     </div>
@@ -1321,7 +1352,7 @@ export default function GamePage() {
         </div>
         <ChatPanel
           messages={chatMessages}
-          onSendMessage={activeRoomId && user ? handleSendChatMessage : (text) => console.log("Local chat message (not in room or not logged in):", text)}
+          onSendMessage={handleSendChatMessage}
           isOpen={isChatOpen}
           setIsOpen={setIsChatOpen}
           currentUserUid={user?.uid}
@@ -1354,6 +1385,7 @@ export default function GamePage() {
     
 
     
+
 
 
 
