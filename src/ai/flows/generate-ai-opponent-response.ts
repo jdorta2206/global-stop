@@ -16,7 +16,7 @@ import type { Language } from '@/contexts/language-context'; // Import Language 
 const AiOpponentResponseInputSchema = z.object({
   letter: z.string().describe('La letra para la ronda actual.'),
   category: z.string().describe('La categoría para la ronda actual.'),
-  language: z.custom<Language>().describe('El idioma para la respuesta (es, en, fr, pt).'), // Add language
+  language: z.custom<Language>().describe('El idioma para la respuesta (es, en, fr, pt).'),
 });
 export type AiOpponentResponseInput = z.infer<typeof AiOpponentResponseInputSchema>;
 
@@ -30,7 +30,6 @@ export async function generateAiOpponentResponse(input: AiOpponentResponseInput)
   return generateAiOpponentResponseFlow(input);
 }
 
-// Updated prompt to include language
 const currentPromptText = `Game: "Stop". Language: "{{{language}}}". Letter: "{{{letter}}}". Category: "{{{category}}}".
 Task: ONE valid word in {{{language}}} for this category starting with "{{{letter}}}".
 If no word, respond with an empty string.
@@ -42,11 +41,11 @@ Example for letter "C", category "Couleur", language "fr": "Citron"
 `;
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vMinimalStrict_MultiLang',
+  name: 'generateAiOpponentResponsePrompt_vMinimalStrict_MultiLang_v2', // Changed name
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
   prompt: currentPromptText,
-  config: { temperature: 0.3 }, // Slightly higher temp for more varied but still focused answers
+  config: { temperature: 0.3 },
 });
 
 const generateAiOpponentResponseFlow = ai.defineFlow(
@@ -55,45 +54,51 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     inputSchema: AiOpponentResponseInputSchema,
     outputSchema: AiOpponentResponseOutputSchema,
   },
-  async input => {
+  async (input: AiOpponentResponseInput): Promise<AiOpponentResponseOutput> => {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
-    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
-
-    const {output, response: rawLLMResponse} = await prompt(input);
-
-    let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
     try {
-      llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
-    } catch (e: any) {
-      console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
-    }
-    console.log(`[${timestamp}] generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
 
-    if (output && typeof output.response === 'string') {
-      const structuredResponseTrimmed = output.response.trim();
-      if (structuredResponseTrimmed !== "" && !structuredResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-        console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" (lang ${input.language}) did not start with the correct letter. Correcting to empty string.`);
-        return { response: "" };
+      const {output, response: rawLLMResponse} = await prompt(input);
+
+      let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
+      try {
+        llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
+      } catch (e: any) {
+        console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
-      if (structuredResponseTrimmed !== "") {
-        console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
-        return { response: structuredResponseTrimmed };
-      }
-    } 
-    
-    const rawTextTrimmed = llmResponseTextForLogging.trim();
-    if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) { 
-        if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
-            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
-            return { response: rawTextTrimmed };
-        } else {
-            console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido o estaba vacío. Raw text "${rawTextTrimmed}" parece una palabra pero no empieza con la letra "${input.letter}". Defaulting to empty string.`);
-            return { response: "" };
+      console.log(`[${timestamp}] generateAiOpponentResponseFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${llmResponseTextForLogging}"`);
+
+      if (output && typeof output.response === 'string') {
+        const structuredResponseTrimmed = output.response.trim();
+        if (structuredResponseTrimmed !== "" && !structuredResponseTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
+          console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" (lang ${input.language}) did not start with the correct letter. Correcting to empty string.`);
+          return { response: "" };
         }
+        if (structuredResponseTrimmed !== "") {
+          console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
+          return { response: structuredResponseTrimmed };
+        }
+      }
+
+      // Fallback to raw text if structured output is not as expected
+      const rawTextTrimmed = llmResponseTextForLogging.trim();
+      if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) {
+          if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
+              console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
+              return { response: rawTextTrimmed };
+          } else {
+              console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output no fue válido o estaba vacío. Raw text "${rawTextTrimmed}" parece una palabra pero no empieza con la letra "${input.letter}". Defaulting to empty string.`);
+              return { response: "" };
+          }
+      }
+
+      console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
+      return { response: "" };
+    } catch (error: any) {
+      console.error(`[${timestamp}] generateAiOpponentResponseFlow: UNHANDLED EXCEPTION in flow for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
+      return { response: "" }; // Ensure a valid output is always returned
     }
-    
-    console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
-    return { response: "" };
   }
 );

@@ -14,7 +14,7 @@ export default function ChallengeSetupPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language, translate } = useLanguage(); // Use underscore if translate from context isn't used directly for page-specific texts
+  const { language, translate } = useLanguage(); // CORREGIDO: Eliminado el guion bajo
 
   const playerId = params.playerId as string;
   const playerName = searchParams.get('name') || playerId; // Fallback to ID if name not provided
