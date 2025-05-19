@@ -28,6 +28,7 @@ import { Progress } from '@/components/ui/progress';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import type { ChatMessage } from '@/components/chat/chat-message-item';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 import type { EnrichedPlayerScore } from '@/components/game/leaderboard-table';
 
 
@@ -212,7 +213,11 @@ const UI_TEXTS = {
   addFriendManualButton: { es: "Añadir", en: "Add", fr: "Ajouter", pt: "Adicionar"},
   friendManuallyAddedToastTitle: { es: "¡Amigo Añadido Manualmente!", en: "Friend Added Manually!", fr: "Ami Ajouté Manuellement !", pt: "Amigo Adicionado Manualmente!"},
   friendManuallyAddedToastDescription: { es: "{name} ha sido añadido a tu lista local de amigos.", en: "{name} has been added to your local friends list.", fr: "{name} a été ajouté à votre liste d'amis locale.", pt: "{name} foi adicionado à sua lista local de amigos."},
-
+  challengeSetupPageTitle: { es: "Configurar Desafío", en: "Setup Challenge", fr: "Configurer le Défi", pt: "Configurar Desafio"},
+  challengeSetupDescription: { es: "Preparando desafío con {playerName} (ID: {playerId}).", en: "Setting up challenge with {playerName} (ID: {playerId}).", fr: "Préparation du défi avec {playerName} (ID : {playerId}).", pt: "Preparando desafio com {playerName} (ID: {playerId})."},
+  challengeSettingsComingSoon: { es: "Configuración del juego (próximamente)", en: "Game settings (coming soon)", fr: "Paramètres du jeu (bientôt disponible)", pt: "Configurações do jogo (em breve)"},
+  sendChallengeComingSoon: { es: "Enviar desafío (próximamente)", en: "Send challenge (coming soon)", fr: "Envoyer le défi (bientôt disponible)", pt: "Enviar desafio (em breve)"},
+  backToHomeButton: { es: "Volver al Inicio", en: "Back to Home", fr: "Retour à l'Accueil", pt: "Voltar ao Início"},
 };
 
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser'>[] = [
@@ -325,7 +330,7 @@ export default function GamePage() {
 
   const exampleGlobalLeaderboard: EnrichedPlayerScore[] = [
     { id: "global-player-1", name: "Star Player", score: 12500, avatar: "https://placehold.co/40x40.png?text=S" },
-    { id: "global-player-2", name: "StopKing", score: 11800, avatar: "https://placehold.co/40x40.png?text=S" },
+    { id: "global-player-2", name: "StopKing", score: 11800, avatar: "https://placehold.co/40x40.png?text=K" },
     { id: "global-player-3", name: "FastLetters", score: 10500, avatar: "https://placehold.co/40x40.png?text=F" },
     { id: "global-player-4", name: "ProPlayer123", score: 9800, avatar: "https://placehold.co/40x40.png?text=P" },
     { id: "global-player-5", name: "Ana S.", score: 9200, avatar: "https://placehold.co/40x40.png?text=A" },
@@ -354,6 +359,7 @@ export default function GamePage() {
     }
     return () => {
       backgroundAudioRef.current?.pause();
+      countdownTickAudioRef.current?.pause();
       countdownUrgentAudioRef.current?.pause();
     };
   }, []);
@@ -655,7 +661,7 @@ export default function GamePage() {
   };
 
   const handleShareGameViaWhatsApp = () => {
-    const gameUrl = window.location.href;
+    const gameUrl = typeof window !== 'undefined' ? window.location.href : '';
     const message = `${translate(UI_TEXTS.shareGameMessageWhatsApp)} ${gameUrl}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -813,6 +819,12 @@ export default function GamePage() {
       description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
       variant: "default",
     });
+    if (player.id) {
+        router.push(`/challenge-setup/${player.id}?name=${encodeURIComponent(player.name)}`);
+    } else {
+        // Fallback if ID is somehow missing, though unlikely for enriched scores
+        router.push(`/challenge-setup/unknown?name=${encodeURIComponent(player.name)}`);
+    }
   };
 
   const handleAddFriendManual = (identifier: string) => {
@@ -1275,6 +1287,7 @@ export default function GamePage() {
     
 
     
+
 
 
 
