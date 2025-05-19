@@ -31,7 +31,7 @@ export async function generateAiOpponentResponse(input: AiOpponentResponseInput)
   try {
     return await generateAiOpponentResponseFlow(input);
   } catch (e: any) {
-    console.error(`[${timestamp}] generateAiOpponentResponse (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack);
+    console.error(`[${timestamp}] generateAiOpponentResponse (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack, ". PLEASE CHECK GOOGLE_API_KEY and ensure Genkit is configured correctly.");
     return { response: "" }; // Return a valid default response
   }
 }
@@ -71,7 +71,8 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
 
       let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
-        llmResponseTextForLogging = (await llmGenerateResponse.text()) || "Empty LLM response text";
+        // Correctly access the text property as per Genkit v1.x
+        llmResponseTextForLogging = llmGenerateResponse.text || "Empty LLM response text";
       } catch (e: any) {
         console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
@@ -109,3 +110,4 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
     }
   }
 );
+
