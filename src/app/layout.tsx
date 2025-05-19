@@ -5,14 +5,17 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context';
 import { LanguageProvider } from '@/contexts/language-context';
-import { RoomProvider } from '@/contexts/room-context'; // Import RoomProvider
+import { RoomProvider } from '@/contexts/room-context';
+// Script for Facebook SDK
+import Script from 'next/script';
 
-const geistSans = Geist({ 
+
+const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
@@ -23,12 +26,12 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
     icon: [
-      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Favicon principal
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, // Fallback favicon.ico
+      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' },
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' },
     ],
-    shortcut: { url: '/logo_stop_game.png', type: 'image/png' }, // Para accesos directos
-    apple: [ 
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }, // Ícono para Apple
+    shortcut: { url: '/logo_stop_game.png', type: 'image/png' },
+    apple: [
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
 };
@@ -47,12 +50,36 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <LanguageProvider>
           <AuthProvider>
-            <RoomProvider> {/* Wrap with RoomProvider */}
+            <RoomProvider>
               {children}
               <Toaster />
             </RoomProvider>
           </AuthProvider>
         </LanguageProvider>
+        {/* Facebook SDK Scripts */}
+        <Script id="fb-sdk-init" strategy="afterInteractive">
+          {`
+            window.fbAsyncInit = function() {
+              FB.init({
+                appId      : '{your-app-id}', // REPLACE WITH YOUR ACTUAL FACEBOOK APP ID
+                cookie     : true,
+                xfbml      : true,
+                version    : 'v19.0' // REPLACE WITH YOUR DESIRED API VERSION
+              });
+              FB.AppEvents.logPageView();
+            };
+          `}
+        </Script>
+        <Script
+          id="fb-sdk"
+          src="https://connect.facebook.net/en_US/sdk.js"
+          strategy="afterInteractive"
+          onLoad={() => {
+            console.log('Facebook SDK loaded');
+            // You could call FB.getLoginStatus() here if needed on initial load
+            // or trigger other FB SDK dependent logic if window.FB is available.
+          }}
+        />
       </body>
     </html>
   );
