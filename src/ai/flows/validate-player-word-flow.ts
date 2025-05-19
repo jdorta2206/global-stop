@@ -20,7 +20,7 @@ const ValidatePlayerWordInputSchema = z.object({
 });
 export type ValidatePlayerWordInput = z.infer<typeof ValidatePlayerWordInputSchema>;
 
-// Schema for the expected output from the LLM
+// Schema for the expected output from the LLM when using JSON mode
 const LLMValidationOutputSchema = z.object({
     isValid: z.boolean().describe("True si la palabra es válida, false en caso contrario."),
 });
@@ -34,9 +34,10 @@ export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSc
 export async function validatePlayerWord(input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> {
   const timestamp = new Date().toISOString();
   try {
+    console.log(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): Invoking flow for input: ${JSON.stringify(input)}`);
     return await validatePlayerWordFlow(input);
   } catch (e: any) {
-    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack);
+    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack, ". PLEASE CHECK GOOGLE_API_KEY and ensure Genkit is configured correctly.");
     return { isValid: false }; // Return a valid default response
   }
 }
@@ -81,7 +82,7 @@ const validatePlayerWordFlow = ai.defineFlow(
       console.log(`[${timestamp}] validatePlayerWordFlow: Iniciando validación para input: ${JSON.stringify(input)}`);
       console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando JSON {"isValid": boolean}): "${currentPromptText.substring(0,300)}..."`);
 
-      if (input.playerWord.trim() === "") {
+      if (!input.playerWord || input.playerWord.trim() === "") {
         console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra vacía recibida. Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
         return { isValid: false };
       }
@@ -95,7 +96,7 @@ const validatePlayerWordFlow = ai.defineFlow(
 
       let rawResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
-        rawResponseTextForLogging = (await llmResponse.text()) || "Empty LLM response text";
+        rawResponseTextForLogging = llmResponse.text || "Empty LLM response text";
       } catch (e: any) {
         console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
@@ -105,10 +106,8 @@ const validatePlayerWordFlow = ai.defineFlow(
         console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) y output.isValid es un booleano. Palabra: "${input.playerWord}". Resultado: {isValid: ${output.isValid}}.`);
         return { isValid: output.isValid };
       } else {
-        // Attempt to parse from raw text if structured output is not as expected
         console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":boolean}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Intentando parseo manual de JSON.`);
         
-        // Regex to find a JSON object that looks like {"isValid": true/false}
         const jsonRegex = /\{\s*"isValid"\s*:\s*(true|false)\s*\}/;
         const match = rawResponseTextForLogging.match(jsonRegex);
 
