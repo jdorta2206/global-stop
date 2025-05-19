@@ -7,17 +7,17 @@ import { AppFooter } from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Home, Info, Users, Gamepad2, Settings, Send } from 'lucide-react';
-import { useLanguage, type LanguageOption } from '@/contexts/language-context'; // Assuming LanguageOption is exported
-import { UI_TEXTS } from '@/app/page'; // Re-use UI_TEXTS for some common buttons
+import { useLanguage, type LanguageOption } from '@/contexts/language-context'; 
+import { UI_TEXTS } from '@/constants/ui-texts'; // Import from new location
 
 export default function ChallengeSetupPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { language, translate } = useLanguage(); // CORREGIDO: Eliminado el guion bajo
+  const { language, translate } = useLanguage(); 
 
   const playerId = params.playerId as string;
-  const playerName = searchParams.get('name') || playerId; // Fallback to ID if name not provided
+  const playerName = searchParams.get('name') || playerId; 
 
   // Localized texts for this page
   const pageTexts = {
@@ -86,3 +86,6 @@ export default function ChallengeSetupPage() {
     </div>
   );
 }
+
+
+    
