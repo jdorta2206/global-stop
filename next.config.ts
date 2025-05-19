@@ -1,6 +1,9 @@
 
 import type {NextConfig} from 'next';
 
+console.log("--- next.config.js execution start ---");
+console.log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
+
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
@@ -32,5 +35,9 @@ const nextConfig: NextConfig = {
     ],
   },
 };
+
+console.log("Effective ignoreBuildErrors (TypeScript):", nextConfig.typescript?.ignoreBuildErrors);
+console.log("Effective ignoreDuringBuilds (ESLint):", nextConfig.eslint?.ignoreDuringBuilds);
+console.log("--- next.config.js execution end ---");
 
 export default nextConfig;
