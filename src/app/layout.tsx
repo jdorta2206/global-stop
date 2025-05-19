@@ -25,14 +25,14 @@ export const metadata: Metadata = {
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
   icons: {
+    shortcut: '/logo_stop_game.png', // For general shortcut icon
     icon: [
-      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' },
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, 
+      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Main icon, any size
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, // Traditional favicon
     ],
-    apple: [
+    apple: [ // For Apple touch icons
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: { url: '/logo_stop_game.png', type: 'image/png' },
   },
 };
 
@@ -57,6 +57,7 @@ export default function RootLayout({
           </AuthProvider>
         </LanguageProvider>
         {/* Facebook SDK Scripts */}
+        {/* IMPORTANT: You MUST replace '{your-app-id}' and '{api-version}' (e.g., 'v19.0') with your actual Facebook App values for Facebook Login to work. */}
         <Script id="fb-sdk-init" strategy="afterInteractive">
           {`
             window.fbAsyncInit = function() {
@@ -64,7 +65,7 @@ export default function RootLayout({
                 appId      : '{your-app-id}', // REPLACE WITH YOUR ACTUAL FACEBOOK APP ID
                 cookie     : true,
                 xfbml      : true,
-                version    : 'v19.0' // REPLACE WITH YOUR DESIRED API VERSION
+                version    : 'v19.0' // REPLACE WITH YOUR DESIRED API VERSION (e.g., 'v19.0')
               });
               FB.AppEvents.logPageView();
             };
