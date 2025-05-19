@@ -27,7 +27,13 @@ export type AiOpponentResponseOutput = z.infer<typeof AiOpponentResponseOutputSc
 
 
 export async function generateAiOpponentResponse(input: AiOpponentResponseInput): Promise<AiOpponentResponseOutput> {
-  return generateAiOpponentResponseFlow(input);
+  const timestamp = new Date().toISOString();
+  try {
+    return await generateAiOpponentResponseFlow(input);
+  } catch (e: any) {
+    console.error(`[${timestamp}] generateAiOpponentResponse (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack);
+    return { response: "" }; // Return a valid default response
+  }
 }
 
 const currentPromptText = `Game: "Stop". Language: "{{{language}}}". Letter: "{{{letter}}}". Category: "{{{category}}}".
@@ -41,7 +47,7 @@ Example for letter "C", category "Couleur", language "fr": "Citron"
 `;
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vMinimalStrict_MultiLang_v2', // Changed name
+  name: 'generateAiOpponentResponsePrompt_vMinimalStrict_MultiLang_v2',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
   prompt: currentPromptText,
@@ -60,11 +66,12 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
 
-      const {output, response: rawLLMResponse} = await prompt(input);
+      const llmGenerateResponse = await prompt(input);
+      const output = llmGenerateResponse.output; // Access the structured output
 
       let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
-        llmResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
+        llmResponseTextForLogging = (await llmGenerateResponse.text()) || "Empty LLM response text";
       } catch (e: any) {
         console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
@@ -97,7 +104,7 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       console.error(`[${timestamp}] generateAiOpponentResponseFlow: LLM no devolvió 'output.response' string válido según schema Genkit, y el texto crudo no es una sola palabra usable. Input: ${JSON.stringify(input)}. Raw output object: ${JSON.stringify(output)}. Raw text: "${llmResponseTextForLogging}". Defaulting to empty string.`);
       return { response: "" };
     } catch (error: any) {
-      console.error(`[${timestamp}] generateAiOpponentResponseFlow: UNHANDLED EXCEPTION in flow for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
+      console.error(`[${timestamp}] generateAiOpponentResponseFlow (INTERNAL FLOW): UNHANDLED EXCEPTION for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
       return { response: "" }; // Ensure a valid output is always returned
     }
   }

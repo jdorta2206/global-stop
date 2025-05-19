@@ -20,9 +20,9 @@ const ValidatePlayerWordInputSchema = z.object({
 });
 export type ValidatePlayerWordInput = z.infer<typeof ValidatePlayerWordInputSchema>;
 
-// Schema for the expected output from the LLM (string 'true' or 'false')
-const LLMResponseSchema = z.object({
-    isValid: z.string().describe("Un string: 'true' si la palabra es válida, 'false' en caso contrario."),
+// Schema for the expected output from the LLM
+const LLMValidationOutputSchema = z.object({
+    isValid: z.boolean().describe("True si la palabra es válida, false en caso contrario."),
 });
 
 // Schema for the final output of this flow
@@ -32,31 +32,39 @@ const ValidatePlayerWordOutputSchema = z.object({
 export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSchema>;
 
 export async function validatePlayerWord(input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> {
-  return validatePlayerWordFlow(input);
+  const timestamp = new Date().toISOString();
+  try {
+    return await validatePlayerWordFlow(input);
+  } catch (e: any) {
+    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack);
+    return { isValid: false }; // Return a valid default response
+  }
 }
 
-const currentPromptText = `Word: "{{{playerWord}}}"
-Letter: "{{{letter}}}"
-Language: "{{{language}}}"
-Is the word "{{{playerWord}}}" a real, correctly-spelled word in {{{language}}} OR a common proper name in {{{language}}} that starts with the letter "{{{letter}}}" (case-insensitive)?
-The category provided is for context but should NOT influence if the word itself is valid for the language and letter.
-Examples:
-- If language is "es", letter "P", word "Paco" -> {"isValid": "true"}
-- If language is "en", letter "A", word "Apple" -> {"isValid": "true"}
-- If language is "fr", letter "C", word "Chien" -> {"isValid": "true"}
-- If language is "pt", letter "B", word "Brasil" -> {"isValid": "true"}
-- If language is "es", letter "K", word "Koala" -> {"isValid": "true"}
-- If language is "es", letter "Z", word "Zorro" -> {"isValid": "true"}
-- If language is "es", letter "I", word "Irene" -> {"isValid": "true"}
-- If word is "Xyzzy" (invented) -> {"isValid": "false"}
+const currentPromptText = `You are an expert judge for the game "Stop" (also known as Tutti Frutti).
+Your specific task is to determine if the player's word '{{{playerWord}}}' is a valid entry for the letter '{{{letter}}}' in the language '{{{language}}}'.
 
-Answer ONLY with JSON: {"isValid": "true"} or {"isValid": "false"}. (Important: "true" or "false" as STRINGS).
-NO OTHER TEXT. NO MARKDOWN. JUST JSON.`;
+Follow these rules STRICTLY:
+1. The word MUST begin with the letter '{{{letter}}}' (ignore case).
+2. The word '{{{playerWord}}}' MUST be a real, commonly known, and correctly spelled word in {{{language}}} OR a common proper name in {{{language}}} (like 'Paco', 'París', 'John', 'London', 'Zorro', 'Irene', 'Sofia'). It should not be an invented word, a typo, a random string of letters, or a word from another language unless it's a very common loanword in {{{language}}}.
+3. The word must NOT be empty or consist only of whitespace.
+
+Player's word: '{{{playerWord}}}'
+Required letter: '{{{letter}}}'
+Language: '{{{language}}}'
+
+Based ONLY on these rules, is the player's word valid?
+Respond with a JSON object in the format {"isValid": true} if ALL rules are met.
+Respond with a JSON object in the format {"isValid": false} if ANY rule is not met.
+DO NOT include any other text, explanation, or markdown. YOUR ENTIRE RESPONSE MUST BE ONLY THE JSON OBJECT.
+Example for a valid word like "Paco" for letter "P" in language "es": {"isValid": true}
+Example for an invalid word like "Xyzzy" for letter "X" in language "en": {"isValid": false}
+`;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON_vMinimal_Strict_MultiLang_v2', // Changed name
+  name: 'validatePlayerWordPromptJSON_vMinimal_Strict_MultiLang_v3',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: LLMResponseSchema},
+  output: {schema: LLMValidationOutputSchema}, // Expecting {isValid: boolean}
   prompt: currentPromptText,
   config: { temperature: 0.2 },
 });
@@ -71,7 +79,7 @@ const validatePlayerWordFlow = ai.defineFlow(
     const timestamp = new Date().toISOString();
     try {
       console.log(`[${timestamp}] validatePlayerWordFlow: Iniciando validación para input: ${JSON.stringify(input)}`);
-      console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando JSON {"isValid": "string"}): "${currentPromptText.substring(0,300)}..."`);
+      console.log(`[${timestamp}] validatePlayerWordFlow: Usando prompt (esperando JSON {"isValid": boolean}): "${currentPromptText.substring(0,300)}..."`);
 
       if (input.playerWord.trim() === "") {
         console.warn(`[${timestamp}] validatePlayerWordFlow (pre-LLM check): Palabra vacía recibida. Input: ${JSON.stringify(input)}. Retornando {isValid: false}.`);
@@ -82,50 +90,47 @@ const validatePlayerWordFlow = ai.defineFlow(
           return { isValid: false };
       }
 
-      const {output, response: rawLLMResponse} = await prompt(input);
+      const llmResponse = await prompt(input);
+      const output = llmResponse.output; // Access the structured output
 
       let rawResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
-        rawResponseTextForLogging = (await rawLLMResponse.text()) || "Empty LLM response text";
+        rawResponseTextForLogging = (await llmResponse.text()) || "Empty LLM response text";
       } catch (e: any) {
         console.error(`[${timestamp}] validatePlayerWordFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
       console.log(`[${timestamp}] validatePlayerWordFlow: Input: ${JSON.stringify(input)}, Raw LLM Output Object (parsed by Genkit schema): ${JSON.stringify(output)}, Raw LLM Response Text: "${rawResponseTextForLogging}"`);
 
-      if (output && typeof output.isValid === 'string') {
-        const isValidString = output.isValid.trim().toLowerCase();
-        if (isValidString === 'true') {
-          console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) y output.isValid es "true". Palabra: "${input.playerWord}". Resultado: {isValid: true}.`);
-          return { isValid: true };
-        } else if (isValidString === 'false') {
-          console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) y output.isValid es "false". Palabra: "${input.playerWord}". Resultado: {isValid: false}.`);
-          return { isValid: false };
-        } else {
-          console.error(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) pero output.isValid ("${output.isValid}") no es "true" ni "false". Raw text: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
-          if (rawResponseTextForLogging.includes('"isValid": "true"')) {
-             console.warn(`[${timestamp}] validatePlayerWordFlow: Fallback: Encontrado "isValid": "true" en texto crudo. Retornando {isValid: true}.`);
-             return { isValid: true };
-          }
-          if (rawResponseTextForLogging.includes('"isValid": "false"')) {
-             console.warn(`[${timestamp}] validatePlayerWordFlow: Fallback: Encontrado "isValid": "false" en texto crudo. Retornando {isValid: false}.`);
-             return { isValid: false };
-          }
-          return { isValid: false };
-        }
+      if (output && typeof output.isValid === 'boolean') {
+        console.log(`[${timestamp}] validatePlayerWordFlow: LLM devolvió JSON válido (vía schema Genkit) y output.isValid es un booleano. Palabra: "${input.playerWord}". Resultado: {isValid: ${output.isValid}}.`);
+        return { isValid: output.isValid };
       } else {
-          console.error(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un string, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":"string"}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
-          if (rawResponseTextForLogging.includes('"isValid": "true"')) {
-            console.warn(`[${timestamp}] validatePlayerWordFlow: Fallback: Encontrado "isValid": "true" en texto crudo. Retornando {isValid: true}.`);
-            return { isValid: true };
+        // Attempt to parse from raw text if structured output is not as expected
+        console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":boolean}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Intentando parseo manual de JSON.`);
+        
+        // Regex to find a JSON object that looks like {"isValid": true/false}
+        const jsonRegex = /\{\s*"isValid"\s*:\s*(true|false)\s*\}/;
+        const match = rawResponseTextForLogging.match(jsonRegex);
+
+        if (match && match[0]) {
+          try {
+            const parsedJson = JSON.parse(match[0]);
+            if (typeof parsedJson.isValid === 'boolean') {
+              console.warn(`[${timestamp}] validatePlayerWordFlow: Fallback: Encontrado y parseado JSON válido ("${match[0]}") en texto crudo. Retornando {isValid: ${parsedJson.isValid}}.`);
+              return { isValid: parsedJson.isValid };
+            } else {
+               console.error(`[${timestamp}] validatePlayerWordFlow: Fallback: JSON parseado de texto crudo ("${match[0]}") no contiene 'isValid' como booleano. Defaulting to {isValid: false}.`);
+            }
+          } catch (parseError: any) {
+            console.error(`[${timestamp}] validatePlayerWordFlow: Fallback: Error al parsear JSON extraído de texto crudo ("${match[0]}"). Error: ${parseError.message}. Defaulting to {isValid: false}.`);
           }
-          if (rawResponseTextForLogging.includes('"isValid": "false"')) {
-            console.warn(`[${timestamp}] validatePlayerWordFlow: Fallback: Encontrado "isValid": "false" en texto crudo. Retornando {isValid: false}.`);
-            return { isValid: false };
-          }
-          return { isValid: false };
+        } else {
+          console.error(`[${timestamp}] validatePlayerWordFlow: Fallback: No se encontró un patrón JSON válido (ej. {"isValid": true/false}) en texto crudo: "${rawResponseTextForLogging}". Defaulting to {isValid: false}.`);
+        }
+        return { isValid: false };
       }
     } catch (error: any) {
-      console.error(`[${timestamp}] validatePlayerWordFlow: UNHANDLED EXCEPTION in flow for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
+      console.error(`[${timestamp}] validatePlayerWordFlow (INTERNAL FLOW): UNHANDLED EXCEPTION for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
       return { isValid: false }; // Ensure a valid output is always returned
     }
   }
