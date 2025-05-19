@@ -69,7 +69,7 @@ export function LeaderboardTable({
               <TableHead className="w-[80px] hidden sm:table-cell">{translate('avatar')}</TableHead>
               <TableHead>{translate('name')}</TableHead>
               <TableHead className="text-right">{translate('score')}</TableHead>
-              {(onAddFriend || onChallenge) && <TableHead className="text-center">{translate('actions')}</TableHead>}
+              {(onAddFriend || onChallenge) && <TableHead className="text-center px-1 sm:px-4">{translate('actions')}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,8 +87,8 @@ export function LeaderboardTable({
                 <TableCell>{player.name}</TableCell>
                 <TableCell className="text-right font-semibold">{player.score.toLocaleString(localeForNumber)}</TableCell>
                 {(onAddFriend || onChallenge) && (
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center space-x-1">
+                  <TableCell className="text-center px-1 sm:px-4">
+                    <div className="flex flex-col items-center space-y-1 p-1 sm:flex-row sm:space-y-0 sm:space-x-1 sm:p-0">
                       {!isFriendsLeaderboard && onAddFriend && player.id !== currentUserId && (
                         <Tooltip>
                           <TooltipTrigger asChild>
