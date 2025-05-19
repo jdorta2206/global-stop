@@ -21,7 +21,6 @@ export const metadata: Metadata = {
   title: 'Juego Global Stop',
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
-  themeColor: '#C0474A', 
   icons: {
     icon: [
       { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Favicon principal
@@ -32,6 +31,10 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }, // Ícono para Apple
     ],
   },
+};
+
+export const viewport = {
+  themeColor: '#C0474A',
 };
 
 export default function RootLayout({

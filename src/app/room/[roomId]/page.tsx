@@ -10,14 +10,16 @@ import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Ga
 import { useLanguage, type Language } from '@/contexts/language-context';
 import { useRoom } from '@/contexts/room-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/auth-context'; // Import useAuth
+import { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { getDatabase, ref, onValue, update, serverTimestamp } from "firebase/database";
+import { app } from '@/lib/firebase/config';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface PlayerInRoom {
   id: string;
   name: string;
-  avatar?: string;
+  avatar?: string | null;
   isCurrentUser?: boolean;
 }
 
@@ -25,17 +27,18 @@ const ROOM_TEXTS = {
   title: { es: "Sala de Juego:", en: "Game Room:", fr: "Salle de Jeu :", pt: "Sala de Jogo:" },
   welcome: { es: "¡Bienvenido/a a la sala!", en: "Welcome to the room!", fr: "Bienvenue dans la salle !", pt: "Bem-vindo(a) à sala!" },
   description: { 
-    es: "Actualmente, esta es una página de marcador de posición. La funcionalidad completa para juegos multijugador en esta sala se implementará en futuras actualizaciones.", 
-    en: "This is currently a placeholder page. Full functionality for multiplayer games in this room will be implemented in future updates.",
-    fr: "Ceci est actuellement une page de remplacement. La fonctionnalité complète pour les jeux multijoueurs dans cette salle sera implémentée dans les futures mises à jour.",
-    pt: "Esta é atualmente uma página de placeholder. A funcionalidade completa para jogos multiplayer nesta sala será implementada em futuras atualizações."
+    es: "Esta es una página de sala multijugador. La funcionalidad de juego en tiempo real está en desarrollo.", 
+    en: "This is a multiplayer room page. Real-time game functionality is under development.", 
+    fr: "Ceci est une page de salle multijoueur. La fonctionnalité de jeu en temps réel est en développement.", 
+    pt: "Esta é uma página de sala multijogador. A funcionalidade de jogo em tempo real está em desenvolvimento." 
   },
   playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
+  connectedPlayersTitle: { es: "Jugadores Conectados", en: "Connected Players", fr: "Joueurs Connectés", pt: "Jogadores Conectados" },
   playerListDescription: { 
-    es: "Aquí verás la lista de amigos que se han unido. (Funcionalidad completa próximamente)", 
-    en: "Here you will see the list of friends who have joined. (Full functionality coming soon)",
-    fr: "Ici, vous verrez la liste des amis qui ont rejoint. (Fonctionnalité complète bientôt disponible)",
-    pt: "Aqui você verá a lista de amigos que entraram. (Funcionalidade completa em breve)"
+    es: "Aquí verás la lista de jugadores conectados a esta sala.", 
+    en: "Here you will see the list of players connected to this room.",
+    fr: "Ici, vous verrez la liste des joueurs connectés à cette salle.",
+    pt: "Aqui você verá a lista de jogadores conectados a esta sala."
   },
   gameInfoTitle: { es: "Información del Juego (Próximamente)", en: "Game Info (Coming Soon)", fr: "Infos sur le Jeu (Bientôt disponible)", pt: "Informações do Jogo (Em breve)" },
   gameInfoDescription: { 
@@ -69,6 +72,7 @@ const ROOM_TEXTS = {
   addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   startGameButton: { es: "Iniciar Partida (Próximamente)", en: "Start Game (Coming Soon)", fr: "Démarrer la Partie (Bientôt disponible)", pt: "Iniciar Jogo (Em Breve)"},
+  noPlayersInRoom: { es: "No hay jugadores en esta sala todavía.", en: "No players in this room yet.", fr: "Aucun joueur dans cette salle pour le moment.", pt: "Nenhum jogador nesta sala ainda." },
 };
 
 export default function RoomPage() {
@@ -76,36 +80,90 @@ export default function RoomPage() {
   const router = useRouter();
   const { language, translate: translateContext } = useLanguage();
   const { setActiveRoomId } = useRoom();
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth();
   const { toast } = useToast();
   const roomId = params.roomId as string;
 
-  const [playersInRoom, setPlayersInRoom] = useState<PlayerInRoom[]>([]);
+  const [connectedPlayers, setConnectedPlayers] = useState<PlayerInRoom[]>([]);
+  const db = getDatabase(app);
 
   const translate = (textKey: keyof typeof ROOM_TEXTS) => {
     return translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]['en'];
   }
 
+  const handlePlayerJoin = useCallback(async () => {
+    if (!user || !roomId) return;
+    const playerRef = ref(db, `rooms/${roomId}/players/${user.uid}`);
+    try {
+      await update(playerRef, {
+        name: user.displayName || 'Invitado',
+        avatar: user.photoURL || null,
+        joinedAt: serverTimestamp(),
+        // Score should be managed by game logic, not reset here.
+        // If score is part of player profile in room, initialize if not exists or leave as is.
+      });
+      console.log(`Player ${user.uid} data updated in room ${roomId}`);
+    } catch (error) {
+      console.error("Error joining/updating player in room:", error);
+      toast({ 
+        title: translateContext({es: "Error al unirse", en: "Error Joining", fr: "Erreur en rejoignant", pt: "Erro ao entrar"}), 
+        description: (error as Error).message, 
+        variant: "destructive" 
+      });
+    }
+  }, [user, roomId, db, toast, translateContext]);
+
   useEffect(() => {
-    if (roomId) {
+    if (roomId && setActiveRoomId) {
       setActiveRoomId(roomId);
     }
-    // Simulate fetching players in the room
-    const mockPlayers: PlayerInRoom[] = [
-      { id: 'player2', name: 'Amigo Juan', avatar: `https://placehold.co/40x40.png?text=J` },
-      { id: 'player3', name: 'Vecina Sofía', avatar: `https://placehold.co/40x40.png?text=S` },
-    ];
-    if (user) {
-      setPlayersInRoom([
-        { id: user.uid, name: user.displayName || 'Jugador Actual', avatar: user.photoURL || undefined, isCurrentUser: true },
-        ...mockPlayers,
-      ]);
-    } else {
-      setPlayersInRoom(mockPlayers);
+
+    if (!user || !roomId) {
+      setConnectedPlayers([]);
+      return;
     }
-  }, [roomId, setActiveRoomId, user]);
+
+    handlePlayerJoin(); // Add/update current player in the room
+
+    const playersRef = ref(db, `rooms/${roomId}/players`);
+    const unsubscribe = onValue(playersRef, (snapshot) => {
+      const data = snapshot.val();
+      const currentPlayers: PlayerInRoom[] = [];
+      if (data) {
+        Object.keys(data).forEach((playerId) => {
+          currentPlayers.push({
+            id: playerId,
+            name: data[playerId].name || 'Invitado',
+            avatar: data[playerId].avatar || null,
+            isCurrentUser: user?.uid === playerId,
+          });
+        });
+      }
+      setConnectedPlayers(currentPlayers);
+    }, (error) => {
+      console.error("Error fetching players from Firebase:", error);
+      toast({ 
+        title: translateContext({es: "Error al cargar jugadores", en: "Error Loading Players", fr: "Erreur de chargement des joueurs", pt: "Erro ao carregar jogadores"}), 
+        description: error.message, 
+        variant: "destructive" 
+      });
+      setConnectedPlayers([]);
+    });
+
+    return () => {
+      unsubscribe();
+      // Optional: implement player removal on leave if not using Firebase presence
+      // For a more robust system, use Firebase's onDisconnect() to remove the player
+      // or mark them as offline. Example:
+      // const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/status`);
+      // onDisconnect(playerStatusRef).set("offline").catch((err) => console.error("onDisconnect error", err));
+      // update(playerStatusRef, "online");
+    };
+  }, [roomId, user, db, setActiveRoomId, handlePlayerJoin, toast, translateContext]);
 
   const handleLeaveRoom = () => {
+    // Firebase onDisconnect should handle removal/status update if implemented.
+    // For now, just clear active room and navigate.
     setActiveRoomId(null);
     router.push('/');
   };
@@ -117,12 +175,12 @@ export default function RoomPage() {
       await navigator.clipboard.writeText(text);
       toast({
         title: type === 'id' ? translate('idCopiedToastTitle') : translate('linkCopiedToastTitle'),
-        description: `${text} ${language === 'es' ? 'ha sido copiado.' : 'has been copied.'}`,
+        description: `${text} ${translateContext({es: "ha sido copiado.", en: "has been copied.", fr: "a été copié.", pt: "foi copiado."})}`,
       });
     } catch (err) {
       toast({
         title: translate('errorCopyingToastTitle'),
-        description: language === 'es' ? 'No se pudo copiar.' : 'Could not copy.',
+        description: translateContext({es: "No se pudo copiar.", en: "Could not copy.", fr: "Impossible de copier.", pt: "Não foi possível copiar."}),
         variant: "destructive",
       });
     }
@@ -134,12 +192,12 @@ export default function RoomPage() {
     window.open(whatsappUrl, '_blank');
   };
 
-  if (!roomId) {
+  if (!roomId) { 
     return ( 
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         <AppHeader />
         <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center">
-          <p>{language === 'es' ? 'Cargando sala...' : 'Loading room...'}</p>
+          <p>{translateContext({es: 'Cargando sala...', en: 'Loading room...', fr: 'Chargement de la salle...', pt: 'Carregando sala...'})}</p>
         </main>
         <AppFooter language={language} />
       </div>
@@ -165,11 +223,43 @@ export default function RoomPage() {
                 {translate('description')}
               </p>
             </div>
+            
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-secondary flex items-center">
+                <Users className="mr-2 h-5 w-5" /> {translate('connectedPlayersTitle')}
+              </h3>
+              <div className="p-3 bg-muted/20 rounded-md min-h-[100px] space-y-2">
+                {connectedPlayers.length > 0 ? (
+                  connectedPlayers.map((player) => (
+                    <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
+                      <div className="flex items-center space-x-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={player.avatar || undefined} alt={player.name} data-ai-hint="avatar person" />
+                          <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-card-foreground">
+                          {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
+                        </span>
+                      </div>
+                      {/* Placeholder for add friend button for non-current users */}
+                      {!player.isCurrentUser && user && (
+                         <Button variant="outline" size="sm" className="text-xs" disabled> {/* Functionality to be added */}
+                            <UserPlus className="mr-1 h-3 w-3" /> {translate('addFriendButton')}
+                          </Button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-3">{translate('noPlayersInRoom')}</p>
+                )}
+                 <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescription')}</p>
+              </div>
+            </div>
 
             <Button 
               size="lg" 
               className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-              disabled // Functionality coming soon
+              disabled 
             >
               <Gamepad2 className="mr-3 h-6 w-6" /> 
               {translate('startGameButton')}
@@ -184,7 +274,7 @@ export default function RoomPage() {
               </p>
               <div className="p-3 bg-muted/50 rounded-md">
                 <p className="text-sm font-mono break-all">ID: {roomId}</p>
-                <p className="text-sm font-mono break-all mt-1">{language === 'es' ? 'Enlace' : 'Link'}: {roomUrl}</p>
+                <p className="text-sm font-mono break-all mt-1">{translateContext({es: 'Enlace', en: 'Link', fr: 'Lien', pt: 'Link'})}: {roomUrl}</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 mt-2">
                 <Button variant="outline" onClick={() => copyToClipboard(roomId, 'id')} className="flex-1">
@@ -201,40 +291,6 @@ export default function RoomPage() {
                   {translate('shareViaWhatsApp')}
                </Button>
             </div>
-
-            <div className="space-y-4 p-4 border border-border rounded-lg bg-card">
-              <h3 className="text-xl font-semibold text-secondary flex items-center">
-                <Users className="mr-2 h-5 w-5" /> {translate('playerListTitle')}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {translate('playerListDescription')}
-              </p>
-              {playersInRoom.length > 0 ? (
-                <ul className="space-y-3">
-                  {playersInRoom.map((player) => (
-                    <li key={player.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md shadow-sm">
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={player.avatar} alt={player.name} data-ai-hint="avatar person" />
-                          <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-card-foreground">
-                          {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
-                        </span>
-                      </div>
-                      {!player.isCurrentUser && (
-                        <Button variant="outline" size="sm" disabled>
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          {translate('addFriendButton')}
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                 <p className="text-muted-foreground text-sm text-center py-2">{translateContext(UI_TEXTS.waitingForPlayers)}</p>
-              )}
-            </div>
             
             <div className="mt-8 text-center">
               <Button onClick={handleLeaveRoom} variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
@@ -248,9 +304,7 @@ export default function RoomPage() {
     </div>
   );
 }
-// Need to reference UI_TEXTS from page.tsx for waitingForPlayers
-const UI_TEXTS = {
-  waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
-};
+// Note: UI_TEXTS is not used in this file, so I removed its definition. 
+// If other text from page.tsx's UI_TEXTS was needed, we'd pass translateContext or specific texts.
 
     
