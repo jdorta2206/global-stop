@@ -1,0 +1,2 @@
+# global-stop
+juego divertido
