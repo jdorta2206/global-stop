@@ -6,21 +6,30 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Gamepad2 } from 'lucide-react';
+import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Gamepad2, Circle } from 'lucide-react'; // Added Circle
 import { useLanguage, type Language } from '@/contexts/language-context';
 import { useRoom } from '@/contexts/room-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { getDatabase, ref, onValue, update, serverTimestamp } from "firebase/database";
+import { getDatabase, ref, onValue, update, serverTimestamp, onDisconnect, set } from "firebase/database"; // Added onDisconnect, set
 import { app } from '@/lib/firebase/config';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 interface PlayerInRoom {
   id: string;
   name: string;
   avatar?: string | null;
   isCurrentUser?: boolean;
+  isOnline?: boolean; // Added for online status
+  joinedAt?: number; // Timestamp
 }
 
 const ROOM_TEXTS = {
@@ -73,6 +82,13 @@ const ROOM_TEXTS = {
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   startGameButton: { es: "Iniciar Partida (Próximamente)", en: "Start Game (Coming Soon)", fr: "Démarrer la Partie (Bientôt disponible)", pt: "Iniciar Jogo (Em Breve)"},
   noPlayersInRoom: { es: "No hay jugadores en esta sala todavía.", en: "No players in this room yet.", fr: "Aucun joueur dans cette salle pour le moment.", pt: "Nenhum jogador nesta sala ainda." },
+  onlineStatus: { es: "En línea", en: "Online", fr: "En ligne", pt: "Online" },
+  offlineStatus: { es: "Desconectado", en: "Offline", fr: "Hors ligne", pt: "Offline" },
+  errorJoiningRoom: { es: "Error al unirse a la sala", en: "Error joining room", fr: "Erreur en rejoignant la salle", pt: "Erro ao entrar na sala" },
+  errorLoadingPlayers: { es: "Error al cargar jugadores", en: "Error loading players", fr: "Erreur de chargement des joueurs", pt: "Erro ao carregar jogadores" },
+  copiedToClipboard: { es: "copiado.", en: "copied.", fr: "copié.", pt: "copiado." },
+  couldNotCopy: { es: "No se pudo copiar.", en: "Could not copy.", fr: "Impossible de copier.", pt: "Não foi possível copiar." },
+  loadingRoom: { es: "Cargando sala...", en: "Loading room...", fr: "Chargement de la salle...", pt: "Carregando sala..." },
 };
 
 export default function RoomPage() {
@@ -94,27 +110,32 @@ export default function RoomPage() {
   const handlePlayerJoin = useCallback(async () => {
     if (!user || !roomId) return;
     const playerRef = ref(db, `rooms/${roomId}/players/${user.uid}`);
+    const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+
     try {
       await update(playerRef, {
-        name: user.displayName || 'Invitado',
+        name: user.displayName || translateContext({es: 'Jugador Anónimo', en: 'Anonymous Player', fr: 'Joueur Anonyme', pt: 'Jogador Anônimo'}),
         avatar: user.photoURL || null,
         joinedAt: serverTimestamp(),
-        // Score should be managed by game logic, not reset here.
-        // If score is part of player profile in room, initialize if not exists or leave as is.
+        isOnline: true, // Set to online when joining/updating
       });
-      console.log(`Player ${user.uid} data updated in room ${roomId}`);
+      // Firebase Realtime Database presence system
+      await onDisconnect(playerStatusRef).set(false); // Set to offline on disconnect
+      await set(playerStatusRef, true); // Explicitly set to online now
+
+      console.log(`Player ${user.uid} data updated and presence set in room ${roomId}`);
     } catch (error) {
       console.error("Error joining/updating player in room:", error);
       toast({ 
-        title: translateContext({es: "Error al unirse", en: "Error Joining", fr: "Erreur en rejoignant", pt: "Erro ao entrar"}), 
+        title: translate('errorJoiningRoom'), 
         description: (error as Error).message, 
         variant: "destructive" 
       });
     }
-  }, [user, roomId, db, toast, translateContext]);
+  }, [user, roomId, db, toast, translateContext, translate]);
 
   useEffect(() => {
-    if (roomId && setActiveRoomId) {
+    if (roomId) {
       setActiveRoomId(roomId);
     }
 
@@ -123,7 +144,7 @@ export default function RoomPage() {
       return;
     }
 
-    handlePlayerJoin(); // Add/update current player in the room
+    handlePlayerJoin(); 
 
     const playersRef = ref(db, `rooms/${roomId}/players`);
     const unsubscribe = onValue(playersRef, (snapshot) => {
@@ -133,17 +154,21 @@ export default function RoomPage() {
         Object.keys(data).forEach((playerId) => {
           currentPlayers.push({
             id: playerId,
-            name: data[playerId].name || 'Invitado',
+            name: data[playerId].name || translateContext({es: 'Jugador', en: 'Player', fr: 'Joueur', pt: 'Jogador'}),
             avatar: data[playerId].avatar || null,
             isCurrentUser: user?.uid === playerId,
+            isOnline: data[playerId].isOnline || false, // Get online status
+            joinedAt: data[playerId].joinedAt || 0,
           });
         });
       }
+      // Sort players, maybe by joinedAt or name
+      currentPlayers.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
       setConnectedPlayers(currentPlayers);
     }, (error) => {
       console.error("Error fetching players from Firebase:", error);
       toast({ 
-        title: translateContext({es: "Error al cargar jugadores", en: "Error Loading Players", fr: "Erreur de chargement des joueurs", pt: "Erro ao carregar jogadores"}), 
+        title: translate('errorLoadingPlayers'), 
         description: error.message, 
         variant: "destructive" 
       });
@@ -152,18 +177,23 @@ export default function RoomPage() {
 
     return () => {
       unsubscribe();
-      // Optional: implement player removal on leave if not using Firebase presence
-      // For a more robust system, use Firebase's onDisconnect() to remove the player
-      // or mark them as offline. Example:
-      // const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/status`);
-      // onDisconnect(playerStatusRef).set("offline").catch((err) => console.error("onDisconnect error", err));
-      // update(playerStatusRef, "online");
+      // If a user explicitly leaves the room page (not just closes browser),
+      // you might want to set their status to offline immediately.
+      // However, onDisconnect is generally preferred for handling browser closes/crashes.
+      if (user && roomId) {
+        const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+        set(playerStatusRef, false).catch(err => console.error("Error setting player offline on unmount:", err));
+      }
     };
-  }, [roomId, user, db, setActiveRoomId, handlePlayerJoin, toast, translateContext]);
+  }, [roomId, user, db, setActiveRoomId, handlePlayerJoin, toast, translateContext, translate]);
 
   const handleLeaveRoom = () => {
-    // Firebase onDisconnect should handle removal/status update if implemented.
-    // For now, just clear active room and navigate.
+    if (user && roomId) {
+        const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+        set(playerStatusRef, false)
+          .then(() => console.log("Player status set to offline before leaving room."))
+          .catch(err => console.error("Error setting player offline before leaving:", err));
+    }
     setActiveRoomId(null);
     router.push('/');
   };
@@ -175,12 +205,12 @@ export default function RoomPage() {
       await navigator.clipboard.writeText(text);
       toast({
         title: type === 'id' ? translate('idCopiedToastTitle') : translate('linkCopiedToastTitle'),
-        description: `${text} ${translateContext({es: "ha sido copiado.", en: "has been copied.", fr: "a été copié.", pt: "foi copiado."})}`,
+        description: `${text} ${translate('copiedToClipboard')}`,
       });
     } catch (err) {
       toast({
         title: translate('errorCopyingToastTitle'),
-        description: translateContext({es: "No se pudo copiar.", en: "Could not copy.", fr: "Impossible de copier.", pt: "Não foi possível copiar."}),
+        description: translate('couldNotCopy'),
         variant: "destructive",
       });
     }
@@ -197,7 +227,7 @@ export default function RoomPage() {
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         <AppHeader />
         <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center justify-center">
-          <p>{translateContext({es: 'Cargando sala...', en: 'Loading room...', fr: 'Chargement de la salle...', pt: 'Carregando sala...'})}</p>
+          <p>{translate('loadingRoom')}</p>
         </main>
         <AppFooter language={language} />
       </div>
@@ -205,106 +235,117 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <AppHeader />
-      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center">
-        <Card className="w-full max-w-2xl shadow-xl rounded-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">
-              {translate('title')} <span className="text-accent">{roomId}</span>
-            </CardTitle>
-            <CardDescription className="text-lg text-muted-foreground mt-2">
-              {translate('welcome')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 p-6">
-            <div className="p-4 border border-border rounded-lg bg-card">
-              <p className="text-md text-card-foreground">
-                {translate('description')}
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              <h3 className="text-xl font-semibold text-secondary flex items-center">
-                <Users className="mr-2 h-5 w-5" /> {translate('connectedPlayersTitle')}
-              </h3>
-              <div className="p-3 bg-muted/20 rounded-md min-h-[100px] space-y-2">
-                {connectedPlayers.length > 0 ? (
-                  connectedPlayers.map((player) => (
-                    <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={player.avatar || undefined} alt={player.name} data-ai-hint="avatar person" />
-                          <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm text-card-foreground">
-                          {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
-                        </span>
+    <TooltipProvider>
+      <div className="flex flex-col min-h-screen bg-background text-foreground">
+        <AppHeader />
+        <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center">
+          <Card className="w-full max-w-2xl shadow-xl rounded-xl">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">
+                {translate('title')} <span className="text-accent">{roomId}</span>
+              </CardTitle>
+              <CardDescription className="text-lg text-muted-foreground mt-2">
+                {translate('welcome')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 p-6">
+              <div className="p-4 border border-border rounded-lg bg-card">
+                <p className="text-md text-card-foreground">
+                  {translate('description')}
+                </p>
+              </div>
+              
+              <div className="space-y-3">
+                <h3 className="text-xl font-semibold text-secondary flex items-center">
+                  <Users className="mr-2 h-5 w-5" /> {translate('connectedPlayersTitle')}
+                </h3>
+                <div className="p-3 bg-muted/20 rounded-md min-h-[100px] space-y-2">
+                  {connectedPlayers.length > 0 ? (
+                    connectedPlayers.map((player) => (
+                      <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
+                        <div className="flex items-center space-x-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="relative">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={player.avatar || undefined} alt={player.name} data-ai-hint="avatar person" />
+                                  <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <Circle 
+                                  className={player.isOnline ? "h-3 w-3 text-green-500 fill-green-500 absolute bottom-0 right-0 border-2 border-card rounded-full" : "h-3 w-3 text-gray-400 fill-gray-400 absolute bottom-0 right-0 border-2 border-card rounded-full"} 
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{player.isOnline ? translate('onlineStatus') : translate('offlineStatus')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <span className="text-sm text-card-foreground">
+                            {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
+                          </span>
+                        </div>
+                        {!player.isCurrentUser && user && (
+                           <Button variant="outline" size="sm" className="text-xs" disabled> 
+                              <UserPlus className="mr-1 h-3 w-3" /> {translate('addFriendButton')}
+                            </Button>
+                        )}
                       </div>
-                      {/* Placeholder for add friend button for non-current users */}
-                      {!player.isCurrentUser && user && (
-                         <Button variant="outline" size="sm" className="text-xs" disabled> {/* Functionality to be added */}
-                            <UserPlus className="mr-1 h-3 w-3" /> {translate('addFriendButton')}
-                          </Button>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-3">{translate('noPlayersInRoom')}</p>
-                )}
-                 <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescription')}</p>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-3">{translate('noPlayersInRoom')}</p>
+                  )}
+                   <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescription')}</p>
+                </div>
               </div>
-            </div>
 
-            <Button 
-              size="lg" 
-              className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-              disabled 
-            >
-              <Gamepad2 className="mr-3 h-6 w-6" /> 
-              {translate('startGameButton')}
-            </Button>
-
-            <div className="space-y-4 p-4 border border-dashed border-border rounded-lg">
-              <h3 className="text-xl font-semibold text-secondary flex items-center">
-                <Share2 className="mr-2 h-5 w-5" /> {translate('shareRoomTitle')}
-              </h3>
-              <p className="text-muted-foreground text-sm">
-                {translate('shareRoomDescription')}
-              </p>
-              <div className="p-3 bg-muted/50 rounded-md">
-                <p className="text-sm font-mono break-all">ID: {roomId}</p>
-                <p className="text-sm font-mono break-all mt-1">{translateContext({es: 'Enlace', en: 'Link', fr: 'Lien', pt: 'Link'})}: {roomUrl}</p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                <Button variant="outline" onClick={() => copyToClipboard(roomId, 'id')} className="flex-1">
-                  <Copy className="mr-2 h-4 w-4" /> {translate('copyRoomIdButton')}
-                </Button>
-                <Button variant="outline" onClick={() => copyToClipboard(roomUrl, 'link')} className="flex-1">
-                  <LinkIcon className="mr-2 h-4 w-4" /> {translate('copyRoomLinkButton')}
-                </Button>
-              </div>
-               <Button onClick={handleShareViaWhatsApp} className="w-full mt-2 bg-green-500 hover:bg-green-600 text-white">
-                 <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.33 3.43 16.79L2.05 22L7.31 20.62C8.72 21.39 10.33 21.82 12.04 21.82C17.5 21.82 21.95 17.37 21.95 11.91C21.95 6.45 17.5 2 12.04 2ZM12.04 20.13C10.49 20.13 8.99 19.68 7.74 18.89L7.32 18.64L4.4 19.56L5.34 16.74L5.07 16.3C4.18 14.95 3.71 13.38 3.71 11.91C3.71 7.33 7.45 3.6 12.04 3.6C16.63 3.6 20.37 7.33 20.37 11.91C20.37 16.5 16.63 20.13 12.04 20.13ZM17.36 14.45C17.11 14.79 16.23 15.26 15.92 15.43C15.61 15.6 15.37 15.62 15.13 15.33C14.89 15.04 14.01 14.31 12.96 13.25C12.11 12.41 11.53 11.64 11.38 11.35C11.24 11.06 11.39 10.89 11.53 10.75C11.65 10.61 11.83 10.39 12 10.21C12.17 10.03 12.24 9.89 12.36 9.65C12.48 9.41 12.41 9.2 12.33 9.03C12.25 8.86 11.76 7.65 11.54 7.18C11.32 6.71 11.09 6.76 10.92 6.75C10.75 6.74 10.54 6.74 10.32 6.74C10.1 6.74 9.81 6.81 9.56 7.15C9.31 7.49 8.61 8.13 8.61 9.35C8.61 10.57 9.59 11.73 9.73 11.91C9.87 12.09 11.76 14.84 14.51 16.1C15.2 16.41 15.73 16.62 16.13 16.78C16.71 17.02 17.07 16.97 17.32 16.73C17.57 16.49 18.12 15.88 18.29 15.54C18.46 15.2 18.46 14.91 18.38 14.79C18.3 14.68 17.61 14.11 17.36 14.45Z"/>
-                  </svg>
-                  {translate('shareViaWhatsApp')}
-               </Button>
-            </div>
-            
-            <div className="mt-8 text-center">
-              <Button onClick={handleLeaveRoom} variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
-                <LogOut className="mr-2 h-5 w-5" /> {translate('leaveRoomButton')}
+              <Button 
+                size="lg" 
+                className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                disabled 
+              >
+                <Gamepad2 className="mr-3 h-6 w-6" /> 
+                {translate('startGameButton')}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </main>
-      <AppFooter language={language} />
-    </div>
+
+              <div className="space-y-4 p-4 border border-dashed border-border rounded-lg">
+                <h3 className="text-xl font-semibold text-secondary flex items-center">
+                  <Share2 className="mr-2 h-5 w-5" /> {translate('shareRoomTitle')}
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  {translate('shareRoomDescription')}
+                </p>
+                <div className="p-3 bg-muted/50 rounded-md">
+                  <p className="text-sm font-mono break-all">ID: {roomId}</p>
+                  <p className="text-sm font-mono break-all mt-1">{translateContext({es: 'Enlace', en: 'Link', fr: 'Lien', pt: 'Link'})}: {roomUrl}</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                  <Button variant="outline" onClick={() => copyToClipboard(roomId, 'id')} className="flex-1">
+                    <Copy className="mr-2 h-4 w-4" /> {translate('copyRoomIdButton')}
+                  </Button>
+                  <Button variant="outline" onClick={() => copyToClipboard(roomUrl, 'link')} className="flex-1">
+                    <LinkIcon className="mr-2 h-4 w-4" /> {translate('copyRoomLinkButton')}
+                  </Button>
+                </div>
+                 <Button onClick={handleShareViaWhatsApp} className="w-full mt-2 bg-green-500 hover:bg-green-600 text-white">
+                   <svg className="mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.33 3.43 16.79L2.05 22L7.31 20.62C8.72 21.39 10.33 21.82 12.04 21.82C17.5 21.82 21.95 17.37 21.95 11.91C21.95 6.45 17.5 2 12.04 2ZM12.04 20.13C10.49 20.13 8.99 19.68 7.74 18.89L7.32 18.64L4.4 19.56L5.34 16.74L5.07 16.3C4.18 14.95 3.71 13.38 3.71 11.91C3.71 7.33 7.45 3.6 12.04 3.6C16.63 3.6 20.37 7.33 20.37 11.91C20.37 16.5 16.63 20.13 12.04 20.13ZM17.36 14.45C17.11 14.79 16.23 15.26 15.92 15.43C15.61 15.6 15.37 15.62 15.13 15.33C14.89 15.04 14.01 14.31 12.96 13.25C12.11 12.41 11.53 11.64 11.38 11.35C11.24 11.06 11.39 10.89 11.53 10.75C11.65 10.61 11.83 10.39 12 10.21C12.17 10.03 12.24 9.89 12.36 9.65C12.48 9.41 12.41 9.2 12.33 9.03C12.25 8.86 11.76 7.65 11.54 7.18C11.32 6.71 11.09 6.76 10.92 6.75C10.75 6.74 10.54 6.74 10.32 6.74C10.1 6.74 9.81 6.81 9.56 7.15C9.31 7.49 8.61 8.13 8.61 9.35C8.61 10.57 9.59 11.73 9.73 11.91C9.87 12.09 11.76 14.84 14.51 16.1C15.2 16.41 15.73 16.62 16.13 16.78C16.71 17.02 17.07 16.97 17.32 16.73C17.57 16.49 18.12 15.88 18.29 15.54C18.46 15.2 18.46 14.91 18.38 14.79C18.3 14.68 17.61 14.11 17.36 14.45Z"/>
+                    </svg>
+                    {translate('shareViaWhatsApp')}
+                 </Button>
+              </div>
+              
+              <div className="mt-8 text-center">
+                <Button onClick={handleLeaveRoom} variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive">
+                  <LogOut className="mr-2 h-5 w-5" /> {translate('leaveRoomButton')}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+        <AppFooter language={language} />
+      </div>
+    </TooltipProvider>
   );
 }
-// Note: UI_TEXTS is not used in this file, so I removed its definition. 
-// If other text from page.tsx's UI_TEXTS was needed, we'd pass translateContext or specific texts.
 
     
