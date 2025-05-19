@@ -51,7 +51,7 @@ export interface PlayerScore {
   name: string;
   score: number;
   avatar?: string;
-  id?: string; // Added for potential unique identification
+  id?: string; 
 }
 
 export interface RoundResultDetail {
@@ -69,6 +69,7 @@ interface PlayerInLobby {
   name: string;
   avatar?: string;
   isCurrentUser?: boolean;
+  isOnline?: boolean;
 }
 
 const UI_TEXTS = {
@@ -205,12 +206,19 @@ const UI_TEXTS = {
   challengePlayerToastDescription: { es: "La funcionalidad para desafiar a '{name}' se añadirá en futuras actualizaciones.", en: "The feature to challenge '{name}' will be added in future updates.", fr: "La fonctionnalité pour défier '{name}' sera ajoutée dans les futures mises à jour.", pt: "A funcionalidade para desafiar '{name}' será adicionada em futuras atualizações." },
   friendAddedFromGlobalToastTitle: { es: "Amigo Añadido desde Global", en: "Friend Added from Global", fr: "Ami Ajouté depuis Global", pt: "Amigo Adicionado do Global" },
   friendAddedFromGlobalToastDescription: { es: "'{name}' ha sido añadido a tu lista local de amigos desde la tabla global.", en: "'{name}' has been added to your local friends list from the global leaderboard.", fr: "'{name}' a été ajouté à votre liste d'amis locale depuis le classement mondial.", pt: "'{name}' foi adicionado à sua lista local de amigos do placar global." },
+  addFriendManualTitle: { es: "Añadir Amigo por Nombre/Email", en: "Add Friend by Name/Email", fr: "Ajouter un Ami par Nom/Email", pt: "Adicionar Amigo por Nome/Email" },
+  addFriendManualLabel: { es: "Nombre o Email del Amigo:", en: "Friend's Name or Email:", fr: "Nom ou Email de l'Ami :", pt: "Nome ou Email do Amigo:"},
+  addFriendManualPlaceholder: { es: "Introduce nombre o email", en: "Enter name or email", fr: "Entrez nom ou email", pt: "Insira nome ou email"},
+  addFriendManualButton: { es: "Añadir", en: "Add", fr: "Ajouter", pt: "Adicionar"},
+  friendManuallyAddedToastTitle: { es: "¡Amigo Añadido Manualmente!", en: "Friend Added Manually!", fr: "Ami Ajouté Manuellement !", pt: "Amigo Adicionado Manualmente!"},
+  friendManuallyAddedToastDescription: { es: "{name} ha sido añadido a tu lista local de amigos.", en: "{name} has been added to your local friends list.", fr: "{name} a été ajouté à votre liste d'amis locale.", pt: "{name} foi adicionado à sua lista local de amigos."},
+
 };
 
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser'>[] = [
-  { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
-  { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A` },
-  { id: 'player4', name: 'Vecina Laura', avatar: `https://placehold.co/40x40.png?text=L` },
+  { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C`, isOnline: true },
+  { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A`, isOnline: false },
+  { id: 'player4', name: 'Vecina Laura', avatar: `https://placehold.co/40x40.png?text=L`, isOnline: true },
 ];
 
 export default function GamePage() {
@@ -304,7 +312,8 @@ export default function GamePage() {
         id: user.uid, 
         name: user.displayName || translate(UI_TEXTS.playerNameDefault), 
         avatar: user.photoURL || undefined, 
-        isCurrentUser: true 
+        isCurrentUser: true,
+        isOnline: true,
       });
       MOCK_PLAYERS_IN_LOBBY.forEach(player => {
         currentPlayers.push({ ...player, isCurrentUser: false });
@@ -333,21 +342,18 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
-        backgroundAudioRef.current = new Audio('/music/tension-music.mp3'); // Asegúrate que este archivo exista
+        backgroundAudioRef.current = new Audio('/music/tension-music.mp3'); 
         backgroundAudioRef.current.loop = true;
       }
       if (!countdownTickAudioRef.current) {
-        // Sonido suave para cada segundo (opcional, puede ser mucho)
         // countdownTickAudioRef.current = new Audio('/music/countdown_tick.mp3'); 
       }
       if (!countdownUrgentAudioRef.current) {
-        // Sonido para los últimos segundos
-        countdownUrgentAudioRef.current = new Audio('/music/countdown_urgent.mp3'); // Asegúrate que este archivo exista
+        countdownUrgentAudioRef.current = new Audio('/music/countdown_urgent.mp3'); 
       }
     }
     return () => {
       backgroundAudioRef.current?.pause();
-      // countdownTickAudioRef.current?.pause(); // Si lo usas
       countdownUrgentAudioRef.current?.pause();
     };
   }, []);
@@ -603,23 +609,18 @@ export default function GamePage() {
             return 0;
           }
           
-          // Countdown sounds and text updates
-          if (prevTime === 11) { // At 11, so at 10 it shows
+          if (prevTime === 11) { 
             setCountdownWarningText(translate(UI_TEXTS.timeEndingSoon));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
-          } else if (prevTime === 6) { // At 6, so at 5 it shows
+          } else if (prevTime === 6) { 
             setCountdownWarningText(translate(UI_TEXTS.timeAlmostUp));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
-          } else if (prevTime === 4) { // At 4, so at 3 it shows
+          } else if (prevTime === 4) { 
             setCountdownWarningText(translate(UI_TEXTS.timeFinalCountdown));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
           } else if (prevTime > 10) {
-            setCountdownWarningText(""); // Clear warning if above 10
+            setCountdownWarningText(""); 
           }
-          
-          // Optional: Play tick sound every second
-          // countdownTickAudioRef.current?.play().catch(e => console.error("Error playing tick audio:", e));
-
           return prevTime - 1;
         });
       }, 1000);
@@ -747,7 +748,9 @@ export default function GamePage() {
       return;
     }
     if (player.id === user.uid) {
-        toast({ title: "No puedes agregarte a ti mismo", description: "No puedes ser tu propio amigo en la lista.", variant: "default" });
+        toast({ title: translate({es: "No puedes agregarte", en: "Cannot add self", fr:"Ne peut pas s'ajouter", pt: "Não pode adicionar a si mesmo"}), 
+                description: translate({es: "No puedes ser tu propio amigo.", en: "You cannot be your own friend.", fr: "Vous ne pouvez pas être votre propre ami.", pt: "Você não pode ser seu próprio amigo."}), 
+                variant: "default" });
         return;
     }
 
@@ -778,7 +781,9 @@ export default function GamePage() {
         return;
     }
     if (player.id === user.uid) {
-        toast({ title: "No puedes agregarte a ti mismo", description: "No puedes ser tu propio amigo en la lista.", variant: "default" });
+        toast({ title: translate({es: "No puedes agregarte", en: "Cannot add self", fr:"Ne peut pas s'ajouter", pt: "Não pode adicionar a si mesmo"}), 
+                description: translate({es: "No puedes ser tu propio amigo.", en: "You cannot be your own friend.", fr: "Vous ne pouvez pas être votre propre ami.", pt: "Você não pode ser seu próprio amigo."}), 
+                variant: "default" });
         return;
     }
     if (friendsList.find(friend => friend.id === player.id || friend.name === player.name)) {
@@ -790,7 +795,7 @@ export default function GamePage() {
       return;
     }
     const newFriend: PlayerScore = {
-      id: player.id || `global-${player.name.replace(/\s+/g, '-')}`, 
+      id: player.id || `global-${player.name.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2,7)}`, 
       name: player.name,
       score: player.score, 
       avatar: player.avatar,
@@ -807,6 +812,40 @@ export default function GamePage() {
       title: translate(UI_TEXTS.challengePlayerToastTitle),
       description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
       variant: "default",
+    });
+  };
+
+  const handleAddFriendManual = (identifier: string) => {
+    if (!user) {
+      toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+      return;
+    }
+    if (!identifier.trim()) {
+      toast({ title: translate({es: "Nombre/Email Vacío", en: "Empty Name/Email", fr: "Nom/Email Vide", pt: "Nome/Email Vazio"}), 
+              description: translate({es: "Por favor, introduce un nombre o email.", en: "Please enter a name or email.", fr: "Veuillez entrer un nom ou un email.", pt: "Por favor, insira um nome ou email."}), 
+              variant: "destructive"});
+      return;
+    }
+    const trimmedIdentifier = identifier.trim();
+    if (friendsList.find(friend => friend.name.toLowerCase() === trimmedIdentifier.toLowerCase())) {
+      toast({
+        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
+        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', trimmedIdentifier),
+        variant: "default",
+      });
+      return;
+    }
+    const newFriendId = `manual-${trimmedIdentifier.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
+    const newFriend: PlayerScore = {
+      id: newFriendId,
+      name: trimmedIdentifier,
+      score: 0, // Default score for manually added friends
+      avatar: `https://placehold.co/40x40.png?text=${trimmedIdentifier.charAt(0).toUpperCase()}`, // Generic avatar
+    };
+    setFriendsList(prevFriends => [...prevFriends, newFriend]);
+    toast({
+      title: translate(UI_TEXTS.friendManuallyAddedToastTitle),
+      description: translate(UI_TEXTS.friendManuallyAddedToastDescription).replace('{name}', trimmedIdentifier),
     });
   };
 
@@ -920,6 +959,7 @@ export default function GamePage() {
                 language={language} 
                 currentUserId={user?.uid}
                 onChallenge={handleChallengePlayer}
+                onAddFriendManual={handleAddFriendManual}
               />
             </>
           )}
@@ -976,10 +1016,19 @@ export default function GamePage() {
                         playersInLobby.map(player => (
                           <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
                             <div className="flex items-center space-x-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={player.avatar} alt={player.name} data-ai-hint="avatar person"/>
-                                <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
-                              </Avatar>
+                               <div className="relative">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={player.avatar} alt={player.name} data-ai-hint="avatar person"/>
+                                  <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <span 
+                                  className={cn(
+                                    "absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-background",
+                                    player.isOnline ? "bg-green-500" : "bg-gray-400"
+                                  )} 
+                                  title={player.isOnline ? translate({es: "En línea", en: "Online", fr:"En ligne", pt:"Online"}) : translate({es: "Desconectado", en:"Offline", fr:"Hors ligne", pt:"Offline"})}
+                                />
+                              </div>
                               <span className="text-sm text-card-foreground">
                                 {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate(UI_TEXTS.youSuffix)}</span>}
                               </span>
@@ -1187,6 +1236,7 @@ export default function GamePage() {
                 language={language}
                 currentUserId={user?.uid}
                 onChallenge={handleChallengePlayer}
+                onAddFriendManual={handleAddFriendManual}
               />
             </>
           )}
@@ -1225,5 +1275,6 @@ export default function GamePage() {
     
 
     
+
 
 
