@@ -33,7 +33,7 @@ export function AppHeader() {
             height={48}
             className="h-10 md:h-12 w-auto"
             priority
-            data-ai-hint="game logo" // Pista genérica para el logo del juego
+            data-ai-hint="game logo stop" 
           />
         </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">
