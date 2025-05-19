@@ -27,13 +27,13 @@ export function AppHeader() {
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center hover:opacity-90 transition-opacity" aria-label={translate(HEADER_TEXTS.homePageAriaLabel)}>
           <Image
-            src="/logo_stop_game.png" // Asegúrate que esta imagen esté en public/logo_stop_game.png
+            src="/logo_stop_game.png" 
             alt={translate(HEADER_TEXTS.logoAlt)}
-            width={48} // Proporción 1:1, el className controla el tamaño visual
+            width={48} 
             height={48}
             className="h-10 md:h-12 w-auto"
             priority
-            data-ai-hint="game logo stop" 
+            data-ai-hint="game logo" 
           />
         </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">

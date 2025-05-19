@@ -25,26 +25,19 @@ export const metadata: Metadata = {
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
   icons: {
-    // For modern browsers, a single PNG or SVG is often sufficient.
-    // The browser will pick the best one or resize.
-    // '/logo_stop_game.png' should be your primary, high-quality icon.
     icon: [
-      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Main flexible icon
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' },    // Traditional fallback
+      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' },
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, 
     ],
-    // For "Add to Home Screen" on Apple devices
     apple: [
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      // You can add other Apple-specific sizes if needed, e.g., 180x180
-      // { url: '/icons/icon-180x180.png', sizes: '180x180', type: 'image/png' },
     ],
-    // 'shortcut' is often used for favicons as well
     shortcut: { url: '/logo_stop_game.png', type: 'image/png' },
   },
 };
 
 export const viewport = {
-  themeColor: '#C0474A', // Your theme color from globals.css
+  themeColor: '#C0474A',
 };
 
 export default function RootLayout({

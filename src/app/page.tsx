@@ -363,10 +363,9 @@ export default function GamePage() {
         setChatMessages(loadedMessages);
       });
       return () => {
-        off(messagesRef); // Detach the listener when the component unmounts or activeRoomId changes
+        off(messagesRef); 
       };
     } else {
-      // Default messages if not in a room or for local chat panel
       const defaultPlayerName = user?.displayName || translate(UI_TEXTS.playerNameDefault);
       const defaultPlayerAvatar = user?.photoURL || `https://placehold.co/40x40.png?text=${defaultPlayerName.charAt(0)}`;
       setChatMessages([
@@ -374,7 +373,7 @@ export default function GamePage() {
           { id: 'user-welcome-1', text: translate(UI_TEXTS.welcomeTitle), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) },
       ]);
     }
-  }, [activeRoomId, language, user, translate, db]);
+  }, [activeRoomId, language, user, translate]);
 
 
   useEffect(() => {
@@ -752,12 +751,21 @@ export default function GamePage() {
   const handleLeaveRoom = () => {
     if (user && activeRoomId) {
       const playerRef = ref(db, `rooms/${activeRoomId}/players/${user.uid}`);
-      update(playerRef, { isOnline: false, lastSeen: serverTimestamp() })
-        .catch(err => console.error("Error setting player offline on leave:", err));
+      const updates: Record<string, any> = {};
+      updates[`rooms/${activeRoomId}/players/${user.uid}/isOnline`] = false;
+      updates[`rooms/${activeRoomId}/players/${user.uid}/lastSeen`] = serverTimestamp();
+      
+      // Remove player from room if they are the only one or if desired
+      // For now, just marking as offline. To remove: remove(playerRef)
+      
+      update(ref(db), updates)
+          .then(() => console.log(`Player ${user.uid} marked offline in room ${activeRoomId}`))
+          .catch(err => console.error("Error setting player offline on leave:", err));
     }
     setActiveRoomId(null);
     setPlayersInLobby([]); 
     setGameState("IDLE"); 
+    // Do not redirect here, allow UI to update based on activeRoomId being null
   };
 
   const handleInviteFriends = () => {
@@ -853,15 +861,12 @@ export default function GamePage() {
   };
 
   const handleChallengePlayer = (player: EnrichedPlayerScore) => {
-    // Navigate to challenge setup page if player.id exists
     if (player.id) { 
       router.push(`/challenge-setup/${player.id}?name=${encodeURIComponent(player.name)}`);
-    } else { // Fallback or different handling if no ID (e.g., for manually added friends without a global ID)
-      console.warn("Attempted to challenge player without a unique ID or with only a local ID:", player);
-      // For now, we can still try to navigate, the page will handle missing ID as "unknown"
+    } else { 
       router.push(`/challenge-setup/unknown?name=${encodeURIComponent(player.name)}`);
       toast({
-        title: translate(UI_TEXTS.challengePlayerToastTitle), // Kept for consistency if navigation itself isn't the "feature"
+        title: translate(UI_TEXTS.challengePlayerToastTitle), 
         description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
         variant: "default", 
       });
@@ -913,7 +918,7 @@ export default function GamePage() {
       return;
     }
     
-    if (!activeRoomId) { // Handle local chat messages if not in a room
+    if (!activeRoomId) { 
         const newMessage: ChatMessage = {
             id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             text,
@@ -928,7 +933,6 @@ export default function GamePage() {
         return;
     }
 
-    // If in a room, send to Firebase
     const newMessageRef = push(child(ref(db), `rooms/${activeRoomId}/chatMessages`));
     const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
       text,
@@ -1077,17 +1081,17 @@ export default function GamePage() {
                             toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
                             return;
                           }
-                          const gameRef = ref(db, `rooms/${activeRoomId}/currentGameData`);
-                          update(gameRef, { status: "SPINNING" })
-                            .catch(err => {
-                                console.error("Error starting game in room:", err);
-                                toast({ title: "Error", description: `Could not start game: ${err.message}`, variant: "destructive" });
-                            });
+                          // This navigation now happens from room/[roomId]/page.tsx
+                          // For now, this button might be redundant if already in a room page.
+                          // If on main page and activeRoomId is set, user is already in "lobby mode"
+                          // Potentially, this button could directly call handleStartGame if we move that logic here
+                          // For simplicity, we assume navigation to /room/[roomId] happens first.
+                          router.push(`/room/${activeRoomId}`);
                         }}
                         disabled={!user} 
                     >
                         <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
-                        {translate(UI_TEXTS.startGameWithFriendsButton)}
+                         {translate(UI_TEXTS.startGameWithFriendsButton)} {/* Text might need adjustment */}
                     </Button>
                     <p className="text-xs text-muted-foreground mt-1 px-2">
                         {translate(UI_TEXTS.startGameWithFriendsDescription)}
@@ -1385,6 +1389,7 @@ export default function GamePage() {
     
 
     
+
 
 
 
