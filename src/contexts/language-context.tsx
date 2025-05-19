@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-export type Language = 'es' | 'en' | 'fr' | 'pt'; // Added 'fr' and 'pt'
+export type Language = 'es' | 'en' | 'fr' | 'pt';
 
 export interface LanguageOption {
   code: Language;
@@ -21,7 +21,7 @@ export const LANGUAGES: LanguageOption[] = [
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  translate: (textObject: Record<string, string> | undefined) => string; // Allow any string key for general use
+  translate: (textObject: Record<string, string> | undefined) => string;
   currentLanguageOption: LanguageOption | undefined;
 }
 
@@ -36,23 +36,29 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const storedLang = localStorage.getItem('globalStopLanguage') as Language | null;
     if (storedLang && LANGUAGES.some(l => l.code === storedLang)) {
       setLanguageState(storedLang);
-      document.documentElement.lang = storedLang;
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = storedLang;
+      }
     } else {
-      document.documentElement.lang = defaultLanguage;
+      if (typeof document !== 'undefined') {
+        document.documentElement.lang = defaultLanguage;
+      }
     }
   }, []);
 
   const setLanguage = useCallback((lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('globalStopLanguage', lang);
-    document.documentElement.lang = lang;
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = lang;
+    }
   }, []);
 
   const translate = useCallback(
     (textObject: Record<string, string> | undefined): string => {
       if (!textObject) return '';
-      // Try current language, then default, then English as a fallback, then first available
-      return textObject[language] || textObject[defaultLanguage] || textObject['en'] || Object.values(textObject)[0] || '';
+      // Try current language, then default, then English as a fallback, then empty string
+      return textObject[language] || textObject[defaultLanguage] || textObject['en'] || '';
     },
     [language]
   );
