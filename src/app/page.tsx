@@ -15,11 +15,11 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { generateAiOpponentResponse, type AiOpponentResponseInput } from '@/ai/flows/generate-ai-opponent-response';
 import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWordOutput } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus, Sword } from 'lucide-react';
+import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus, Sword, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/auth-context';
-import { useLanguage, type Language } from '@/contexts/language-context';
+import { useLanguage, type Language, type LanguageOption } from '@/contexts/language-context';
 import { useRoom } from '@/contexts/room-context'; 
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
 import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
@@ -181,6 +181,12 @@ const UI_TEXTS = {
   lobbyTitle: { es: "Sala de Espera Multijugador", en: "Multiplayer Lobby", fr: "Salon Multijoueur", pt: "Lobby Multijogador" },
   inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" },
   startGameWithFriendsButton: { es: "Iniciar Partida (Amigos) - Próximamente", en: "Start Game (Friends) - Coming Soon", fr: "Démarrer la Partie (Amis) - Bientôt disponible", pt: "Iniciar Jogo (Amigos) - Em Breve" },
+  startGameWithFriendsDescription: {
+    es: "La funcionalidad para iniciar una partida multijugador con amigos está en desarrollo.",
+    en: "The functionality to start a multiplayer game with friends is under development.",
+    fr: "La fonctionnalité pour démarrer une partie multijoueur avec des amis est en développement.",
+    pt: "A funcionalidade para iniciar um jogo multiplayer com amigos está em desenvolvimento."
+  },
   inviteFriendsButton: { es: "Invitar Amigos", en: "Invite Friends", fr: "Inviter des Amis", pt: "Convidar Amigos" },
   leaveRoomButton: { es: "Salir de la Sala", en: "Leave Room", fr: "Quitter la Salle", pt: "Sair da Sala" },
   shareRoomLinkMessageWhatsApp: { es: "¡Únete a mi sala en Global Stop! ID:", en: "Join my room in Global Stop! ID:", fr: "Rejoins ma salle sur Global Stop ! ID :", pt: "Entre na minha sala no Global Stop! ID:" },
@@ -234,9 +240,13 @@ export default function GamePage() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language, translate } = useLanguage();
+  const { language, setLanguage: setGlobalLanguage, translate } = useLanguage(); // Renamed setLanguage to avoid conflict
   const { activeRoomId, setActiveRoomId } = useRoom(); 
   const router = useRouter();
+
+  const playerResponsesRef = useRef(playerResponses);
+  const currentLetterRef = useRef(currentLetter);
+  const gameStateRef = useRef(gameState);
 
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
@@ -258,11 +268,6 @@ export default function GamePage() {
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownTickAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
-
-
-  const playerResponsesRef = useRef(playerResponses);
-  const currentLetterRef = useRef(currentLetter);
-  const gameStateRef = useRef(gameState);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -321,7 +326,10 @@ export default function GamePage() {
         isOnline: true,
       });
       MOCK_PLAYERS_IN_LOBBY.forEach(player => {
-        currentPlayers.push({ ...player, isCurrentUser: false });
+        // Ensure mock players aren't added if their ID matches the current user's ID
+        if (player.id !== user.uid) {
+          currentPlayers.push({ ...player, isCurrentUser: false, isOnline: player.isOnline });
+        }
       });
     }
     setPlayersInLobby(currentPlayers);
@@ -405,7 +413,7 @@ export default function GamePage() {
   }, []);
 
   const startGame = useCallback(() => {
-    if (gameStateRef.current === "IDLE" && !activeRoomId) {
+    if (gameStateRef.current === "IDLE" && !activeRoomId) { // Only reset total scores if it's a new solo game
         setTotalPlayerScore(0);
         setTotalAiScore(0);
     }
@@ -425,7 +433,7 @@ export default function GamePage() {
  const handleStopInternal = useCallback(async () => {
     const letterForValidation = currentLetterRef.current;
     const currentResponses = playerResponsesRef.current;
-    const currentLang = language;
+    const currentLang = language; // Use language from context
 
     console.log(`[GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
@@ -475,7 +483,7 @@ export default function GamePage() {
       try {
         const validationInput: ValidatePlayerWordInput = {
           letter: letterForValidation!,
-          category,
+          category, // Category is passed for context but AI is instructed to validate word generally
           playerWord: playerResponse,
           language: currentLang,
         };
@@ -562,7 +570,7 @@ export default function GamePage() {
         aiScore: aScore,
         playerResponse: playerResponseRaw,
         aiResponse: aiResponseRaw,
-        playerResponseIsValid: isPlayerWordValidatedByAI,
+        playerResponseIsValid: isPlayerWordValidatedByAI, // This should be the result from AI validation.
         playerResponseErrorReason: validationStatus ? validationStatus.errorReason : (playerPassesFormatCheck ? null : 'format'),
       };
       console.log(`  [GamePage] Scores for "${category}" -> Player: ${pScore}, AI: ${aScore}`);
@@ -592,9 +600,10 @@ export default function GamePage() {
     setGameState("RESULTS");
 
   }, [
+    currentCategories, language, // Added language and currentCategories
     setGameState, setIsLoadingAi, setAiResponses,
     setPlayerRoundScore, setAiRoundScore, setTotalPlayerScore, setTotalAiScore,
-    setRoundResults, setRoundWinner, toast, language, currentCategories, translate
+    setRoundResults, setRoundWinner, toast, translate 
   ]);
 
   const handleStop = useCallback(() => {
@@ -611,10 +620,11 @@ export default function GamePage() {
         setTimeLeft(prevTime => {
           if (prevTime <= 1) {
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            handleStop();
+            handleStop(); // Call handleStop which calls handleStopInternal
             return 0;
           }
           
+          // Countdown warnings and sounds
           if (prevTime === 11) { 
             setCountdownWarningText(translate(UI_TEXTS.timeEndingSoon));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
@@ -626,6 +636,7 @@ export default function GamePage() {
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
           } else if (prevTime > 10) {
             setCountdownWarningText(""); 
+            // countdownTickAudioRef.current?.play().catch(e => console.error("Error playing tick audio:", e)); // Optional: play tick every second
           }
           return prevTime - 1;
         });
@@ -641,10 +652,12 @@ export default function GamePage() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [gameState, currentLetter, handleStop, translate]);
+  }, [gameState, currentLetter, handleStop, translate]); // Added handleStop and translate to dependencies
 
 
   const startNextRound = useCallback(() => {
+    // If in a room, starting next round might have different logic (not implemented)
+    // For now, it just restarts a solo AI game experience.
     startGame();
   }, [startGame]);
 
@@ -717,8 +730,8 @@ export default function GamePage() {
   
   const handleLeaveRoom = () => {
     setActiveRoomId(null);
-    setPlayersInLobby([]);
-    setGameState("IDLE"); 
+    setPlayersInLobby([]); // Clear lobby players
+    setGameState("IDLE"); // Reset game state to idle to show main menu
   };
 
   const handleInviteFriends = () => {
@@ -769,9 +782,10 @@ export default function GamePage() {
       return;
     }
     const newFriend: PlayerScore = {
-      id: player.id, 
+      // Use a more robust ID if player.id is not guaranteed (e.g., for mock players)
+      id: player.id || `mock-${player.name.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`, 
       name: player.name,
-      score: 0, 
+      score: 0, // Default score for new friends
       avatar: player.avatar,
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
@@ -786,7 +800,7 @@ export default function GamePage() {
         toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
         return;
     }
-    if (player.id === user.uid) {
+    if (player.id === user.uid) { // Check if the player being added is the current user
         toast({ title: translate({es: "No puedes agregarte", en: "Cannot add self", fr:"Ne peut pas s'ajouter", pt: "Não pode adicionar a si mesmo"}), 
                 description: translate({es: "No puedes ser tu propio amigo.", en: "You cannot be your own friend.", fr: "Vous ne pouvez pas être votre propre ami.", pt: "Você não pode ser seu próprio amigo."}), 
                 variant: "default" });
@@ -803,7 +817,7 @@ export default function GamePage() {
     const newFriend: PlayerScore = {
       id: player.id || `global-${player.name.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2,7)}`, 
       name: player.name,
-      score: player.score, 
+      score: player.score, // Carry over score if adding from a leaderboard with scores
       avatar: player.avatar,
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
@@ -814,15 +828,19 @@ export default function GamePage() {
   };
 
   const handleChallengePlayer = (player: EnrichedPlayerScore) => {
+    // For now, this navigates to a setup page.
+    // Future: This could initiate a direct challenge via backend.
     toast({
       title: translate(UI_TEXTS.challengePlayerToastTitle),
       description: translate(UI_TEXTS.challengePlayerToastDescription).replace('{name}', player.name),
-      variant: "default",
+      variant: "default", // Changed from destructive to default
     });
-    if (player.id) {
+    // Navigate to challenge setup page
+    if (player.id) { // Ensure player.id exists
         router.push(`/challenge-setup/${player.id}?name=${encodeURIComponent(player.name)}`);
     } else {
         // Fallback if ID is somehow missing, though unlikely for enriched scores
+        console.warn("Attempted to challenge player without an ID:", player);
         router.push(`/challenge-setup/unknown?name=${encodeURIComponent(player.name)}`);
     }
   };
@@ -839,6 +857,7 @@ export default function GamePage() {
       return;
     }
     const trimmedIdentifier = identifier.trim();
+    // Check if friend already exists by name (case-insensitive)
     if (friendsList.find(friend => friend.name.toLowerCase() === trimmedIdentifier.toLowerCase())) {
       toast({
         title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
@@ -847,6 +866,7 @@ export default function GamePage() {
       });
       return;
     }
+    // Generate a unique ID for manually added friends
     const newFriendId = `manual-${trimmedIdentifier.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
     const newFriend: PlayerScore = {
       id: newFriendId,
@@ -989,14 +1009,19 @@ export default function GamePage() {
                  {user && <p className="text-sm sm:text-md text-muted-foreground mt-1">{translate(UI_TEXTS.loggedInAs).replace('{name}', user.displayName || translate(UI_TEXTS.playerNameDefault))}</p>}
               </CardHeader>
               <CardContent className="space-y-4 py-6 px-4 sm:px-6">
-                 <Button
-                    size="lg"
-                    className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-                    disabled 
-                  >
-                    <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
-                    {translate(UI_TEXTS.startGameWithFriendsButton)}
-                  </Button>
+                 <div className="text-center">
+                    <Button
+                        size="lg"
+                        className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                        disabled 
+                    >
+                        <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
+                        {translate(UI_TEXTS.startGameWithFriendsButton)}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1 px-2">
+                        {translate(UI_TEXTS.startGameWithFriendsDescription)}
+                    </p>
+                 </div>
                   
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button
@@ -1287,6 +1312,7 @@ export default function GamePage() {
     
 
     
+
 
 
 

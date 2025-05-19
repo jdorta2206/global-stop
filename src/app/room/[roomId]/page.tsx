@@ -6,13 +6,13 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Gamepad2, Circle } from 'lucide-react'; // Added Circle
+import { Home, Users, Info, Share2, LogOut, Copy, Link as LinkIcon, UserPlus, Gamepad2, Circle } from 'lucide-react';
 import { useLanguage, type Language } from '@/contexts/language-context';
 import { useRoom } from '@/contexts/room-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { getDatabase, ref, onValue, update, serverTimestamp, onDisconnect, set } from "firebase/database"; // Added onDisconnect, set
+import { getDatabase, ref, onValue, update, serverTimestamp, onDisconnect, set } from "firebase/database";
 import { app } from '@/lib/firebase/config';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -21,6 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from '@/lib/utils';
 
 
 interface PlayerInRoom {
@@ -28,8 +29,8 @@ interface PlayerInRoom {
   name: string;
   avatar?: string | null;
   isCurrentUser?: boolean;
-  isOnline?: boolean; // Added for online status
-  joinedAt?: number; // Timestamp
+  isOnline?: boolean; 
+  joinedAt?: number; 
 }
 
 const ROOM_TEXTS = {
@@ -47,7 +48,7 @@ const ROOM_TEXTS = {
     es: "Aquí verás la lista de jugadores conectados a esta sala.", 
     en: "Here you will see the list of players connected to this room.",
     fr: "Ici, vous verrez la liste des joueurs connectés à cette salle.",
-    pt: "Aqui você verá a lista de jogadores conectados a esta sala."
+    pt: "Aqui você verá la lista de jogadores conectados a esta sala."
   },
   gameInfoTitle: { es: "Información del Juego (Próximamente)", en: "Game Info (Coming Soon)", fr: "Infos sur le Jeu (Bientôt disponible)", pt: "Informações do Jogo (Em breve)" },
   gameInfoDescription: { 
@@ -81,6 +82,12 @@ const ROOM_TEXTS = {
   addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   startGameButton: { es: "Iniciar Partida (Próximamente)", en: "Start Game (Coming Soon)", fr: "Démarrer la Partie (Bientôt disponible)", pt: "Iniciar Jogo (Em Breve)"},
+  startGameDescription: {
+    es: "La funcionalidad para iniciar una partida multijugador real con otros jugadores en esta sala se añadirá en futuras actualizaciones.",
+    en: "The functionality to start a real multiplayer game with other players in this room will be added in future updates.",
+    fr: "La fonctionnalité pour démarrer une vraie partie multijoueur avec d'autres joueurs dans cette salle sera ajoutée dans les futures mises à jour.",
+    pt: "A funcionalidade para iniciar um jogo multiplayer real com outros jogadores nesta sala será adicionada em futuras atualizações."
+  },
   noPlayersInRoom: { es: "No hay jugadores en esta sala todavía.", en: "No players in this room yet.", fr: "Aucun joueur dans cette salle pour le moment.", pt: "Nenhum jogador nesta sala ainda." },
   onlineStatus: { es: "En línea", en: "Online", fr: "En ligne", pt: "Online" },
   offlineStatus: { es: "Desconectado", en: "Offline", fr: "Hors ligne", pt: "Offline" },
@@ -89,41 +96,48 @@ const ROOM_TEXTS = {
   copiedToClipboard: { es: "copiado.", en: "copied.", fr: "copié.", pt: "copiado." },
   couldNotCopy: { es: "No se pudo copiar.", en: "Could not copy.", fr: "Impossible de copier.", pt: "Não foi possível copiar." },
   loadingRoom: { es: "Cargando sala...", en: "Loading room...", fr: "Chargement de la salle...", pt: "Carregando sala..." },
+  playerNameDefault: { es: "Jugador Anónimo", en: "Anonymous Player", fr: "Joueur Anonyme", pt: "Jogador Anônimo" },
 };
 
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
   const { language, translate: translateContext } = useLanguage();
-  const { setActiveRoomId } = useRoom();
+  const { activeRoomId, setActiveRoomId } = useRoom(); 
   const { user } = useAuth();
   const { toast } = useToast();
-  const roomId = params.roomId as string;
+  const roomIdFromParams = params.roomId as string; 
 
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerInRoom[]>([]);
   const db = getDatabase(app);
 
-  const translate = (textKey: keyof typeof ROOM_TEXTS) => {
-    return translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]['en'];
+  const translate = (textKey: keyof typeof ROOM_TEXTS, replacements?: Record<string, string>) => {
+    let text = translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]['en'];
+    if (replacements) {
+      Object.keys(replacements).forEach(key => {
+        text = text.replace(`{${key}}`, replacements[key]);
+      });
+    }
+    return text;
   }
 
   const handlePlayerJoin = useCallback(async () => {
-    if (!user || !roomId) return;
-    const playerRef = ref(db, `rooms/${roomId}/players/${user.uid}`);
-    const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+    if (!user || !roomIdFromParams) return; 
+    console.log(`[RoomPage] handlePlayerJoin called for user: ${user.uid} in room: ${roomIdFromParams}`);
+    const playerRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`);
+    const playerStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/isOnline`);
+    const defaultName = translate('playerNameDefault');
 
     try {
       await update(playerRef, {
-        name: user.displayName || translateContext({es: 'Jugador Anónimo', en: 'Anonymous Player', fr: 'Joueur Anonyme', pt: 'Jogador Anônimo'}),
+        name: user.displayName || defaultName,
         avatar: user.photoURL || null,
         joinedAt: serverTimestamp(),
-        isOnline: true, // Set to online when joining/updating
+        isOnline: true,
       });
-      // Firebase Realtime Database presence system
-      await onDisconnect(playerStatusRef).set(false); // Set to offline on disconnect
-      await set(playerStatusRef, true); // Explicitly set to online now
-
-      console.log(`Player ${user.uid} data updated and presence set in room ${roomId}`);
+      await onDisconnect(playerStatusRef).set(false);
+      await set(playerStatusRef, true);
+      console.log(`Player ${user.uid} data updated and presence set in room ${roomIdFromParams}`);
     } catch (error) {
       console.error("Error joining/updating player in room:", error);
       toast({ 
@@ -132,37 +146,37 @@ export default function RoomPage() {
         variant: "destructive" 
       });
     }
-  }, [user, roomId, db, toast, translateContext, translate]);
+  }, [user, roomIdFromParams, db, toast, translate]);
 
   useEffect(() => {
-    if (roomId) {
-      setActiveRoomId(roomId);
+    if (roomIdFromParams && roomIdFromParams !== activeRoomId) {
+      setActiveRoomId(roomIdFromParams);
     }
 
-    if (!user || !roomId) {
+    if (!user || !roomIdFromParams) {
       setConnectedPlayers([]);
       return;
     }
 
     handlePlayerJoin(); 
 
-    const playersRef = ref(db, `rooms/${roomId}/players`);
+    const playersRef = ref(db, `rooms/${roomIdFromParams}/players`);
     const unsubscribe = onValue(playersRef, (snapshot) => {
       const data = snapshot.val();
       const currentPlayers: PlayerInRoom[] = [];
+      const defaultPlayerName = translate('playerNameDefault');
       if (data) {
         Object.keys(data).forEach((playerId) => {
           currentPlayers.push({
             id: playerId,
-            name: data[playerId].name || translateContext({es: 'Jugador', en: 'Player', fr: 'Joueur', pt: 'Jogador'}),
+            name: data[playerId].name || defaultPlayerName,
             avatar: data[playerId].avatar || null,
-            isCurrentUser: user?.uid === playerId,
-            isOnline: data[playerId].isOnline || false, // Get online status
-            joinedAt: data[playerId].joinedAt || 0,
+            isCurrentUser: user?.uid === playerId, 
+            isOnline: data[playerId].isOnline || false,
+            joinedAt: data[playerId].joinedAt || Date.now(), 
           });
         });
       }
-      // Sort players, maybe by joinedAt or name
       currentPlayers.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
       setConnectedPlayers(currentPlayers);
     }, (error) => {
@@ -177,19 +191,16 @@ export default function RoomPage() {
 
     return () => {
       unsubscribe();
-      // If a user explicitly leaves the room page (not just closes browser),
-      // you might want to set their status to offline immediately.
-      // However, onDisconnect is generally preferred for handling browser closes/crashes.
-      if (user && roomId) {
-        const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+      if (user && roomIdFromParams) {
+        const playerStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/isOnline`);
         set(playerStatusRef, false).catch(err => console.error("Error setting player offline on unmount:", err));
       }
     };
-  }, [roomId, user, db, setActiveRoomId, handlePlayerJoin, toast, translateContext, translate]);
+  }, [roomIdFromParams, user, db, setActiveRoomId, activeRoomId, handlePlayerJoin, toast, translate]);
 
   const handleLeaveRoom = () => {
-    if (user && roomId) {
-        const playerStatusRef = ref(db, `rooms/${roomId}/players/${user.uid}/isOnline`);
+    if (user && roomIdFromParams) {
+        const playerStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/isOnline`);
         set(playerStatusRef, false)
           .then(() => console.log("Player status set to offline before leaving room."))
           .catch(err => console.error("Error setting player offline before leaving:", err));
@@ -217,12 +228,12 @@ export default function RoomPage() {
   };
 
   const handleShareViaWhatsApp = () => {
-    const message = `${translate('shareMessageWhatsApp')} ${roomId}. ${translate('joinHere')} ${roomUrl}`;
+    const message = `${translate('shareMessageWhatsApp')} ${roomIdFromParams}. ${translate('joinHere')} ${roomUrl}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
-  if (!roomId) { 
+  if (!roomIdFromParams) { 
     return ( 
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         <AppHeader />
@@ -242,7 +253,7 @@ export default function RoomPage() {
           <Card className="w-full max-w-2xl shadow-xl rounded-xl">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">
-                {translate('title')} <span className="text-accent">{roomId}</span>
+                {translate('title')} <span className="text-accent">{roomIdFromParams}</span>
               </CardTitle>
               <CardDescription className="text-lg text-muted-foreground mt-2">
                 {translate('welcome')}
@@ -272,7 +283,10 @@ export default function RoomPage() {
                                   <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <Circle 
-                                  className={player.isOnline ? "h-3 w-3 text-green-500 fill-green-500 absolute bottom-0 right-0 border-2 border-card rounded-full" : "h-3 w-3 text-gray-400 fill-gray-400 absolute bottom-0 right-0 border-2 border-card rounded-full"} 
+                                  className={cn(
+                                    "h-3 w-3 absolute bottom-0 right-0 border-2 border-card rounded-full",
+                                    player.isOnline ? "text-green-500 fill-green-500" : "text-gray-400 fill-gray-400"
+                                  )} 
                                 />
                               </div>
                             </TooltipTrigger>
@@ -297,15 +311,19 @@ export default function RoomPage() {
                    <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescription')}</p>
                 </div>
               </div>
-
-              <Button 
-                size="lg" 
-                className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
-                disabled 
-              >
-                <Gamepad2 className="mr-3 h-6 w-6" /> 
-                {translate('startGameButton')}
-              </Button>
+              <div className="text-center">
+                <Button 
+                  size="lg" 
+                  className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                  disabled 
+                >
+                  <Gamepad2 className="mr-3 h-6 w-6" /> 
+                  {translate('startGameButton')}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1 px-2">
+                  {translate('startGameDescription')}
+                </p>
+              </div>
 
               <div className="space-y-4 p-4 border border-dashed border-border rounded-lg">
                 <h3 className="text-xl font-semibold text-secondary flex items-center">
@@ -315,11 +333,11 @@ export default function RoomPage() {
                   {translate('shareRoomDescription')}
                 </p>
                 <div className="p-3 bg-muted/50 rounded-md">
-                  <p className="text-sm font-mono break-all">ID: {roomId}</p>
+                  <p className="text-sm font-mono break-all">ID: {roomIdFromParams}</p>
                   <p className="text-sm font-mono break-all mt-1">{translateContext({es: 'Enlace', en: 'Link', fr: 'Lien', pt: 'Link'})}: {roomUrl}</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                  <Button variant="outline" onClick={() => copyToClipboard(roomId, 'id')} className="flex-1">
+                  <Button variant="outline" onClick={() => copyToClipboard(roomIdFromParams, 'id')} className="flex-1">
                     <Copy className="mr-2 h-4 w-4" /> {translate('copyRoomIdButton')}
                   </Button>
                   <Button variant="outline" onClick={() => copyToClipboard(roomUrl, 'link')} className="flex-1">
