@@ -46,7 +46,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es"> {/* Establecido estáticamente a 'es'. LanguageProvider maneja la UI. */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <LanguageProvider>
           <AuthProvider>
@@ -74,11 +74,6 @@ export default function RootLayout({
           id="fb-sdk"
           src="https://connect.facebook.net/en_US/sdk.js"
           strategy="afterInteractive"
-          onLoad={() => {
-            console.log('Facebook SDK loaded');
-            // You could call FB.getLoginStatus() here if needed on initial load
-            // or trigger other FB SDK dependent logic if window.FB is available.
-          }}
         />
       </body>
     </html>
