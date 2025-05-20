@@ -1,8 +1,5 @@
-
 import type { Language } from '@/contexts/language-context';
 
-// This object was moved from src/app/page.tsx
-// To avoid Next.js build error: "UI_TEXTS" is not a valid Page export field.
 export const UI_TEXTS: Record<string, Record<Language, string>> = {
   welcomeTitle: { es: "¡Bienvenido a Global Stop!", en: "Welcome to Global Stop!", fr: "Bienvenue à Global Stop!", pt: "Bem-vindo ao Global Stop!" },
   welcomeDescription: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:", fr: "Choisissez comment vous voulez jouer :", pt: "Escolha como você quer jogar:" },
@@ -10,11 +7,11 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   createRoom: { es: "Crear Sala (Amigos)", en: "Create Room (Friends)", fr: "Créer une Salle (Amis)", pt: "Criar Sala (Amigos)" },
   joinRoom: { es: "Unirse a Sala", en: "Join Room", fr: "Rejoindre une Salle", pt: "Entrar na Sala" },
   shareGame: { es: "Compartir Juego", en: "Share Game", fr: "Partager le Jeu", pt: "Compartilhar Jogo" },
-  shareGameMessageWhatsApp: { 
-    es: "¡Oye! ¡Juega Global Stop conmigo! Es muy divertido:", 
-    en: "Hey! Play Global Stop with me! It's great fun:", 
-    fr: "Salut ! Joue à Global Stop avec moi ! C'est très amusant :", 
-    pt: "Ei! Jogue Global Stop comigo! É muito divertido:" 
+  shareGameMessageWhatsApp: {
+    es: "¡Oye! ¡Juega Global Stop conmigo! Es muy divertido:",
+    en: "Hey! Play Global Stop with me! It's great fun:",
+    fr: "Salut ! Joue à Global Stop avec moi ! C'est très amusant :",
+    pt: "Ei! Jogue Global Stop comigo! É muito divertido:"
   },
   createRoomDialogTitle: { es: "¡Sala Creada!", en: "Room Created!", fr: "Salle Créée !", pt: "Sala Criada!" },
   createRoomDialogDescription: {
@@ -110,12 +107,12 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Global Stop!", en: "Think you can beat me? Try Global Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Global Stop !", pt: "Acha que pode me vencer? Experimente o Global Stop!" },
   lobbyTitle: { es: "Sala de Espera Multijugador", en: "Multiplayer Lobby", fr: "Salon Multijoueur", pt: "Lobby Multijogador" },
   inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" },
-  startGameWithFriendsButton: { es: "Iniciar Partida (Amigos)", en: "Start Game (Friends)", fr: "Démarrer la Partie (Amis)", pt: "Iniciar Jogo (Amigos)"},
-  startGameWithFriendsDescription: {
-    es: "La funcionalidad para iniciar una partida multijugador real con otros jugadores en esta sala se añadirá en futuras actualizaciones.",
-    en: "The functionality to start a real multiplayer game with other players in this room will be added in future updates.",
-    fr: "La fonctionnalité pour démarrer une vraie partie multijoueur avec d'autres joueurs dans cette salle sera ajoutée dans les futures mises à jour.",
-    pt: "A funcionalidade para iniciar um jogo multiplayer real com outros jogadores nesta sala será adicionada em futuras atualizações."
+  goToGameRoomButton: { es: "Ir a la Sala de Juego", en: "Go to Game Room", fr: "Aller à la Salle de Jeu", pt: "Ir para a Sala de Jogo" },
+  goToGameRoomDescription: {
+    es: "La partida se desarrollará en la página de la sala. ¡Allí podrás ver a otros jugadores!",
+    en: "The game will take place on the room page. You can see other players there!",
+    fr: "La partie se déroulera sur la page de la salle. Vous pourrez y voir d'autres joueurs !",
+    pt: "O jogo acontecerá na página da sala. Você poderá ver outros jogadores lá!"
   },
   inviteFriendsButton: { es: "Invitar Amigos", en: "Invite Friends", fr: "Inviter des Amis", pt: "Convidar Amigos" },
   leaveRoomButton: { es: "Salir de la Sala", en: "Leave Room", fr: "Quitter la Salle", pt: "Sair da Sala" },
@@ -125,11 +122,11 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   roomLinkCopiedToastTitle: { es: "¡Enlace de Sala Copiado!", en: "Room Link Copied!", fr: "Lien de Salle Copié !", pt: "Link da Sala Copiado!" },
   roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
   playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
-  playerListDescription: { 
-    es: "Aquí verás la lista de amigos que se han unido. (Funcionalidad completa próximamente)", 
-    en: "Here you will see the list of friends who have joined. (Full functionality coming soon)",
-    fr: "Ici, vous verrez la liste des amis qui ont rejoint. (Fonctionnalité complète bientôt disponible)",
-    pt: "Aqui você verá la lista de amigos que entraram. (Funcionalidade completa em breve)"
+  playerListDescriptionLobby: {
+    es: "Los jugadores conectados aparecerán aquí. (Funcionalidad completa de presencia próximamente)",
+    en: "Connected players will appear here. (Full presence functionality coming soon)",
+    fr: "Les joueurs connectés apparaîtront ici. (Fonctionnalité de présence complète bientôt disponible)",
+    pt: "Jogadores conectados aparecerão aqui. (Funcionalidade completa de presença em breve)"
   },
   addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
   friendAddedToastTitle: { es: "¡Amigo Añadido!", en: "Friend Added!", fr: "Ami Ajouté !", pt: "Amigo Adicionado!"},
@@ -154,6 +151,11 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   challengeSettingsComingSoon: { es: "Configuración del juego (próximamente)", en: "Game settings (coming soon)", fr: "Paramètres du jeu (bientôt disponible)", pt: "Configurações do jogo (em breve)"},
   sendChallengeComingSoon: { es: "Enviar desafío (próximamente)", en: "Send challenge (coming soon)", fr: "Envoyer le défi (bientôt disponible)", pt: "Enviar desafio (em breve)"},
   backToHomeButton: { es: "Volver al Inicio", en: "Back to Home", fr: "Retour à l'Accueil", pt: "Voltar ao Início"},
+  cannotAddSelfTitle: {es: "No puedes agregarte", en: "Cannot add self", fr:"Ne peut pas s'ajouter", pt: "Não pode adicionar a si mesmo"},
+  cannotAddSelfDescription: {es: "No puedes ser tu propio amigo.", en: "You cannot be your own friend.", fr: "Vous ne pouvez pas être votre propre ami.", pt: "Você não pode ser seu próprio amigo."},
+  emptyIdentifierTitle: {es: "Nombre/Email Vacío", en: "Empty Name/Email", fr: "Nom/Email Vide", pt: "Nome/Email Vazio"},
+  emptyIdentifierDescription: {es: "Por favor, introduce un nombre o email.", en: "Please enter a name or email.", fr: "Veuillez entrer un nom ou un email.", pt: "Por favor, insira um nome ou email."},
+  logoAlt: { es: "Logo del juego Global Stop", en: "Global Stop Game Logo", fr: "Logo du jeu Global Stop", pt: "Logo do Jogo Global Stop" },
+  onlineStatus: { es: "En línea", en: "Online", fr: "En ligne", pt: "Online" },
+  offlineStatus: { es: "Desconectado", en: "Offline", fr: "Hors ligne", pt: "Offline" },
 };
-
-    
