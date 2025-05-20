@@ -228,7 +228,7 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
-        backgroundAudioRef.current = new Audio('/music/T Bless - Korobeiniki - 8-Bit Version.mp3'); 
+        backgroundAudioRef.current = new Audio('/music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3'); 
         backgroundAudioRef.current.loop = true;
       }
       if (!countdownTickAudioRef.current) {
@@ -1211,7 +1211,7 @@ export default function GamePage() {
           currentUserAvatar={user?.photoURL}
           language={language}
           currentRoomId={activeRoomId}
-          onSendMessageDB={null}
+          onSendMessageDB={null} // This will be set correctly from room page
         />
       </main>
       <AppFooter language={language} />
@@ -1248,4 +1248,5 @@ export default function GamePage() {
 
 
     
+
 
