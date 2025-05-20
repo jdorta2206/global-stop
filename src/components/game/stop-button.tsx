@@ -1,25 +1,31 @@
 
 "use client";
 
-import { Button } from '@/components/ui/button';
+import * as React from 'react';
+import { Button } from '@/components/ui/button'; // Reverted to direct import name
 import type { Language } from '@/contexts/language-context';
 
 interface StopButtonProps {
   onClick: () => void;
   disabled?: boolean;
   language: Language;
-  label?: string; // Optional custom label for aria-description
+  label?: string; // Optional custom label
 }
 
-const STOP_BUTTON_TEXTS = {
-  // 'stop' key is used for aria-label if no specific label is provided
+const internalStopButtonTexts: Record<string, Record<Language, string>> = {
   stop: { es: "¡ALTO!", en: "STOP!", fr: "STOP !", pt: "PARE!" },
-  ariaDefaultLabel: { es: "Detener la ronda o enviar respuestas", en: "Stop the round or submit answers", fr: "Arrêter la manche ou envoyer les réponses", pt: "Parar a rodada ou enviar respostas" },
+  ariaDefaultLabel: {
+    es: "Detener la ronda o enviar respuestas",
+    en: "Stop the round or submit answers",
+    fr: "Arrêter la manche ou envoyer les réponses",
+    pt: "Parar a rodada ou enviar respostas"
+  },
 };
 
-export function StopButton({ onClick, disabled, language, label }: StopButtonProps) {
-  const translate = (textKey: keyof typeof STOP_BUTTON_TEXTS) => {
-    return STOP_BUTTON_TEXTS[textKey]?.[language] || STOP_BUTTON_TEXTS[textKey]['en'];
+export const StopButton: React.FC<StopButtonProps> = ({ onClick, disabled, language, label }) => {
+  const translate = (textKey: keyof typeof internalStopButtonTexts) => {
+    // Simplified slightly, assuming 'en' key will always exist as a fallback
+    return internalStopButtonTexts[textKey]?.[language] || internalStopButtonTexts[textKey]?.['en'];
   }
 
   const visualText = "STOP";
