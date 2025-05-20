@@ -34,10 +34,10 @@ const nextConfig: NextConfig = {
       }
     ],
   },
-  experimental: { // Added experimental configuration
+  experimental: {
     allowedDevOrigins: [
-      "http://localhost:9003", // Keep if you also test on localhost:9003
-      "https://9003-firebase-studio-1747394567673.cluster-6vyo4gb53jczovun3dxslzjahs.cloudworkstations.dev" // Domain from your log
+      "http://localhost:9003",
+      "https://9003-firebase-studio-1747394567673.cluster-6vyo4gb53jczovun3dxslzjahs.cloudworkstations.dev"
     ],
   },
 };

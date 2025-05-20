@@ -1,14 +1,12 @@
 
-import type {Metadata, Viewport} from 'next'; // Import Viewport
+import type {Metadata, Viewport} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context';
 import { LanguageProvider } from '@/contexts/language-context';
 import { RoomProvider } from '@/contexts/room-context';
-// Script for Facebook SDK
 import Script from 'next/script';
-
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -34,10 +32,9 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
-  // themeColor: '#C0474A', // Moved to viewport
 };
 
-export const viewport: Viewport = { // Added Viewport export
+export const viewport: Viewport = {
   themeColor: '#C0474A',
 };
 
@@ -65,7 +62,7 @@ export default function RootLayout({
                 appId      : '{your-app-id}', // REPLACE WITH YOUR ACTUAL FACEBOOK APP ID
                 cookie     : true,
                 xfbml      : true,
-                version    : 'v19.0' // REPLACE WITH YOUR DESIRED API VERSION (e.g., 'v19.0')
+                version    : 'v19.0' // REPLACE WITH YOUR DESIRED API VERSION
               });
               FB.AppEvents.logPageView();
             };
