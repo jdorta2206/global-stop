@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next'; // Import Viewport
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -34,10 +34,10 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
-  themeColor: '#C0474A',
+  // themeColor: '#C0474A', // Moved to viewport
 };
 
-export const viewport = {
+export const viewport: Viewport = { // Added Viewport export
   themeColor: '#C0474A',
 };
 
@@ -58,7 +58,6 @@ export default function RootLayout({
           </AuthProvider>
         </LanguageProvider>
         {/* Facebook SDK Scripts */}
-        {/* IMPORTANT: You MUST replace '{your-app-id}' and '{api-version}' with your actual Facebook App values. */}
         <Script id="fb-sdk-init" strategy="afterInteractive">
           {`
             window.fbAsyncInit = function() {

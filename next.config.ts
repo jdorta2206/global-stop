@@ -7,10 +7,10 @@ console.log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
 const nextConfig: NextConfig = {
   /* config options here */
   typescript: {
-    ignoreBuildErrors: false, // Cambiado a false
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: false, // Cambiado a false
+    ignoreDuringBuilds: false,
   },
   images: {
     remotePatterns: [
@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       }
+    ],
+  },
+  experimental: { // Added experimental configuration
+    allowedDevOrigins: [
+      "http://localhost:9003", // Keep if you also test on localhost:9003
+      "https://9003-firebase-studio-1747394567673.cluster-6vyo4gb53jczovun3dxslzjahs.cloudworkstations.dev" // Domain from your log
     ],
   },
 };
