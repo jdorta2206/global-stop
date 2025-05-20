@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image'; // Import Image from next/image
 import { Button } from '@/components/ui/button';
@@ -30,8 +31,9 @@ import type { ChatMessage } from '@/components/chat/chat-message-item';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { EnrichedPlayerScore } from '@/components/game/leaderboard-table';
-import { getDatabase, ref, onValue, update, serverTimestamp, set, off, push, child, remove } from "firebase/database";
-import { app as firebaseApp } from '@/lib/firebase/config'; // Renamed to avoid conflict
+// Removed Firebase imports as they are not directly used in page.tsx anymore for game logic
+// import { getDatabase, ref, onValue, update, serverTimestamp, set, off, push, child, remove } from "firebase/database";
+// import { app as firebaseApp } from '@/lib/firebase/config'; // Renamed to avoid conflict
 import { UI_TEXTS } from '@/constants/ui-texts';
 
 
@@ -82,7 +84,7 @@ const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser' | 'isOnline'>[]
   { id: 'player4', name: 'Vecina Laura', avatar: `https://placehold.co/40x40.png?text=L` },
 ];
 
-const db = getDatabase(firebaseApp);
+// const db = getDatabase(firebaseApp); // Not used directly here anymore
 
 export default function GamePage() {
   const [gameState, setGameState] = useState<GameState>("IDLE");
@@ -169,17 +171,13 @@ export default function GamePage() {
 
   useEffect(() => {
     if (activeRoomId && user) {
-        // In a room, players will be fetched from Firebase by RoomPage
-        // This local mock list can be cleared or dynamically populated if needed for page.tsx UI specifically
         const lobbyPlayersFromRoomContext: PlayerInLobby[] = [];
-        // This section could be enhanced if RoomContext provided a list of players in the active room
-        // For now, it shows the current user if they are in a room.
          lobbyPlayersFromRoomContext.push({
             id: user.uid,
             name: user.displayName || translate(UI_TEXTS.playerNameDefault),
             avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
             isCurrentUser: true,
-            isOnline: true, // Assume online if in room context
+            isOnline: true,
         });
         MOCK_PLAYERS_IN_LOBBY.forEach(player => {
              lobbyPlayersFromRoomContext.push({ ...player, id: player.id || `mock-${Date.now()}`, isCurrentUser: false, isOnline: Math.random() > 0.5 });
@@ -187,8 +185,7 @@ export default function GamePage() {
         setPlayersInLobby(lobbyPlayersFromRoomContext);
 
     } else if (!activeRoomId) {
-        // Not in a room, can show general mock players or an empty list
-        setPlayersInLobby([]); // Or some default mock players for non-room view
+        setPlayersInLobby([]);
     }
   }, [user, activeRoomId, language, translate]);
 
@@ -202,7 +199,6 @@ export default function GamePage() {
   ];
 
   useEffect(() => {
-    // Chat messages are now primarily handled by RoomPage if activeRoomId exists
     if (!activeRoomId) {
       const defaultPlayerName = user?.displayName || translate(UI_TEXTS.playerNameDefault);
       const defaultPlayerAvatar = user?.photoURL || `https://placehold.co/40x40.png?text=${defaultPlayerName.charAt(0)}`;
@@ -211,7 +207,7 @@ export default function GamePage() {
           { id: 'user-welcome-1', text: translate(UI_TEXTS.welcomeTitle), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) },
       ]);
     } else {
-        setChatMessages([]); // Clear local chat when in a room, RoomPage will handle DB chat
+        setChatMessages([]);
     }
   }, [activeRoomId, language, user, translate]);
 
@@ -238,7 +234,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (backgroundAudioRef.current) {
-      if (gameState === "PLAYING" && currentLetter && !activeRoomId) { // Only play for solo games here
+      if (gameState === "PLAYING" && currentLetter && !activeRoomId) {
         backgroundAudioRef.current.currentTime = 0;
         backgroundAudioRef.current.play().catch(error => console.error("Error playing background audio:", error));
       } else {
@@ -317,7 +313,9 @@ export default function GamePage() {
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
+        console.log(`[${timestamp}] [GamePage] Calling generateAiOpponentResponse for ${category} (letter ${letterForValidation}) with input:`, JSON.stringify(aiInput));
         const aiResult = await generateAiOpponentResponse(aiInput);
+        console.log(`[${timestamp}] [GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
         return { category, response: aiResult.response };
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error getting AI response for ${category}:`, error);
@@ -330,6 +328,7 @@ export default function GamePage() {
       acc[result.category] = result.response;
       return acc;
     }, {} as Record<string, string>);
+    console.log(`[${timestamp}] [GamePage] AI responses generated:`, JSON.stringify(tempAiResponses, null, 2));
 
     setAiResponses(tempAiResponses);
 
@@ -342,6 +341,7 @@ export default function GamePage() {
         return { category, isValid: false, errorReason: null };
       }
       if (!playerResponse.toLowerCase().startsWith(letterForValidation!.toLowerCase())) {
+        console.warn(`[${timestamp}] [GamePage] Word "${playerResponse}" for category "${category}" does not start with letter "${letterForValidation!}". Marking as format error.`);
         return { category, isValid: false, errorReason: 'format' as 'format' };
       }
       try {
@@ -351,7 +351,9 @@ export default function GamePage() {
           playerWord: playerResponse,
           language: currentLang,
         };
+        console.log(`[${timestamp}] [GamePage] Calling validatePlayerWord for ${category} with input:`, JSON.stringify(validationInput));
         const validationResult: ValidatePlayerWordOutput = await validatePlayerWord(validationInput);
+        console.log(`[${timestamp}] [GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"):`, JSON.stringify(validationResult));
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error validating player word for ${category} ("${playerResponse}"):`, error);
@@ -386,13 +388,21 @@ export default function GamePage() {
       const aiResponseRaw = tempAiResponses[category] || "";
       const aiResponseTrimmed = aiResponseRaw.trim();
 
-      const validationStatus = playerWordValidity[category];
+      const validationStatus = playerWordValidity[category]; // This can be undefined if category wasn't in results
       console.log(`  [${timestamp}] [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
 
-      const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
+
       const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
+      const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
       const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
       const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
+      
+      console.log(`  [${timestamp}] [GamePage] Player Word: "${playerResponseTrimmed}", AI Word: "${aiResponseTrimmed}"`);
+      console.log(`  [${timestamp}] [GamePage] playerPassesFormatCheck (frontend check...): ${playerPassesFormatCheck}`);
+      console.log(`  [${timestamp}] [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`);
+      console.log(`  [${timestamp}] [GamePage] isPlayerResponseConsideredValid (passes format AND AI validation): ${isPlayerResponseConsideredValid}`);
+      console.log(`  [${timestamp}] [GamePage] isAiResponseValid (AI not empty, starts with letter): ${isAiResponseValid}`);
+
 
       let pScore = 0;
       let aScore = 0;
@@ -410,19 +420,21 @@ export default function GamePage() {
           aScore = 100;
         }
       }
+      console.log(`  [${timestamp}] [GamePage] Scores for "${category}" -> Player: ${pScore}, AI: ${aScore}`);
 
       detailedRoundResults[category] = {
         playerScore: pScore,
         aiScore: aScore,
         playerResponse: playerResponseRaw,
         aiResponse: aiResponseRaw,
-        playerResponseIsValid: isPlayerWordValidatedByAI,
+        playerResponseIsValid: isPlayerWordValidatedByAI, // Use the validated status
         playerResponseErrorReason: validationStatus ? validationStatus.errorReason : (playerPassesFormatCheck ? null : 'format'),
       };
       currentRoundPlayerScore += pScore;
       currentRoundAiScore += aScore;
     });
 
+    console.log(`[${timestamp}] [GamePage] Total Player Round Score: ${currentRoundPlayerScore}, Total AI Round Score: ${currentRoundAiScore}`);
     setPlayerRoundScore(currentRoundPlayerScore);
     setAiRoundScore(currentRoundAiScore);
     setTotalPlayerScore(prev => prev + currentRoundPlayerScore);
@@ -454,7 +466,7 @@ export default function GamePage() {
   }, [handleStopInternal]);
 
   useEffect(() => {
-    if (gameState === "PLAYING" && currentLetter && !activeRoomId) { // Only manage timer here for solo games
+    if (gameState === "PLAYING" && currentLetter && !activeRoomId) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       setTimeLeft(ROUND_DURATION_SECONDS);
       setCountdownWarningText("");
@@ -567,15 +579,14 @@ export default function GamePage() {
     }
   };
 
-  const handleLeaveRoomLobby = () => { // Renamed to avoid conflict with RoomPage's leave
+  const handleLeaveRoomLobby = () => {
     if (user && activeRoomId) {
-        // No need to update Firebase from here, RoomPage handles onDisconnect and explicit leave.
-        // If this page itself were to handle player listing from Firebase, it would update here.
+        // No direct Firebase update here; RoomPage manages player presence on its side.
     }
-    setActiveRoomId(null); // Clear active room from context
-    setPlayersInLobby([]); // Clear lobby players
+    setActiveRoomId(null);
+    setPlayersInLobby([]);
     setGameState("IDLE");
-    router.push('/'); // Ensure navigation back to root if not already there
+    router.push('/');
   };
 
   const handleInviteFriendsLobby = () => {
@@ -706,7 +717,7 @@ export default function GamePage() {
   };
 
 
-  const handleSendChatMessageLocal = (text: string) => { // For non-room chat on main page
+  const handleSendChatMessageLocal = (text: string, roomId?: string | null) => { // Updated signature, roomId ignored here
     if (!user) {
       toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
       return;
@@ -849,7 +860,6 @@ export default function GamePage() {
                             toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
                             return;
                           }
-                          // Navigate to room page which now handles game start
                           router.push(`/room/${activeRoomId}`);
                         }}
                         disabled={!user}
@@ -1150,3 +1160,4 @@ export default function GamePage() {
     </div>
   );
 }
+
