@@ -396,7 +396,7 @@ export default function GamePage() {
       const isPlayerWordValidatedByAI = validationStatus ? validationStatus.isValid : false;
       const isPlayerResponseConsideredValid = playerPassesFormatCheck && isPlayerWordValidatedByAI;
       const isAiResponseValid = aiResponseTrimmed !== "" && aiResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
-      
+
       console.log(`  [${timestamp}] [GamePage] Player Word: "${playerResponseTrimmed}", AI Word: "${aiResponseTrimmed}"`);
       console.log(`  [${timestamp}] [GamePage] playerPassesFormatCheck (frontend check...): ${playerPassesFormatCheck}`);
       console.log(`  [${timestamp}] [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`);
@@ -1130,14 +1130,14 @@ export default function GamePage() {
         </div>
         <ChatPanel
           messages={chatMessages}
-          onSendMessage={handleSendChatMessageLocal} // Use local sending if not in a room
+          onSendMessage={handleSendChatMessageLocal}
           isOpen={isChatOpen}
           setIsOpen={setIsChatOpen}
           currentUserUid={user?.uid}
           currentUserName={user?.displayName || translate(UI_TEXTS.playerNameDefault)}
           currentUserAvatar={user?.photoURL}
           language={language}
-          currentRoomId={null} // This chat panel on main page is not tied to a DB room
+          currentRoomId={null} 
         />
       </main>
       <AppFooter language={language} />
