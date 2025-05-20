@@ -2,61 +2,69 @@
 "use client";
 
 import * as React from 'react';
-import { Button } from '@/components/ui/button'; // Reverted to direct import name
 import type { Language } from '@/contexts/language-context';
+import { Button } from '@/components/ui/button';
+
+// If this file continues to cause a "Unexpected token Button" parsing error
+// after applying this change, PLEASE try the following:
+// 1. Manually DELETE this file (stop-button.tsx) from your project.
+// 2. CREATE a NEW file with the same name in the same location.
+// 3. PASTE this exact code into the new file.
+// 4. Stop your dev server, run "rm -rf .next" in your terminal, then restart your dev server.
+// This often resolves persistent parsing issues caused by hidden characters or cache problems.
+
+const internalStopButtonTexts: Record<Language, { ariaDefaultLabel: string }> = {
+  es: { ariaDefaultLabel: "Detener la ronda" },
+  en: { ariaDefaultLabel: "Stop the round" },
+  fr: { ariaDefaultLabel: "Arrêter la manche" },
+  pt: { ariaDefaultLabel: "Parar a rodada" },
+};
 
 interface StopButtonProps {
   onClick: () => void;
   disabled?: boolean;
   language: Language;
-  label?: string; // Optional custom label
+  label?: string; 
 }
 
-const internalStopButtonTexts: Record<string, Record<Language, string>> = {
-  stop: { es: "¡ALTO!", en: "STOP!", fr: "STOP !", pt: "PARE!" },
-  ariaDefaultLabel: {
-    es: "Detener la ronda o enviar respuestas",
-    en: "Stop the round or submit answers",
-    fr: "Arrêter la manche ou envoyer les réponses",
-    pt: "Parar a rodada ou enviar respostas"
-  },
-};
-
-export const StopButton: React.FC<StopButtonProps> = ({ onClick, disabled, language, label }) => {
-  const translate = (textKey: keyof typeof internalStopButtonTexts) => {
-    // Simplified slightly, assuming 'en' key will always exist as a fallback
-    return internalStopButtonTexts[textKey]?.[language] || internalStopButtonTexts[textKey]?.['en'];
+export const StopButton: React.FC<StopButtonProps> = ({ 
+  onClick, 
+  disabled, 
+  language, 
+  label 
+}) => {
+  const translateText = (key: keyof typeof internalStopButtonTexts[Language]) => {
+    const langTexts = internalStopButtonTexts[language] || internalStopButtonTexts['en'];
+    return langTexts?.[key] || String(key);
   }
-
-  const visualText = "STOP";
-  const accessibleLabel = label || translate('ariaDefaultLabel');
+  const accessibleLabel = label || translateText('ariaDefaultLabel');
 
   return (
     <Button
       onClick={onClick}
       disabled={disabled}
-      variant="default" // Base variant, we override colors
-      size="lg" // Base size, we override dimensions
+      variant="default"
+      size="lg"
       className="
-        w-28 h-28 md:w-32 md:h-32 /* Fixed size for octagon */
-        p-0 /* Remove default padding to control text placement within clip-path */
-        bg-red-600 hover:bg-red-700 /* Stop sign red */
+        w-28 h-28 md:w-32 md:h-32
+        p-0
+        bg-red-600 hover:bg-red-700
         text-white
-        font-bold text-2xl md:text-3xl /* Prominent "STOP" text */
+        font-bold text-2xl md:text-3xl
         shadow-xl
         transform transition-all duration-150 ease-in-out
         hover:scale-105 active:scale-95
         focus-visible:ring-4 focus-visible:ring-red-300 focus-visible:ring-offset-2
-        flex items-center justify-center /* Center the text */
+        flex items-center justify-center
         relative
-        rounded-none /* Ensure no rounded corners interfere with clip-path */
+        rounded-none
       "
       style={{
         clipPath: 'polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)',
       }}
       aria-label={accessibleLabel}
     >
-      <span className="block leading-none">{visualText}</span>
+      <span className="block leading-none">STOP</span>
     </Button>
   );
 }
