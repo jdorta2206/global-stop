@@ -34,6 +34,7 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
+  themeColor: '#C0474A',
 };
 
 export const viewport = {
@@ -57,7 +58,7 @@ export default function RootLayout({
           </AuthProvider>
         </LanguageProvider>
         {/* Facebook SDK Scripts */}
-        {/* IMPORTANT: You MUST replace '{your-app-id}' and '{api-version}' (e.g., 'v19.0') with your actual Facebook App values for Facebook Login to work. */}
+        {/* IMPORTANT: You MUST replace '{your-app-id}' and '{api-version}' with your actual Facebook App values. */}
         <Script id="fb-sdk-init" strategy="afterInteractive">
           {`
             window.fbAsyncInit = function() {

@@ -26,7 +26,6 @@ const LLMValidationOutputSchema = z.object({
 });
 
 // This is the actual output type of the EXPORTED validatePlayerWord function.
-// It is NOT the schema for the LLM's direct output.
 export type ValidatePlayerWordOutput = z.infer<typeof LLMValidationOutputSchema>;
 
 
@@ -36,35 +35,35 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
     console.log(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): Invoking flow for input: ${JSON.stringify(input)}`);
     return await validatePlayerWordFlow(input);
   } catch (e: any) {
-    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR during flow invocation for input ${JSON.stringify(input)}. This often indicates a problem with Genkit/Google AI setup. Error:`, e.message || e, e.stack, ". VERIFY GOOGLE_API_KEY in your server environment & CHECK SERVER LOGS FOR PRECEDING ERRORS.");
+    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR during flow invocation for input ${JSON.stringify(input)}. This often indicates a problem with Genkit/Google AI setup. Error:`, e.message || e, e.stack, ". ENSURE GOOGLE_API_KEY is correctly set in your server environment and check server logs for more details, including any preceding errors from Genkit or Google AI services.");
     return { isValid: false }; // Return a valid default response
   }
 }
 
-const currentPromptText = `You are an expert judge for the game "Stop".
-Your task is to determine if the player's word '{{{playerWord}}}' is a valid entry for the letter '{{{letter}}}' in the language '{{{language}}}'.
+const currentPromptText = `Eres un juez experto para el juego "Stop" (también conocido como Tutti Frutti o Basta).
+Tu tarea específica es determinar si la palabra '{{{playerWord}}}' es una entrada válida para la letra '{{{letter}}}' en el idioma '{{{language}}}'.
 
-Follow these rules STRICTLY:
-1. The word MUST begin with the letter '{{{letter}}}' (case-insensitive).
-2. The word '{{{playerWord}}}' MUST be a real, commonly known, and correctly spelled word in {{{language}}} OR a common proper name in {{{language}}} (e.g., Paco, París, John, London, Zorro, Irene, Sofía). It should not be an invented word, a typo, a random string of letters, or a word from another language unless it's a very common loanword in {{{language}}}.
-3. The word must NOT be empty or consist only of whitespace.
+Reglas a seguir ESTRICTAMENTE:
+1.  La palabra DEBE comenzar con la letra '{{{letter}}}' (ignora mayúsculas/minúsculas).
+2.  La palabra '{{{playerWord}}}' DEBE ser una palabra en {{{language}}} real, comúnmente conocida y correctamente escrita, O un nombre propio común en {{{language}}} (ejemplos para 'es': Paco, París, Zorro, Irene, Sofía; ejemplos para 'en': John, London, Fox, Irene, Sophia). No debe ser una palabra inventada, un error tipográfico, una cadena aleatoria de letras o una palabra de otro idioma (a menos que sea un préstamo muy común en {{{language}}} como 'hobby' o 'sándwich').
+3.  La palabra NO debe estar vacía ni consistir solo en espacios en blanco.
 
-Player's word: '{{{playerWord}}}'
-Required letter: '{{{letter}}}'
-Language: '{{{language}}}'
+Palabra del jugador: '{{{playerWord}}}'
+Letra requerida: '{{{letter}}}'
+Idioma: '{{{language}}}'
 
-Based ONLY on these rules, is the player's word valid?
-Respond with a JSON object in the format {"isValid": true} if ALL rules are met.
-Respond with a JSON object in the format {"isValid": false} if ANY rule is not met.
-DO NOT include any other text, explanation, or markdown. YOUR ENTIRE RESPONSE MUST BE ONLY THE JSON OBJECT.
-Example for a valid word like "Paco" for letter "P" in language "es": {"isValid": true}
-Example for an invalid word like "Xyzzy" for letter "X" in language "en": {"isValid": false}
+Considerando SOLO las reglas 1, 2 y 3, ¿es válida la palabra del jugador?
+Responde con un objeto JSON en el formato {"isValid": true} si TODAS las reglas se cumplen.
+Responde con un objeto JSON en el formato {"isValid": false} si ALGUNA regla no se cumple.
+TU RESPUESTA COMPLETA DEBE SER ÚNICAMENTE EL OBJETO JSON. SIN TEXTO ADICIONAL NI MARKDOWN.
+Ejemplo para 'Paco', letra 'P', idioma 'es': {"isValid": true}
+Ejemplo para 'Xyzzy', letra 'X', idioma 'en': {"isValid": false}
 `;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON_v4_MultiLang_Strict', // Renamed for clarity
+  name: 'validatePlayerWordPromptJSON_v5_MultiLang_StrictRules',
   input: {schema: ValidatePlayerWordInputSchema},
-  output: {schema: LLMValidationOutputSchema}, // Expecting {isValid: boolean}
+  output: {schema: LLMValidationOutputSchema}, 
   prompt: currentPromptText,
   config: { temperature: 0.2 },
 });
@@ -73,7 +72,7 @@ const validatePlayerWordFlow = ai.defineFlow(
   {
     name: 'validatePlayerWordFlow',
     inputSchema: ValidatePlayerWordInputSchema,
-    outputSchema: LLMValidationOutputSchema, // This flow returns what the LLM is supposed to return
+    outputSchema: LLMValidationOutputSchema,
   },
   async (input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> => {
     const timestamp = new Date().toISOString();
@@ -91,7 +90,7 @@ const validatePlayerWordFlow = ai.defineFlow(
       }
 
       const llmResponse = await prompt(input);
-      const output = llmResponse.output; // Access the structured output
+      const output = llmResponse.output; 
 
       let rawResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
@@ -107,7 +106,6 @@ const validatePlayerWordFlow = ai.defineFlow(
       } else {
         console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":boolean}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Intentando parseo manual de JSON.`);
         
-        // Regex to find a JSON object like {"isValid": true} or {"isValid": false}, allowing for whitespace
         const jsonRegex = /\{\s*"isValid"\s*:\s*(true|false)\s*\}/;
         const match = rawResponseTextForLogging.match(jsonRegex);
 
