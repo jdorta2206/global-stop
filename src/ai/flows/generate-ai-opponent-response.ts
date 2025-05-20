@@ -47,8 +47,9 @@ Example for letter "M", category "Animal", language "es": "Mono"
 Example for letter "C", category "Couleur", language "fr": "Citron"
 `;
 
+
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vSimpleString_MultiLang_Temp02',
+  name: 'generateAiOpponentResponsePrompt_vRestored', // New name
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
   prompt: currentPromptText,
@@ -67,8 +68,8 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
 
-      const llmGenerateResponse = await prompt(input);
-      const output = llmGenerateResponse.output; 
+      const llmGenerateResponse = await prompt(input); // This is GenerateResponse<{response: string}>
+      const output = llmGenerateResponse.output; // This is {response: string} | undefined
 
       let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
@@ -85,7 +86,6 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
           return { response: "" };
         }
         // If it's valid and starts with the letter, or it's empty (which is also valid)
-        // No need to check for empty string here, as an empty string response is acceptable.
         console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
         return { response: structuredResponseTrimmed };
       }
@@ -93,7 +93,7 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       // Fallback to raw text if structured output is not as expected OR if structured output was an empty string (and we want to check raw text)
       const rawTextTrimmed = llmResponseTextForLogging.trim();
       // Check if raw text is a single word, not too long, and starts with the correct letter
-      if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\n") && rawTextTrimmed.length < 30) {
+      if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\\n") && rawTextTrimmed.length < 30) {
           if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
               console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
               return { response: rawTextTrimmed };
