@@ -25,11 +25,10 @@ const LLMValidationOutputSchema = z.object({
     isValid: z.boolean().describe("True si la palabra es válida, false en caso contrario."),
 });
 
-// Schema for the final output of this flow
-const ValidatePlayerWordOutputSchema = z.object({
-  isValid: z.boolean().describe('True si la palabra es válida, bien escrita y comienza con la letra especificada; false en caso contrario.'),
-});
-export type ValidatePlayerWordOutput = z.infer<typeof ValidatePlayerWordOutputSchema>;
+// This is the actual output type of the EXPORTED validatePlayerWord function.
+// It is NOT the schema for the LLM's direct output.
+export type ValidatePlayerWordOutput = z.infer<typeof LLMValidationOutputSchema>;
+
 
 export async function validatePlayerWord(input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> {
   const timestamp = new Date().toISOString();
@@ -37,17 +36,17 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
     console.log(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): Invoking flow for input: ${JSON.stringify(input)}`);
     return await validatePlayerWordFlow(input);
   } catch (e: any) {
-    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR invoking flow for input ${JSON.stringify(input)}. Error:`, e.message || e, e.stack, ". PLEASE CHECK GOOGLE_API_KEY and ensure Genkit is configured correctly.");
+    console.error(`[${timestamp}] validatePlayerWord (EXPORTED FUNCTION): CRITICAL ERROR during flow invocation for input ${JSON.stringify(input)}. This often indicates a problem with Genkit/Google AI setup. Error:`, e.message || e, e.stack, ". VERIFY GOOGLE_API_KEY in your server environment & CHECK SERVER LOGS FOR PRECEDING ERRORS.");
     return { isValid: false }; // Return a valid default response
   }
 }
 
-const currentPromptText = `You are an expert judge for the game "Stop" (also known as Tutti Frutti).
-Your specific task is to determine if the player's word '{{{playerWord}}}' is a valid entry for the letter '{{{letter}}}' in the language '{{{language}}}'.
+const currentPromptText = `You are an expert judge for the game "Stop".
+Your task is to determine if the player's word '{{{playerWord}}}' is a valid entry for the letter '{{{letter}}}' in the language '{{{language}}}'.
 
 Follow these rules STRICTLY:
-1. The word MUST begin with the letter '{{{letter}}}' (ignore case).
-2. The word '{{{playerWord}}}' MUST be a real, commonly known, and correctly spelled word in {{{language}}} OR a common proper name in {{{language}}} (like 'Paco', 'París', 'John', 'London', 'Zorro', 'Irene', 'Sofia'). It should not be an invented word, a typo, a random string of letters, or a word from another language unless it's a very common loanword in {{{language}}}.
+1. The word MUST begin with the letter '{{{letter}}}' (case-insensitive).
+2. The word '{{{playerWord}}}' MUST be a real, commonly known, and correctly spelled word in {{{language}}} OR a common proper name in {{{language}}} (e.g., Paco, París, John, London, Zorro, Irene, Sofía). It should not be an invented word, a typo, a random string of letters, or a word from another language unless it's a very common loanword in {{{language}}}.
 3. The word must NOT be empty or consist only of whitespace.
 
 Player's word: '{{{playerWord}}}'
@@ -63,7 +62,7 @@ Example for an invalid word like "Xyzzy" for letter "X" in language "en": {"isVa
 `;
 
 const prompt = ai.definePrompt({
-  name: 'validatePlayerWordPromptJSON_vMinimal_Strict_MultiLang_v3',
+  name: 'validatePlayerWordPromptJSON_v4_MultiLang_Strict', // Renamed for clarity
   input: {schema: ValidatePlayerWordInputSchema},
   output: {schema: LLMValidationOutputSchema}, // Expecting {isValid: boolean}
   prompt: currentPromptText,
@@ -74,7 +73,7 @@ const validatePlayerWordFlow = ai.defineFlow(
   {
     name: 'validatePlayerWordFlow',
     inputSchema: ValidatePlayerWordInputSchema,
-    outputSchema: ValidatePlayerWordOutputSchema,
+    outputSchema: LLMValidationOutputSchema, // This flow returns what the LLM is supposed to return
   },
   async (input: ValidatePlayerWordInput): Promise<ValidatePlayerWordOutput> => {
     const timestamp = new Date().toISOString();
@@ -108,6 +107,7 @@ const validatePlayerWordFlow = ai.defineFlow(
       } else {
         console.warn(`[${timestamp}] validatePlayerWordFlow: LLM structured output (output.isValid) no fue un booleano, o 'output' fue nulo/inválido según el schema de Genkit. LLM no cumplió el formato JSON esperado ({"isValid":boolean}). Raw output object from Genkit: ${JSON.stringify(output)}. Raw text from LLM: "${rawResponseTextForLogging}". Intentando parseo manual de JSON.`);
         
+        // Regex to find a JSON object like {"isValid": true} or {"isValid": false}, allowing for whitespace
         const jsonRegex = /\{\s*"isValid"\s*:\s*(true|false)\s*\}/;
         const match = rawResponseTextForLogging.match(jsonRegex);
 
