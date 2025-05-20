@@ -49,7 +49,7 @@ Example for letter "C", category "Couleur", language "fr": "Citron"
 
 
 const prompt = ai.definePrompt({
-  name: 'generateAiOpponentResponsePrompt_vRestored', // New name
+  name: 'generateAiOpponentResponsePrompt_vRestored',
   input: {schema: AiOpponentResponseInputSchema},
   output: {schema: AiOpponentResponseOutputSchema},
   prompt: currentPromptText,
@@ -68,12 +68,12 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Iniciando generación para input: ${JSON.stringify(input)}`);
       console.log(`[${timestamp}] generateAiOpponentResponseFlow: Usando prompt (primeros 300 caracteres): "${currentPromptText.substring(0,300)}..."`);
 
-      const llmGenerateResponse = await prompt(input); // This is GenerateResponse<{response: string}>
-      const output = llmGenerateResponse.output; // This is {response: string} | undefined
+      const llmGenerateResponse = await prompt(input);
+      const output = llmGenerateResponse.output;
 
       let llmResponseTextForLogging = "LLM_TEXT_UNAVAILABLE";
       try {
-        llmResponseTextForLogging = llmGenerateResponse.text || "Empty LLM response text";
+        llmResponseTextForLogging = llmGenerateResponse.text || "Empty LLM response text"; // Corrected: .text is a property
       } catch (e: any) {
         console.error(`[${timestamp}] generateAiOpponentResponseFlow: Error fetching raw text from LLM response for input ${JSON.stringify(input)}:`, e.message || e);
       }
@@ -85,14 +85,11 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
           console.warn(`[${timestamp}] generateAiOpponentResponseFlow: AI response (structured by Genkit schema) "${structuredResponseTrimmed}" for letter "${input.letter}" in category "${input.category}" (lang ${input.language}) did not start with the correct letter. Correcting to empty string.`);
           return { response: "" };
         }
-        // If it's valid and starts with the letter, or it's empty (which is also valid)
         console.log(`[${timestamp}] generateAiOpponentResponseFlow: Respuesta de IA generada (parseada por schema Genkit): "${structuredResponseTrimmed}"`);
         return { response: structuredResponseTrimmed };
       }
 
-      // Fallback to raw text if structured output is not as expected OR if structured output was an empty string (and we want to check raw text)
       const rawTextTrimmed = llmResponseTextForLogging.trim();
-      // Check if raw text is a single word, not too long, and starts with the correct letter
       if (rawTextTrimmed && !rawTextTrimmed.includes(" ") && !rawTextTrimmed.includes("\\n") && rawTextTrimmed.length < 30) {
           if (rawTextTrimmed.toLowerCase().startsWith(input.letter.toLowerCase())) {
               console.warn(`[${timestamp}] generateAiOpponentResponseFlow: LLM structured output (output.response) no fue válido o estaba vacío. Usando raw text "${rawTextTrimmed}" como respuesta de IA ya que parece una sola palabra válida.`);
@@ -107,7 +104,7 @@ const generateAiOpponentResponseFlow = ai.defineFlow(
       return { response: "" };
     } catch (error: any) {
       console.error(`[${timestamp}] generateAiOpponentResponseFlow (INTERNAL FLOW): UNHANDLED EXCEPTION for input ${JSON.stringify(input)}. Error:`, error.message || error, error.stack);
-      return { response: "" }; // Ensure a valid output is always returned
+      return { response: "" };
     }
   }
 );
