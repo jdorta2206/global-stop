@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams, useRouter } from 'next/navigation';
@@ -12,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { getDatabase, ref, onValue, update, serverTimestamp, onDisconnect, set, off, push, child, get } from "firebase/database";
-import { app } from '@/lib/firebase/config';
+import { app as firebaseApp } from '@/lib/firebase/config'; // Renamed
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
@@ -30,8 +31,9 @@ import { Progress } from '@/components/ui/progress';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import type { ChatMessage } from '@/components/chat/chat-message-item';
 import { Separator } from '@/components/ui/separator';
+import { UI_TEXTS } from '@/constants/ui-texts'; // For common texts like playerNameDefault
 
-const ROUND_DURATION_SECONDS_ROOM = 90; // Longer for room play
+const ROUND_DURATION_SECONDS_ROOM = 90; 
 
 interface PlayerInRoom {
   id: string;
@@ -40,7 +42,8 @@ interface PlayerInRoom {
   isCurrentUser?: boolean;
   isOnline?: boolean;
   joinedAt?: number;
-  hasSubmitted?: boolean; // New: tracks if player submitted answers for current round
+  hasSubmitted?: boolean; 
+  submittedAnswersForRound?: string | null; // Track which round they submitted for
 }
 
 interface GameData {
@@ -54,7 +57,7 @@ interface GameData {
 
 interface PlayerSubmission {
   answers: Record<string, string>;
-  submittedAt: any; // serverTimestamp
+  submittedAt: any; 
 }
 
 interface ValidatedWordInfo {
@@ -67,7 +70,7 @@ interface PlayerRoundCategoryResult extends ValidatedWordInfo {
   score: number;
 }
 
-interface PlayerRoundOutcome {
+export interface PlayerRoundOutcome { // Export for potential use in GameArea
   totalScore: number;
   categories: Record<string, PlayerRoundCategoryResult>;
   playerName: string;
@@ -76,7 +79,7 @@ interface PlayerRoundOutcome {
 
 interface RoundEvaluationData {
   aiResponses: Record<string, string>;
-  playerOutcomes: Record<string, PlayerRoundOutcome>; // key is playerId
+  playerOutcomes: Record<string, PlayerRoundOutcome>; 
 }
 
 
@@ -85,10 +88,10 @@ const ROOM_TEXTS = {
   welcome: { es: "¡Bienvenido/a a la sala!", en: "Welcome to the room!", fr: "Bienvenue dans la salle !", pt: "Bem-vindo(a) à sala!" },
   playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
   playerListDescription: {
-    es: "Aquí verás la lista de jugadores conectados a esta sala.",
-    en: "Here you will see the list of players connected to this room.",
-    fr: "Ici, vous verrez la liste des joueurs connectés à cette salle.",
-    pt: "Aqui você verá la lista de jogadores conectados a esta sala."
+    es: "Aquí verás la lista de jugadores conectados a esta sala. El estado en línea se actualiza en tiempo real.",
+    en: "Here you will see the list of players connected to this room. Online status updates in real-time.",
+    fr: "Ici, vous verrez la liste des joueurs connectés à cette salle. Le statut en ligne est mis à jour en temps réel.",
+    pt: "Aqui você verá a lista de jogadores conectados a esta sala. O status online atualiza em tempo real."
   },
   backToHome: { es: "Volver al Inicio", en: "Back to Home", fr: "Retour à l'Accueil", pt: "Voltar ao Início" },
   shareRoomTitle: { es: "Comparte esta Sala", en: "Share this Room", fr: "Partager cette Salle", pt: "Compartilhar esta Sala"},
@@ -116,10 +119,10 @@ const ROOM_TEXTS = {
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
   startGameButton: { es: "Iniciar Partida", en: "Start Game", fr: "Démarrer la Partie", pt: "Iniciar Jogo"},
   startGameDescription: {
-    es: "Solo el anfitrión puede iniciar la partida. ¡Prepara tus respuestas!",
-    en: "Only the host can start the game. Get your answers ready!",
-    fr: "Seul l'hôte peut démarrer la partie. Préparez vos réponses !",
-    pt: "Apenas o anfitrião pode iniciar o jogo. Prepare suas respostas!"
+    es: "Solo el anfitrión puede iniciar la partida. ¡Prepara tus respuestas! La funcionalidad multijugador real está en desarrollo.",
+    en: "Only the host can start the game. Get your answers ready! Full multiplayer gameplay is under development.",
+    fr: "Seul l'hôte peut démarrer la partie. Préparez vos réponses ! La fonctionnalité multijoueur complète est en développement.",
+    pt: "Apenas o anfitrião pode iniciar o jogo. Prepare suas respostas! A funcionalidade multijogador completa está em desenvolvimento."
   },
   noPlayersInRoom: { es: "No hay jugadores en esta sala todavía.", en: "No players in this room yet.", fr: "Aucun joueur dans cette salle pour le moment.", pt: "Nenhum jogador nesta sala ainda." },
   onlineStatus: { es: "En línea", en: "Online", fr: "En ligne", pt: "Online" },
@@ -129,14 +132,14 @@ const ROOM_TEXTS = {
   copiedToClipboard: { es: "copiado.", en: "copied.", fr: "copié.", pt: "copiado." },
   couldNotCopy: { es: "No se pudo copiar.", en: "Could not copy.", fr: "Impossible de copier.", pt: "Não foi possível copiar." },
   loadingRoom: { es: "Cargando sala...", en: "Loading room...", fr: "Chargement de la salle...", pt: "Carregando sala..." },
-  playerNameDefault: { es: "Jugador Anónimo", en: "Anonymous Player", fr: "Joueur Anonyme", pt: "Jogador Anônimo" },
+  // playerNameDefault is now in UI_TEXTS
   gameStatusLobby: { es: "Lobby: Esperando al anfitrión para iniciar.", en: "Lobby: Waiting for host to start.", fr: "Lobby : En attente de l'hôte pour démarrer.", pt: "Lobby: Esperando o anfitrião iniciar." },
   gameStatusSpinning: { es: "¡Girando la ruleta!", en: "Spinning the wheel!", fr: "La roue tourne !", pt: "Girando a roleta!" },
   gameStatusPlaying: { es: "¡A Jugar! Letra:", en: "Game On! Letter:", fr: "C'est parti ! Lettre :", pt: "Jogo Começou! Letra:" },
-  gameStatusEvaluating: { es: "Evaluando respuestas...", en: "Evaluating answers...", fr: "Évaluation des réponses...", pt: "Avaliando respostas..." },
-  gameStatusSharedResults: { es: "Resultados de la Ronda", en: "Round Results", fr: "Résultats de la Manche", pt: "Resultados da Rodada" },
+  gameStatusEvaluating: { es: "Anfitrión evaluando...", en: "Host evaluating...", fr: "L'hôte évalue...", pt: "Anfitrião avaliando..." }, // Changed
+  gameStatusSharedResults: { es: "Resultados de la Ronda (Compartidos)", en: "Round Results (Shared)", fr: "Résultats de la Manche (Partagés)", pt: "Resultados da Rodada (Compartilhados)" },
   submitAnswersButton: { es: "¡ALTO! (Enviar Respuestas)", en: "STOP! (Submit Answers)", fr: "STOP ! (Envoyer Réponses)", pt: "PARE! (Enviar Respostas)" },
-  waitingForHostEvaluation: { es: "Respuestas enviadas. Esperando al anfitrión para evaluar...", en: "Answers submitted. Waiting for host to evaluate...", fr: "Réponses envoyées. En attente de l'évaluation par l'hôte...", pt: "Respostas enviadas. Esperando o anfitrião avaliar..." },
+  waitingForHostEvaluation: { es: "Respuestas enviadas. Esperando al anfitrión para evaluar y ver resultados...", en: "Answers submitted. Waiting for host to evaluate and show results...", fr: "Réponses envoyées. En attente de l'évaluation par l'hôte et des résultats...", pt: "Respostas enviadas. Esperando o anfitrião avaliar e mostrar resultados..." },
   evaluateRoundButton: { es: "Evaluar Ronda (Anfitrión)", en: "Evaluate Round (Host)", fr: "Évaluer la Manche (Hôte)", pt: "Avaliar Rodada (Anfitrião)" },
   nextRoundButtonHost: { es: "Siguiente Ronda (Anfitrión)", en: "Next Round (Host)", fr: "Prochaine Manche (Hôte)", pt: "Próxima Rodada (Anfitrião)" },
   waitingForNextRound: { es: "Esperando al anfitrión para la siguiente ronda...", en: "Waiting for host for next round...", fr: "En attente de l'hôte pour la prochaine manche...", pt: "Esperando o anfitrião para a próxima rodada..." },
@@ -151,6 +154,12 @@ const ROOM_TEXTS = {
   score: { es: "Puntos", en: "Score", fr: "Score", pt: "Pontos" },
   aiPlayerName: { es: "Oponente IA", en: "AI Opponent", fr: "Adversaire IA", pt: "Oponente IA"},
   errorValidatingWord: {es: "Error al validar", en: "Validation error", fr: "Erreur de validation", pt: "Erro de validação"},
+  resultsTitleShared: {es: "Resultados Compartidos de la Ronda", en: "Shared Round Results", fr: "Résultats Partagés de la Manche", pt: "Resultados Compartidos da Rodada"},
+  noSubmissionsToEvaluate: {es: "No hay respuestas para evaluar.", en: "No submissions to evaluate.", fr: "Aucune soumission à évaluer.", pt: "Nenhuma submissão para avaliar."},
+  evaluationInProgress: {es: "Evaluando respuestas, por favor espera...", en: "Evaluating answers, please wait...", fr: "Évaluation des réponses, veuillez patienter...", pt: "Avaliando respostas, por favor aguarde..."},
+  errorEvaluating: {es: "Error al evaluar la ronda", en: "Error evaluating round", fr: "Erreur lors de l'évaluation de la manche", pt: "Erro ao avaliar a rodada"},
+  roundEvaluated: {es: "Ronda evaluada", en: "Round evaluated", fr: "Manche évaluée", pt: "Rodada avaliada"},
+  playerHasNotSubmitted: { es: "(No envió respuestas)", en: "(Did not submit answers)", fr: "(N'a pas soumis de réponses)", pt: "(Não enviou respostas)"},
 };
 
 const CATEGORIES_BY_LANG: Record<Language, string[]> = {
@@ -166,13 +175,16 @@ const ALPHABET_BY_LANG: Record<Language, string[]> = {
   pt: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
 };
 
+const db = getDatabase(firebaseApp);
+
 export default function RoomPage() {
   const params = useParams();
   const router = useRouter();
-  const { language, translate: translateContext } = useLanguage();
+  const { language, setLanguage: setGlobalLanguage, translate: translateContext } = useLanguage();
   const { activeRoomId, setActiveRoomId } = useRoom();
   const { user } = useAuth();
   const { toast } = useToast();
+  
   const roomIdFromParams = params.roomId as string;
 
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerInRoom[]>([]);
@@ -187,18 +199,32 @@ export default function RoomPage() {
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  
+  const localPlayerSubmittedRef = useRef(localPlayerSubmitted);
+  const playerResponsesRef = useRef(playerResponses);
 
-  const db = getDatabase(app);
+  useEffect(() => {
+    localPlayerSubmittedRef.current = localPlayerSubmitted;
+  }, [localPlayerSubmitted]);
+
+  useEffect(() => {
+    playerResponsesRef.current = playerResponses;
+  }, [playerResponses]);
+
 
   const translate = (textKey: keyof typeof ROOM_TEXTS, replacements?: Record<string, string>) => {
-    let text = translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]['en'];
+    let text = translateContext(ROOM_TEXTS[textKey]) || ROOM_TEXTS[textKey]?.['en'] || String(textKey);
     if (replacements) {
       Object.keys(replacements).forEach(key => {
         text = text.replace(`{${key}}`, replacements[key]);
       });
     }
     return text;
-  }
+  };
+  const commonTranslate = (textKey: keyof typeof UI_TEXTS) => {
+    return translateContext(UI_TEXTS[textKey]) || UI_TEXTS[textKey]?.['en'] || String(textKey);
+  };
+
 
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
   const defaultCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
@@ -208,24 +234,24 @@ export default function RoomPage() {
     const playerRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`);
     const playerStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/isOnline`);
     const playerLastSeenRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/lastSeen`);
-    const defaultName = translate('playerNameDefault');
+    const currentDefaultPlayerName = commonTranslate('playerNameDefault');
 
     try {
       await update(playerRef, {
-        name: user.displayName || defaultName,
-        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || defaultName).charAt(0)}`,
+        name: user.displayName || currentDefaultPlayerName,
+        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || currentDefaultPlayerName).charAt(0)}`,
         joinedAt: serverTimestamp(),
         isOnline: true,
-        hasSubmitted: false, // Initialize hasSubmitted status
+        hasSubmitted: false,
       });
       await onDisconnect(playerStatusRef).set(false);
       await onDisconnect(playerLastSeenRef).set(serverTimestamp());
-      await set(playerStatusRef, true); // Explicitly set online status after onDisconnect setup
+      await set(playerStatusRef, true); 
     } catch (error) {
       console.error("Error joining/updating player in room:", error);
       toast({ title: translate('errorJoiningRoom'), description: (error as Error).message, variant: "destructive" });
     }
-  }, [user, roomIdFromParams, db, toast, translate]);
+  }, [user, roomIdFromParams, db, toast, translateContext, commonTranslate]); // Use translateContext for stability
 
   useEffect(() => {
     if (roomIdFromParams && roomIdFromParams !== activeRoomId) {
@@ -235,6 +261,7 @@ export default function RoomPage() {
     if (!user || !roomIdFromParams) {
       setConnectedPlayers([]);
       setGameData(null);
+      setChatMessages([]);
       return;
     }
 
@@ -244,17 +271,18 @@ export default function RoomPage() {
     const unsubscribePlayers = onValue(playersRef, (snapshot) => {
       const data = snapshot.val();
       const currentPlayers: PlayerInRoom[] = [];
-      const defaultPlayerName = translate('playerNameDefault');
+      const currentDefaultPlayerName = commonTranslate('playerNameDefault');
       if (data) {
         Object.keys(data).forEach((playerId) => {
           currentPlayers.push({
             id: playerId,
-            name: data[playerId].name || defaultPlayerName,
-            avatar: data[playerId].avatar || `https://placehold.co/40x40.png?text=${(data[playerId].name || defaultPlayerName).charAt(0)}`,
+            name: data[playerId].name || currentDefaultPlayerName,
+            avatar: data[playerId].avatar || `https://placehold.co/40x40.png?text=${(data[playerId].name || currentDefaultPlayerName).charAt(0)}`,
             isCurrentUser: user?.uid === playerId,
             isOnline: data[playerId].isOnline || false,
             joinedAt: data[playerId].joinedAt || Date.now(),
             hasSubmitted: !!data[playerId].hasSubmitted,
+            submittedAnswersForRound: data[playerId].submittedAnswersForRound || null,
           });
         });
       }
@@ -265,110 +293,160 @@ export default function RoomPage() {
       toast({ title: translate('errorLoadingPlayers'), description: error.message, variant: "destructive" });
     });
 
-    const gameDataRef = ref(db, `rooms/${roomIdFromParams}/currentGameData`);
+    const gameDataRefPath = `rooms/${roomIdFromParams}/currentGameData`;
+    const gameDataRef = ref(db, gameDataRefPath);
     const unsubscribeGameData = onValue(gameDataRef, (snapshot) => {
-      const data = snapshot.val();
+      const data = snapshot.val() as GameData | null;
       if (data) {
         setGameData(data);
         if (data.status === "PLAYING") {
-          setLocalPlayerSubmitted(false); // Reset submission status for new round
-           // Reset local responses when a new round starts playing
-          if (user && gameData?.currentRoundId) { // Check if gameData and currentRoundId exist
-            const playerSubmissionStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/submittedAnswersForRound`);
-            get(playerSubmissionStatusRef).then((snap) => {
-              if (snap.exists() && snap.val() === gameData.currentRoundId) {
-                setLocalPlayerSubmitted(true);
-              } else {
-                setPlayerResponses({}); // Only clear if not submitted for this round
-              }
-            });
+          if (user && data.currentRoundId) {
+            const playerRecord = connectedPlayers.find(p => p.id === user.uid);
+            if (playerRecord?.submittedAnswersForRound === data.currentRoundId) {
+              setLocalPlayerSubmitted(true);
+            } else {
+              setLocalPlayerSubmitted(false);
+              setPlayerResponses({});
+            }
           } else {
-             setPlayerResponses({});
+            setLocalPlayerSubmitted(false);
+            setPlayerResponses({});
           }
+        } else if (data.status === "LOBBY") {
+           setLocalPlayerSubmitted(false); // Reset for new lobby state
+           setPlayerResponses({});
+           setRoundEvaluation(null); // Clear previous round results
         }
       } else {
-        // Initialize gameData if it doesn't exist (e.g., new room)
         if (user) {
           const initialGameData: GameData = {
             status: "LOBBY",
             currentLetter: null,
-            currentCategories: null,
+            currentCategories: defaultCategories,
             roundStartTime: null,
-            hostId: null, // Will be set when first game starts
+            hostId: user.uid, // First player to enter becomes host
             currentRoundId: null,
           };
-          set(gameDataRef, initialGameData);
-          setGameData(initialGameData);
+          set(gameDataRef, initialGameData).then(() => setGameData(initialGameData));
         }
       }
     });
+    
+    const currentRoundIdForEffect = gameData?.currentRoundId; // Use a stable variable for dependency
 
-    const roundEvaluationRef = ref(db, `rooms/${roomIdFromParams}/roundsData/${gameData?.currentRoundId}/evaluation`);
-    let unsubscribeRoundEvaluation: (() => void) | null = null;
-    if (gameData?.currentRoundId) {
-        unsubscribeRoundEvaluation = onValue(roundEvaluationRef, (snapshot) => {
-            setRoundEvaluation(snapshot.val());
+    useEffect(() => { // Separate useEffect for roundEvaluation listener
+      let unsubscribeRoundEval: (() => void) | null = null;
+      if (currentRoundIdForEffect) {
+        const roundEvaluationRefPath = `rooms/${roomIdFromParams}/roundsData/${currentRoundIdForEffect}/evaluation`;
+        const roundEvaluationRef = ref(db, roundEvaluationRefPath);
+        unsubscribeRoundEval = onValue(roundEvaluationRef, (snapshot) => {
+          setRoundEvaluation(snapshot.val() as RoundEvaluationData | null);
         });
-    }
+      } else {
+        setRoundEvaluation(null); // Clear evaluation if no roundId
+      }
+      return () => {
+        if (unsubscribeRoundEval) unsubscribeRoundEval();
+      };
+    }, [currentRoundIdForEffect, roomIdFromParams, db]);
 
 
-    const chatMessagesRef = ref(db, `rooms/${roomIdFromParams}/chatMessages`);
+    const chatMessagesRefPath = `rooms/${roomIdFromParams}/chatMessages`;
+    const chatMessagesRef = ref(db, chatMessagesRefPath);
     const unsubscribeChat = onValue(chatMessagesRef, (snapshot) => {
         const data = snapshot.val();
         const loadedMessages: ChatMessage[] = [];
         if (data) {
-            for (const key in data) {
-            loadedMessages.push({ id: key, ...data[key], timestamp: new Date(data[key].timestamp || Date.now()) });
-            }
+            Object.keys(data).forEach(key => {
+                 loadedMessages.push({ id: key, ...data[key], timestamp: new Date(data[key].timestamp || Date.now()) });
+            });
             loadedMessages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
         }
         setChatMessages(loadedMessages);
+    }, (error) => {
+        console.error("Error fetching chat messages:", error);
+        toast({ title: "Error de Chat", description: "No se pudieron cargar los mensajes.", variant: "destructive"});
     });
 
 
     return () => {
       unsubscribePlayers();
       unsubscribeGameData();
-      if (unsubscribeRoundEvaluation) unsubscribeRoundEvaluation();
+      // unsubscribeRoundEvaluation handled in its own useEffect
       unsubscribeChat();
       if (user && roomIdFromParams) {
         const playerRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`);
-        update(playerRef, { isOnline: false, lastSeen: serverTimestamp() });
+        update(playerRef, { isOnline: false, lastSeen: serverTimestamp() }).catch(e => console.warn("Error setting offline on unmount:", e));
       }
     };
-  }, [roomIdFromParams, user, db, activeRoomId, setActiveRoomId, handlePlayerJoin, toast, translate, gameData?.currentRoundId]);
+  }, [roomIdFromParams, user, db, activeRoomId, setActiveRoomId, handlePlayerJoin, toast, commonTranslate, defaultCategories]);
+
+
+  const currentRoundIdForSubmit = gameData?.currentRoundId;
+  const handleSubmitAnswers = useCallback(async () => {
+    if (!user || !roomIdFromParams || !currentRoundIdForSubmit || localPlayerSubmittedRef.current) return;
+
+    const submissionPath = `rooms/${roomIdFromParams}/roundsData/${currentRoundIdForSubmit}/submissions/${user.uid}`;
+    const submissionData: PlayerSubmission = {
+      answers: playerResponsesRef.current, // Use ref here
+      submittedAt: serverTimestamp(),
+    };
+
+    try {
+      await set(ref(db, submissionPath), submissionData);
+      await update(ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`), { 
+          hasSubmitted: true,
+          submittedAnswersForRound: currentRoundIdForSubmit 
+      });
+      setLocalPlayerSubmitted(true); // Update state
+      toast({ title: translate('submitAnswersButton'), description: translate('waitingForHostEvaluation')});
+    } catch (error) {
+        console.error("Error submitting answers:", error);
+        toast({title: "Error", description: "No se pudieron enviar tus respuestas.", variant: "destructive"});
+    }
+  }, [user, roomIdFromParams, currentRoundIdForSubmit, db, toast, translate, setLocalPlayerSubmitted]);
 
 
   useEffect(() => {
-    if (gameData?.status === "PLAYING" && gameData.roundStartTime && !localPlayerSubmitted) {
+    const gameStatus = gameData?.status;
+    const roundStartTime = gameData?.roundStartTime;
+
+    if (gameStatus === "PLAYING" && roundStartTime && !localPlayerSubmitted) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      
       const updateTimer = () => {
         const now = Date.now();
-        const elapsedSeconds = Math.floor((now - gameData.roundStartTime!) / 1000);
+        const elapsedSeconds = Math.floor((now - roundStartTime) / 1000);
         const remaining = ROUND_DURATION_SECONDS_ROOM - elapsedSeconds;
         setTimeLeft(remaining > 0 ? remaining : 0);
+
         if (remaining <= 0) {
           if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-          if (!localPlayerSubmitted) handleSubmitAnswers(); // Auto-submit if time runs out
+          if (!localPlayerSubmittedRef.current) { // Check ref before calling
+             handleSubmitAnswers(); 
+          }
         }
       };
-      updateTimer(); // Initial call
+      updateTimer(); 
       timerIntervalRef.current = setInterval(updateTimer, 1000);
     } else {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+      setTimeLeft(ROUND_DURATION_SECONDS_ROOM); // Reset timer display when not playing
     }
     return () => {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
     };
-  }, [gameData, localPlayerSubmitted]);
+  }, [gameData?.status, gameData?.roundStartTime, localPlayerSubmitted, handleSubmitAnswers]);
 
 
   const handleLeaveRoom = () => {
     if (user && roomIdFromParams) {
       const playerRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`);
       update(playerRef, { isOnline: false, lastSeen: serverTimestamp() });
-      // If the host leaves, consider resetting the game or assigning a new host (more complex logic)
-      // For now, just mark as offline. Other players will see this.
     }
     setActiveRoomId(null);
     router.push('/');
@@ -394,85 +472,66 @@ export default function RoomPage() {
   };
 
   const handleStartGame = () => {
-    if (!user || !roomIdFromParams || gameData?.hostId !== user.uid ) {
-        if (gameData?.hostId === null && user) { // Allow first player to become host
-             // No host yet, current user becomes host
-        } else {
-            toast({ title: "Acción no permitida", description: "Solo el anfitrión puede iniciar la partida.", variant: "destructive" });
-            return;
-        }
+    if (!user || !roomIdFromParams || (gameData?.hostId !== user.uid && gameData?.hostId !== null)) {
+        toast({ title: "Acción no permitida", description: "Solo el anfitrión puede iniciar la partida.", variant: "destructive" });
+        return;
     }
 
-    const newRoundId = push(child(ref(db), 'rooms')).key || `round-${Date.now()}`;
+    const newRoundId = push(child(ref(db), 'rounds')).key || `round-${Date.now()}`;
+    const gameDataRef = ref(db, `rooms/${roomIdFromParams}/currentGameData`);
     const initialGameUpdate: Partial<GameData> = {
       status: "SPINNING",
       currentRoundId: newRoundId,
-      hostId: gameData?.hostId || user?.uid, // Set host if not set
+      hostId: gameData?.hostId || user.uid, 
       currentLetter: null,
-      currentCategories: null,
+      currentCategories: defaultCategories, // Set categories at round start
       roundStartTime: null,
     };
-    const gameDataRef = ref(db, `rooms/${roomIdFromParams}/currentGameData`);
     update(gameDataRef, initialGameUpdate);
 
-    // Reset hasSubmitted for all players for the new round
     connectedPlayers.forEach(p => {
         if (p.id) {
             update(ref(db, `rooms/${roomIdFromParams}/players/${p.id}`), { hasSubmitted: false, submittedAnswersForRound: null });
         }
     });
     setLocalPlayerSubmitted(false);
+    setRoundEvaluation(null); // Clear previous evaluation
   };
 
   const handleSpinCompleteInRoom = (letter: string) => {
     if (!user || !roomIdFromParams || gameData?.hostId !== user.uid) return;
 
+    const gameDataRef = ref(db, `rooms/${roomIdFromParams}/currentGameData`);
     const gameUpdate: Partial<GameData> = {
       currentLetter: letter,
-      currentCategories: defaultCategories, // Use current language's categories
+      // currentCategories are already set when host starts game
       roundStartTime: Date.now(),
       status: "PLAYING",
     };
-    const gameDataRef = ref(db, `rooms/${roomIdFromParams}/currentGameData`);
     update(gameDataRef, gameUpdate);
   };
 
   const handleInputChange = (category: string, value: string) => {
     setPlayerResponses(prev => ({ ...prev, [category]: value }));
   };
-
-  const handleSubmitAnswers = async () => {
-    if (!user || !roomIdFromParams || !gameData?.currentRoundId || localPlayerSubmitted) return;
-
-    const submissionPath = `rooms/${roomIdFromParams}/roundsData/${gameData.currentRoundId}/submissions/${user.uid}`;
-    const submissionData: PlayerSubmission = {
-      answers: playerResponses,
-      submittedAt: serverTimestamp(),
-    };
-    await set(ref(db, submissionPath), submissionData);
-    await update(ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`), { 
-        hasSubmitted: true,
-        submittedAnswersForRound: gameData.currentRoundId 
-    });
-    setLocalPlayerSubmitted(true);
-    toast({ title: "Respuestas Enviadas", description: "Tus respuestas han sido enviadas. Esperando al anfitrión."});
-  };
-
-  const handleEvaluateRound = async () => {
+  
+  const handleEvaluateRound = useCallback(async () => {
     if (!user || !roomIdFromParams || gameData?.hostId !== user.uid || !gameData.currentRoundId) {
       toast({ title: "No autorizado", description: "Solo el anfitrión puede evaluar la ronda.", variant: "destructive"});
       return;
     }
     setIsEvaluatingByHost(true);
+    toast({ title: translate('evaluationInProgress'), variant: "default"});
     await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "EVALUATING_SHARED" });
 
     const roundId = gameData.currentRoundId;
-    const submissionsSnapshot = await get(ref(db, `rooms/${roomIdFromParams}/roundsData/${roundId}/submissions`));
+    const submissionsRef = ref(db, `rooms/${roomIdFromParams}/roundsData/${roundId}/submissions`);
+    const submissionsSnapshot = await get(submissionsRef);
     const submissionsData = submissionsSnapshot.val() as Record<string, PlayerSubmission> | null;
 
-    if (!submissionsData) {
-      toast({ title: "Error", description: "No hay respuestas para evaluar.", variant: "destructive"});
-      await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "LOBBY" });
+    if (!submissionsData || Object.keys(submissionsData).length === 0) {
+      toast({ title: translate('noSubmissionsToEvaluate'), variant: "destructive"});
+      await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "LOBBY" }); // Revert to LOBBY if no submissions
       setIsEvaluatingByHost(false);
       return;
     }
@@ -480,22 +539,22 @@ export default function RoomPage() {
     const categories = gameData.currentCategories || defaultCategories;
     const letter = gameData.currentLetter!;
 
-    // 1. Generate AI Responses
     const aiResponses: Record<string, string> = {};
     for (const category of categories) {
       try {
         const aiInput: AiOpponentResponseInput = { letter, category, language };
         const aiResult = await generateAiOpponentResponse(aiInput);
-        aiResponses[category] = aiResult.response.trim();
+        aiResponses[category] = (aiResult.response || "").trim();
       } catch (e) {
         console.error(`Error getting AI response for ${category}:`, e);
         aiResponses[category] = "";
       }
     }
 
-    // 2. Validate all player words
-    const allPlayerValidatedWords: Record<string, Record<string, ValidatedWordInfo>> = {}; // playerId -> category -> ValidatedWordInfo
-    for (const playerId in submissionsData) {
+    const allPlayerValidatedWords: Record<string, Record<string, ValidatedWordInfo>> = {};
+    const playerIdsWhoSubmitted = Object.keys(submissionsData);
+
+    for (const playerId of playerIdsWhoSubmitted) {
       allPlayerValidatedWords[playerId] = {};
       const playerSubmission = submissionsData[playerId];
       for (const category of categories) {
@@ -512,7 +571,7 @@ export default function RoomPage() {
           try {
             const validationResult: ValidatePlayerWordOutput = await validatePlayerWord({ letter, category, playerWord, language });
             isValid = validationResult.isValid;
-            if (!isValid) errorReason = 'invalid_word';
+            if (!isValid) errorReason = validationResult.isValid === false ? 'invalid_word' : 'api_error';
           } catch (e) {
             console.error(`Error validating word ${playerWord} for ${playerId}:`, e);
             isValid = false;
@@ -522,46 +581,64 @@ export default function RoomPage() {
         allPlayerValidatedWords[playerId][category] = { playerWord, isValid, errorReason };
       }
     }
-
-    // 3. Calculate scores for all players
+    
     const finalPlayerOutcomes: Record<string, PlayerRoundOutcome> = {};
-    const playerIds = Object.keys(submissionsData);
 
-    for (const currentPlayerId of playerIds) {
+    // Initialize outcomes for all connected players, even if they didn't submit
+    for (const player of connectedPlayers) {
+        const playerInfo = connectedPlayers.find(p => p.id === player.id);
+        finalPlayerOutcomes[player.id] = {
+            totalScore: 0,
+            categories: {},
+            playerName: playerInfo?.name || commonTranslate('playerNameDefault'),
+            playerAvatar: playerInfo?.avatar || null,
+        };
+    }
+
+
+    for (const currentPlayerId of playerIdsWhoSubmitted) { // Iterate only over those who submitted for scoring
       const currentPlayerInfo = connectedPlayers.find(p => p.id === currentPlayerId);
-      finalPlayerOutcomes[currentPlayerId] = {
-        totalScore: 0,
-        categories: {},
-        playerName: currentPlayerInfo?.name || translate('playerNameDefault'),
-        playerAvatar: currentPlayerInfo?.avatar || null,
-      };
+      if (!finalPlayerOutcomes[currentPlayerId]) { // Should not happen if initialized above
+         finalPlayerOutcomes[currentPlayerId] = { 
+            totalScore: 0, 
+            categories: {}, 
+            playerName: currentPlayerInfo?.name || commonTranslate('playerNameDefault'), 
+            playerAvatar: currentPlayerInfo?.avatar 
+          };
+      }
 
       for (const category of categories) {
         const currentPlayerValidatedInfo = allPlayerValidatedWords[currentPlayerId]?.[category];
-        if (!currentPlayerValidatedInfo) continue;
+        if (!currentPlayerValidatedInfo) { // Player might not have submitted for this category
+            finalPlayerOutcomes[currentPlayerId].categories[category] = {
+                playerWord: "", isValid: false, errorReason: null, score: 0
+            };
+            continue;
+        }
 
         let pScore = 0;
         if (currentPlayerValidatedInfo.isValid) {
-          const aiWordValid = aiResponses[category] && aiResponses[category].toLowerCase().startsWith(letter.toLowerCase());
+          const aiWordForCat = aiResponses[category] || "";
+          const aiWordValid = aiWordForCat !== "" && aiWordForCat.toLowerCase().startsWith(letter.toLowerCase());
           
-          if (aiWordValid && aiResponses[category].toLowerCase() === currentPlayerValidatedInfo.playerWord.toLowerCase()) {
-            pScore = 50; // Shared with AI
-          } else {
-            pScore = 100; // Unique or AI failed/different
-          }
-
-          // Check against other players
-          let isSharedWithOtherPlayer = false;
-          for (const otherPlayerId of playerIds) {
+          let uniqueAmongPlayers = true;
+          for (const otherPlayerId of playerIdsWhoSubmitted) {
             if (otherPlayerId === currentPlayerId) continue;
             const otherPlayerValidatedInfo = allPlayerValidatedWords[otherPlayerId]?.[category];
             if (otherPlayerValidatedInfo?.isValid && otherPlayerValidatedInfo.playerWord.toLowerCase() === currentPlayerValidatedInfo.playerWord.toLowerCase()) {
-              isSharedWithOtherPlayer = true;
+              uniqueAmongPlayers = false;
               break;
             }
           }
-          if (isSharedWithOtherPlayer) {
-            pScore = 50; // Shared with another player
+
+          if (uniqueAmongPlayers) {
+            if (aiWordValid && aiWordForCat.toLowerCase() === currentPlayerValidatedInfo.playerWord.toLowerCase()) {
+              pScore = 50; // Shared with AI only
+            } else {
+              pScore = 100; // Unique among players, and either AI didn't answer, AI was wrong, or AI was different
+            }
+          } else { // Not unique among players
+            pScore = 50; // Shared with at least one other player
           }
         }
         finalPlayerOutcomes[currentPlayerId].categories[category] = {
@@ -579,23 +656,29 @@ export default function RoomPage() {
       playerOutcomes: finalPlayerOutcomes,
     };
 
-    await set(ref(db, `rooms/${roomIdFromParams}/roundsData/${roundId}/evaluation`), evaluationData);
-    await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "SHARED_RESULTS" });
-    setIsEvaluatingByHost(false);
-    toast({title: "Ronda Evaluada", description: "Los resultados están disponibles."});
-  };
+    try {
+      await set(ref(db, `rooms/${roomIdFromParams}/roundsData/${roundId}/evaluation`), evaluationData);
+      await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "SHARED_RESULTS" });
+      toast({title: translate('roundEvaluated'), description: "Los resultados están disponibles para todos."});
+    } catch (error) {
+        console.error("Error saving evaluation or updating game status:", error);
+        toast({title: translate('errorEvaluating'), description: (error as Error).message, variant: "destructive"});
+        await update(ref(db, `rooms/${roomIdFromParams}/currentGameData`), { status: "LOBBY" }); // Revert to LOBBY on error
+    } finally {
+        setIsEvaluatingByHost(false);
+    }
+  }, [user, roomIdFromParams, gameData, db, toast, language, translate, commonTranslate, defaultCategories, connectedPlayers]); // Added connectedPlayers
   
   const handleStartNextRound = () => {
     if (!user || !roomIdFromParams || gameData?.hostId !== user.uid ) return;
-    // Essentially the same as handleStartGame, but might have different cleanup for current round if needed
-    handleStartGame();
+    handleStartGame(); // Reuses the start game logic
   };
 
   const toggleChat = () => setIsChatOpen(prev => !prev);
   
   const handleSendChatMessageInRoom = (text: string) => {
     if (!user || !roomIdFromParams) {
-      toast({ title: translate('chatLoginMessage'), variant: "destructive" });
+      toast({ title: commonTranslate('chatLoginTitle'), description: commonTranslate('chatLoginMessage'), variant: "destructive" });
       return;
     }
     const messagesListRef = ref(db, `rooms/${roomIdFromParams}/chatMessages`);
@@ -603,9 +686,9 @@ export default function RoomPage() {
     const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
       text,
       sender: {
-        name: user.displayName || translate('playerNameDefault'),
+        name: user.displayName || commonTranslate('playerNameDefault'),
         uid: user.uid,
-        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate('playerNameDefault')).charAt(0)}`,
+        avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || commonTranslate('playerNameDefault')).charAt(0)}`,
       },
       timestamp: serverTimestamp(),
     };
@@ -616,7 +699,7 @@ export default function RoomPage() {
   };
 
 
-  if (!roomIdFromParams || !user) {
+  if (!roomIdFromParams || !user || !gameData) { // Added !gameData check
     return (
       <div className="flex flex-col min-h-screen bg-background text-foreground">
         <AppHeader />
@@ -634,13 +717,13 @@ export default function RoomPage() {
   const isHost = user?.uid === gameData?.hostId;
   const currentCategoriesToUse = gameData?.currentCategories || defaultCategories;
 
-
-  // Determine if the "Evaluate Round" button should be active for the host
-  let allPlayersSubmitted = false;
+  let allOnlinePlayersSubmitted = false;
   if (gameData?.status === "PLAYING" && connectedPlayers.length > 0) {
     const onlinePlayers = connectedPlayers.filter(p => p.isOnline);
     if (onlinePlayers.length > 0) {
-        allPlayersSubmitted = onlinePlayers.every(p => p.hasSubmitted);
+        allOnlinePlayersSubmitted = onlinePlayers.every(p => p.hasSubmitted && p.submittedAnswersForRound === gameData.currentRoundId);
+    } else {
+        allOnlinePlayersSubmitted = true; // If no one else is online, host can evaluate
     }
   }
 
@@ -654,13 +737,13 @@ export default function RoomPage() {
                 onClick={toggleChat}
                 variant="outline"
                 size="icon"
-                className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50"
+                className="fixed bottom-20 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50"
                 aria-label={translate('chatTitle')}
             >
                 <MessageSquare className="h-7 w-7" />
             </Button>
 
-          <Card className="w-full max-w-3xl shadow-xl rounded-xl">
+          <Card className="w-full max-w-3xl shadow-xl rounded-xl mb-6">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">
                 {translate('title')} <span className="text-accent">{roomIdFromParams}</span>
@@ -673,20 +756,19 @@ export default function RoomPage() {
             </CardHeader>
 
             <CardContent className="space-y-6 p-6">
-              {/* Game Area or Lobby Content */}
               {gameData?.status === "LOBBY" && (
                 <div className="text-center space-y-4">
                   <Button
                     size="lg"
                     className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                     onClick={handleStartGame}
-                    disabled={!isHost && gameData.hostId !== null} // Disable if not host, unless no host is set yet
+                    disabled={!isHost && gameData.hostId !== null} 
                   >
                     <PlayCircle className="mr-3 h-6 w-6" />
                     {translate('startGameButton')}
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1 px-2">
-                    {gameData.hostId === null ? "Sé el primero en iniciar para ser el anfitrión." : translate('startGameDescription')}
+                    {gameData.hostId === null && user?.uid ? "Serás el anfitrión al iniciar." : (isHost ? "Eres el anfitrión." : translate('startGameDescription'))}
                   </p>
                 </div>
               )}
@@ -700,95 +782,103 @@ export default function RoomPage() {
                 />
               )}
               
-              {gameData?.status === "PLAYING" && gameData.currentLetter && gameData.currentCategories && (
+              {gameData?.status === "PLAYING" && gameData.currentLetter && currentCategoriesToUse && (
                 <div className="space-y-4">
                   <div className="my-4 w-full max-w-md text-center p-3 bg-card rounded-lg shadow mx-auto">
                     <div className="flex items-center justify-center mb-1">
                         <Clock className="h-5 w-5 mr-2 text-primary" />
                         <p className="text-xl font-semibold text-primary">{translate('timeLeftLabel')} {timeLeft < 0 ? 0 : timeLeft}s</p>
                     </div>
-                    <Progress value={(timeLeft / ROUND_DURATION_SECONDS_ROOM) * 100} className="w-full h-2" />
+                    <Progress value={timeLeft > 0 ? (timeLeft / ROUND_DURATION_SECONDS_ROOM) * 100 : 0} className="w-full h-2" />
                   </div>
                   {!localPlayerSubmitted ? (
                     <>
                       <GameArea
                         letter={gameData.currentLetter}
-                        categories={gameData.currentCategories}
+                        categories={currentCategoriesToUse}
                         playerResponses={playerResponses}
                         onInputChange={handleInputChange}
-                        isEvaluating={false}
+                        isEvaluating={false} // Local evaluation for input is not the same as host evaluating
                         showResults={false}
-                        roundResults={null}
+                        roundResults={null} 
                         language={language}
                         gameMode="room"
                       />
                       <div className="flex justify-center mt-4">
-                        <StopButton onClick={handleSubmitAnswers} disabled={!canPlayerSubmit} language={language} label={translate('submitAnswersButton')}/>
+                        <StopButton 
+                            onClick={handleSubmitAnswers} 
+                            disabled={!canPlayerSubmit || timeLeft <=0} 
+                            language={language} 
+                            label={translate('submitAnswersButton')}
+                        />
                       </div>
                     </>
                   ) : (
-                    <Card className="p-6 text-center bg-muted/50">
+                    <Card className="p-6 text-center bg-muted/30 rounded-lg shadow">
                       <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3"/>
-                      <p className="text-lg font-semibold">{translate('waitingForHostEvaluation')}</p>
+                      <p className="text-lg font-semibold text-card-foreground">{translate('waitingForHostEvaluation')}</p>
                     </Card>
                   )}
                 </div>
               )}
 
               {gameData?.status === "EVALUATING_SHARED" && (
-                 <Card className="p-6 text-center bg-muted/50">
+                 <Card className="p-6 text-center bg-muted/30 rounded-lg shadow">
                     <Loader2 className="h-12 w-12 text-primary animate-spin mx-auto mb-3"/>
-                    <p className="text-lg font-semibold">{translate('gameStatusEvaluating')}</p>
+                    <p className="text-lg font-semibold text-card-foreground">{translate('gameStatusEvaluating')}</p>
                  </Card>
               )}
 
               {gameData?.status === "SHARED_RESULTS" && roundEvaluation && (
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-bold text-center text-accent">{translate('gameStatusSharedResults')}</h3>
-                  {roundEvaluation.aiResponses && (
-                    <Card className="p-4 bg-muted/30">
+                <div className="space-y-4 animate-fadeInUp">
+                  <h3 className="text-2xl font-bold text-center text-accent">{translate('resultsTitleShared')}</h3>
+                  {roundEvaluation.aiResponses && Object.keys(roundEvaluation.aiResponses).length > 0 && (
+                    <Card className="p-4 bg-muted/10 rounded-lg shadow-sm">
                         <CardTitle className="text-lg mb-2 text-secondary">{translate('aiPlayerName')}</CardTitle>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
                         {Object.entries(roundEvaluation.aiResponses).map(([cat, resp]) => (
-                            <div key={cat}><strong>{cat}:</strong> {resp || "-"}</div>
+                            <div key={`ai-${cat}`} className="truncate"><strong>{cat}:</strong> {resp || "-"}</div>
                         ))}
                         </div>
                     </Card>
                   )}
                   <Separator />
-                  {Object.entries(roundEvaluation.playerOutcomes).map(([pId, outcome]) => (
-                     <Card key={pId} className="p-4">
-                        <CardHeader className="p-2 flex flex-row items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                                <Avatar className="h-8 w-8">
+                  {Object.entries(roundEvaluation.playerOutcomes)
+                    .sort(([,a],[,b]) => b.totalScore - a.totalScore) // Sort by score descending
+                    .map(([pId, outcome]) => (
+                     <Card key={pId} className="p-4 bg-card/80 rounded-lg shadow-md">
+                        <CardHeader className="p-2 flex flex-row items-center justify-between space-x-2">
+                            <div className="flex items-center space-x-3">
+                                <Avatar className="h-10 w-10">
                                     <AvatarImage src={outcome.playerAvatar || undefined} alt={outcome.playerName} data-ai-hint="avatar person"/>
-                                    <AvatarFallback>{outcome.playerName.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback>{outcome.playerName.charAt(0).toUpperCase()}</AvatarFallback>
                                 </Avatar>
-                                <CardTitle className="text-xl">{outcome.playerName} {pId === user?.uid ? translate('youSuffix') : ''}</CardTitle>
+                                <CardTitle className="text-xl text-primary-foreground">{outcome.playerName} {pId === user?.uid ? <span className="text-xs text-accent">{translate('youSuffix')}</span> : ''}</CardTitle>
                             </div>
-                            <p className="text-2xl font-bold text-primary">{outcome.totalScore} {translate('score')}</p>
+                            <p className="text-3xl font-bold text-primary">{outcome.totalScore} <span className="text-base font-normal">{translate('score')}</span></p>
                         </CardHeader>
                         <CardContent className="p-2 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                             {Object.entries(outcome.categories).map(([catName, catResult]) => (
-                                <div key={catName} className="p-2 border rounded-md bg-card/50">
-                                    <p><strong>{catName}:</strong> {catResult.playerWord || <span className="italic">"-"</span>}</p>
+                                <div key={`${pId}-${catName}`} className="p-2 border border-border/50 rounded-md bg-background/50">
+                                    <p className="font-semibold text-secondary-foreground">{catName}: <span className="font-normal text-foreground">{catResult.playerWord || <span className="italic text-muted-foreground">{"-"}</span>}</span></p>
                                     <div className="flex justify-between items-center text-xs mt-1">
-                                        <span>
-                                            {catResult.isValid ? 
-                                                <CheckCircle className="h-4 w-4 text-green-500 inline mr-1"/> : 
-                                                <XCircle className="h-4 w-4 text-destructive inline mr-1"/>
-                                            }
-                                            {catResult.isValid ? "Válido" : (catResult.errorReason === 'format' ? "Formato Incorrecto" : catResult.errorReason === 'invalid_word' ? "Palabra Inválida" : translate('errorValidatingWord'))}
+                                        <span className={cn("inline-flex items-center", catResult.isValid ? "text-green-600" : "text-destructive")}>
+                                            {catResult.playerWord && (catResult.isValid ? 
+                                                <CheckCircle className="h-4 w-4 mr-1"/> : 
+                                                <XCircle className="h-4 w-4 mr-1"/>
+                                            )}
+                                            {catResult.playerWord ? (catResult.isValid ? "Válido" : (catResult.errorReason === 'format' ? "Formato Incorrecto" : catResult.errorReason === 'invalid_word' ? "Palabra Inválida" : translate('errorValidatingWord'))) : ""}
                                         </span>
-                                        <span className="font-semibold">{catResult.score} pts</span>
+                                        {catResult.playerWord && <span className="font-semibold text-primary">{catResult.score} {translate('pointsSuffix')}</span>}
                                     </div>
                                 </div>
                             ))}
+                             {!Object.keys(outcome.categories).length && <p className="text-muted-foreground text-center md:col-span-2">{translate('playerHasNotSubmitted')}</p>}
                         </CardContent>
                      </Card>
                   ))}
                   {isHost && (
-                    <Button onClick={handleStartNextRound} size="lg" className="w-full mt-6">
+                    <Button onClick={handleStartNextRound} size="lg" className="w-full mt-6 bg-primary hover:bg-primary/90 text-primary-foreground">
                         <RotateCcw className="mr-2 h-5 w-5"/> {translate('nextRoundButtonHost')}
                     </Button>
                   )}
@@ -799,7 +889,6 @@ export default function RoomPage() {
               )}
 
 
-              {/* Player List and Sharing Options - always visible or conditional? Maybe in footer */}
               <div className="mt-8 space-y-3">
                 <h3 className="text-xl font-semibold text-secondary flex items-center">
                   <Users className="mr-2 h-5 w-5" /> {translate('playerListTitle')}
@@ -807,18 +896,18 @@ export default function RoomPage() {
                 <div className="p-3 bg-muted/20 rounded-md min-h-[100px] space-y-2">
                   {connectedPlayers.length > 0 ? (
                     connectedPlayers.map((player) => (
-                      <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm">
+                      <div key={player.id} className="flex items-center justify-between p-2 bg-card/50 rounded shadow-sm hover:bg-card/70 transition-colors">
                         <div className="flex items-center space-x-2">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="relative">
                                 <Avatar className="h-8 w-8">
-                                  <AvatarImage src={player.avatar || undefined} alt={player.name} data-ai-hint="avatar person" />
+                                  <AvatarImage src={player.avatar || undefined} alt={player.name} data-ai-hint="avatar person"/>
                                   <AvatarFallback>{player.name.charAt(0).toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <Circle
                                   className={cn(
-                                    "h-3 w-3 absolute bottom-0 right-0 border-2 border-card rounded-full",
+                                    "h-3 w-3 absolute bottom-0 right-0 border-2 border-background rounded-full",
                                     player.isOnline ? "text-green-500 fill-green-500" : "text-gray-400 fill-gray-400"
                                   )}
                                 />
@@ -833,15 +922,17 @@ export default function RoomPage() {
                           </span>
                            {gameData?.status === "PLAYING" && player.id !== user?.uid && (
                                 <span className="text-xs text-muted-foreground ml-2">
-                                    {player.hasSubmitted ? translate('submitted') : translate('notSubmitted')}
+                                    {(player.hasSubmitted && player.submittedAnswersForRound === gameData.currentRoundId) ? translate('submitted') : translate('notSubmitted')}
                                 </span>
                             )}
+                           {gameData?.status === "PLAYING" && player.id === user?.uid && localPlayerSubmitted && (
+                                <span className="text-xs text-green-500 ml-2">
+                                    {translate('submitted')}
+                                </span>
+                            )}
+                            {gameData?.hostId === player.id && <span className="text-xs text-yellow-500 ml-1">(Anfitrión)</span>}
                         </div>
-                        {!player.isCurrentUser && user && (
-                           <Button variant="outline" size="sm" className="text-xs" disabled>
-                              <UserPlus className="mr-1 h-3 w-3" /> {translate('addFriendButton')}
-                            </Button>
-                        )}
+                        {/* Add Friend button might be re-enabled here later if needed from room page */}
                       </div>
                     ))
                   ) : (
@@ -850,9 +941,15 @@ export default function RoomPage() {
                    <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescription')}</p>
                 </div>
                  {isHost && gameData?.status === "PLAYING" && (
-                    <Button onClick={handleEvaluateRound} disabled={isEvaluatingByHost || !allPlayersSubmitted} className="w-full">
+                    <Button 
+                        onClick={handleEvaluateRound} 
+                        disabled={isEvaluatingByHost || !allOnlinePlayersSubmitted} 
+                        className="w-full mt-4 bg-accent hover:bg-accent/90"
+                        size="lg"
+                    >
                         {isEvaluatingByHost && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {translate('evaluateRoundButton')} {!allPlayersSubmitted && " (Esperando envíos)"}
+                        {translate('evaluateRoundButton')} 
+                        {!allOnlinePlayersSubmitted && " (Esperando envíos)"}
                     </Button>
                 )}
               </div>
@@ -887,17 +984,28 @@ export default function RoomPage() {
         </main>
         <ChatPanel
           messages={chatMessages}
-          onSendMessage={handleSendChatMessageInRoom} // Use DB sending for room chat
+          onSendMessageDB={handleSendChatMessageInRoom}
           isOpen={isChatOpen}
           setIsOpen={setIsChatOpen}
           currentUserUid={user?.uid}
-          currentUserName={user?.displayName || translate('playerNameDefault')}
+          currentUserName={user?.displayName || commonTranslate('playerNameDefault')}
           currentUserAvatar={user?.photoURL}
           language={language}
-          currentRoomId={roomIdFromParams} // Pass room ID
+          currentRoomId={roomIdFromParams} 
         />
         <AppFooter language={language} />
+         <style jsx global>{`
+            .animate-fadeInUp {
+            animation: fadeInUp 0.5s ease-out forwards;
+            }
+            @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+            }
+        `}</style>
       </div>
     </TooltipProvider>
   );
 }
+
+    
