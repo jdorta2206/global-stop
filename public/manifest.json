@@ -2,15 +2,6 @@
   "name": "Juego Global Stop",
   "short_name": "GlobalStop",
   "description": "¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!",
-  "start_url": "/",
-  "display": "standalone",
-  "display_override": [
-    "standalone",
-    "minimal-ui"
-  ],
-  "background_color": "#E5F5FC",
-  "theme_color": "#29ABE2",
-  "orientation": "any",
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -55,27 +46,14 @@
       "purpose": "any"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/screenshot-desktop-1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Vista del Juego en Escritorio"
-    },
-    {
-      "src": "/screenshots/screenshot-mobile-1.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Vista del Juego en Móvil"
-    }
-  ],
+  "start_url": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#C0474A",
+  "theme_color": "#C0474A",
   "scope": "/",
   "launch_handler": {
-    "client_mode": [
-      "navigate-existing",
-      "auto"
-    ]
+    "client_mode": ["navigate-existing", "auto"]
   }
 }
