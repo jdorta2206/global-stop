@@ -2,7 +2,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 export type Language = 'es' | 'en' | 'fr' | 'pt';
 
@@ -52,21 +52,27 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (typeof document !== 'undefined') {
       document.documentElement.lang = lang;
     }
-  }, []);
+  }, []); // setLanguageState is stable
 
   const translate = useCallback(
     (textObject: Record<string, string> | undefined): string => {
       if (!textObject) return '';
-      // Try current language, then default, then English as a fallback, then empty string
-      return textObject[language] || textObject[defaultLanguage] || textObject['en'] || '';
+      // Try current language, then default, then English as a fallback, then first available
+      return textObject[language] || textObject[defaultLanguage] || textObject['en'] || Object.values(textObject)[0] || '';
     },
-    [language]
+    [language] // translate changes only when language changes
   );
 
-  const currentLanguageOption = LANGUAGES.find(l => l.code === language);
+  const currentLanguageOption = useMemo(() => {
+    return LANGUAGES.find(l => l.code === language);
+  }, [language]); // Memoize currentLanguageOption
+
+  const contextValue = useMemo(() => {
+    return { language, setLanguage, translate, currentLanguageOption };
+  }, [language, setLanguage, translate, currentLanguageOption]); // Memoize the entire context value
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, translate, currentLanguageOption }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );
