@@ -5,6 +5,7 @@ import { AuthStatus } from '@/components/auth/auth-status';
 import { useLanguage, LANGUAGES, type LanguageOption } from '@/contexts/language-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Globe } from 'lucide-react';
+import { useCallback } from 'react'; // Import useCallback
 
 const HEADER_TEXTS = {
   homePageAriaLabel: { es: "Página de inicio de Global Stop", en: "Global Stop Home Page", fr: "Page d'accueil de Global Stop", pt: "Página Inicial do Global Stop" },
@@ -15,25 +16,25 @@ const HEADER_TEXTS = {
 export function AppHeader() {
   const { language, setLanguage, translate, currentLanguageOption } = useLanguage();
 
-  const handleLanguageChange = (langCode: string) => {
+  const handleLanguageChange = useCallback((langCode: string) => {
     const selectedLanguage = LANGUAGES.find(l => l.code === langCode);
     if (selectedLanguage) {
       setLanguage(selectedLanguage.code);
     }
-  };
+  }, [setLanguage]); // LANGUAGES is a constant, setLanguage is stable from context
 
   return (
     <header className="py-3 px-4 md:px-8 border-b border-border bg-card shadow-sm sticky top-0 z-50">
       <div className="container mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center hover:opacity-90 transition-opacity" aria-label={translate(HEADER_TEXTS.homePageAriaLabel)}>
           <Image
-            src="/logo_stop_game.png" 
+            src="/logo_stop_game.png"
             alt={translate(HEADER_TEXTS.logoAlt)}
-            width={48} 
+            width={48}
             height={48}
             className="h-10 md:h-12 w-auto"
             priority
-            data-ai-hint="game logo" 
+            data-ai-hint="game logo"
           />
         </Link>
         <div className="flex items-center space-x-2 sm:space-x-4">
