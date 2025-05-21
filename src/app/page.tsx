@@ -78,7 +78,6 @@ interface PlayerInLobby {
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser' | 'isOnline'>[] = [
   { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
 ];
-
 export default function GamePage() {
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState>("IDLE");
@@ -109,9 +108,10 @@ export default function GamePage() {
   const currentLetterRef = useRef<string | null>(currentLetter);
   const gameStateRef = useRef<GameState>(gameState);
 
+  const homeScreenAudioRef = useRef<HTMLAudioElement | null>(null);
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const stopSoundRef = useRef<HTMLAudioElement | null>(null); 
+  const stopSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -218,6 +218,14 @@ export default function GamePage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      if (!homeScreenAudioRef.current) {
+        console.log("[GamePage] Attempting to load home screen audio: /music/home-screen-music.mp3");
+        homeScreenAudioRef.current = new Audio('/music/home-screen-music.mp3'); // Assumed filename
+        homeScreenAudioRef.current.loop = true;
+        homeScreenAudioRef.current.onerror = () => {
+          console.error("[GamePage] Error loading home screen audio: /music/home-screen-music.mp3. Check file path in public/music/ folder.");
+        };
+      }
       if (!backgroundAudioRef.current) {
         console.log("[GamePage] Attempting to load background audio: /music/the-ticking-of-the-mantel-clock.mp3");
         backgroundAudioRef.current = new Audio('/music/the-ticking-of-the-mantel-clock.mp3');
@@ -235,7 +243,7 @@ export default function GamePage() {
           };
         }
       }
-      if (!stopSoundRef.current) { 
+      if (!stopSoundRef.current) {
         console.log("[GamePage] Attempting to load audio: /music/dry-cuckoo-sound.mp3");
         stopSoundRef.current = new Audio('/music/dry-cuckoo-sound.mp3');
         if (stopSoundRef.current) {
@@ -246,15 +254,31 @@ export default function GamePage() {
       }
     }
     return () => {
+      homeScreenAudioRef.current?.pause();
       backgroundAudioRef.current?.pause();
       countdownUrgentAudioRef.current?.pause();
-      stopSoundRef.current?.pause(); 
+      stopSoundRef.current?.pause();
     };
   }, []);
 
   useEffect(() => {
+    if (homeScreenAudioRef.current) {
+      if (gameState === "IDLE" && !activeRoomId) {
+        backgroundAudioRef.current?.pause();
+        countdownUrgentAudioRef.current?.pause();
+        stopSoundRef.current?.pause();
+        homeScreenAudioRef.current.currentTime = 0;
+        homeScreenAudioRef.current.play().catch(error => console.error("Error playing home screen audio:", error));
+      } else {
+        homeScreenAudioRef.current.pause();
+      }
+    }
+  }, [gameState, activeRoomId]);
+
+  useEffect(() => {
     if (backgroundAudioRef.current) {
       if (gameStateRef.current === "PLAYING" && currentLetterRef.current && !activeRoomId) {
+        homeScreenAudioRef.current?.pause();
         backgroundAudioRef.current.currentTime = 0;
         backgroundAudioRef.current.play().catch(error => console.error("Error playing background audio:", error));
       } else {
@@ -262,6 +286,7 @@ export default function GamePage() {
       }
     }
   }, [gameState, currentLetter, activeRoomId]);
+
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem('globalStopHighScore');
@@ -319,7 +344,7 @@ export default function GamePage() {
 
     console.log(`[${timestamp}] [GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
-    if (stopSoundRef.current) { 
+    if (stopSoundRef.current) {
       stopSoundRef.current.currentTime = 0;
       stopSoundRef.current.play().catch(e => console.error("Error playing stop sound:", e));
     }
@@ -1192,7 +1217,7 @@ export default function GamePage() {
         currentUserName={user?.displayName || translate('playerNameDefault')}
         currentUserAvatar={user?.photoURL}
         language={language}
-        currentRoomId={null}
+        currentRoomId={null} // This chat panel on main page is not tied to a DB room
       />
         <AppFooter language={language} />
     </main>
