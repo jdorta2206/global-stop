@@ -111,7 +111,7 @@ export default function GamePage() {
 
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const stopSoundRef = useRef<HTMLAudioElement | null>(null); // New ref for stop sound
+  const stopSoundRef = useRef<HTMLAudioElement | null>(null); 
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -219,11 +219,11 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
-        console.log("[GamePage] Attempting to load background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3");
-        backgroundAudioRef.current = new Audio('/music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3');
+        console.log("[GamePage] Attempting to load background audio: /music/the-ticking-of-the-mantel-clock.mp3");
+        backgroundAudioRef.current = new Audio('/music/the-ticking-of-the-mantel-clock.mp3');
         backgroundAudioRef.current.loop = true;
         backgroundAudioRef.current.onerror = () => {
-          console.error("[GamePage] Error loading background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3. Check file path in public/music/ folder.");
+          console.error("[GamePage] Error loading background audio: /music/the-ticking-of-the-mantel-clock.mp3. Check file path in public/music/ folder.");
         };
       }
       if (!countdownUrgentAudioRef.current) {
@@ -235,7 +235,7 @@ export default function GamePage() {
           };
         }
       }
-      if (!stopSoundRef.current) { // Initialize stop sound
+      if (!stopSoundRef.current) { 
         console.log("[GamePage] Attempting to load audio: /music/dry-cuckoo-sound.mp3");
         stopSoundRef.current = new Audio('/music/dry-cuckoo-sound.mp3');
         if (stopSoundRef.current) {
@@ -248,7 +248,7 @@ export default function GamePage() {
     return () => {
       backgroundAudioRef.current?.pause();
       countdownUrgentAudioRef.current?.pause();
-      stopSoundRef.current?.pause(); // Pause stop sound on unmount
+      stopSoundRef.current?.pause(); 
     };
   }, []);
 
@@ -319,7 +319,7 @@ export default function GamePage() {
 
     console.log(`[${timestamp}] [GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
-    if (stopSoundRef.current) { // Play stop sound
+    if (stopSoundRef.current) { 
       stopSoundRef.current.currentTime = 0;
       stopSoundRef.current.play().catch(e => console.error("Error playing stop sound:", e));
     }
@@ -339,9 +339,7 @@ export default function GamePage() {
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
-        // console.log(`[${timestamp}] [GamePage] Calling generateAiOpponentResponse for ${category} (letter ${letterForValidation}) with input:`, JSON.stringify(aiInput));
         const aiResult = await generateAiOpponentResponse(aiInput);
-        // console.log(`[${timestamp}] [GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
         return { category, response: aiResult.response };
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error getting AI response for ${category}:`, error);
@@ -366,8 +364,6 @@ export default function GamePage() {
     console.log(`[${timestamp}] [GamePage] Initiating player word validation...`);
     const playerValidationPromises: Promise<{ category: string, isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason'] }>[] = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
-      // console.log(`[${timestamp}] [GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
-
       if (playerResponse === "") {
         return { category, isValid: false, errorReason: null };
       }
@@ -382,9 +378,7 @@ export default function GamePage() {
           playerWord: playerResponse,
           language: currentLang,
         };
-        // console.log(`[${timestamp}] [GamePage] Calling validatePlayerWord for ${category} with input:`, JSON.stringify(validationInput));
         const validationResult: ValidatePlayerWordOutput = await validatePlayerWord(validationInput);
-        // console.log(`[${timestamp}] [GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"):`, JSON.stringify(validationResult));
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error validating player word for ${category} ("${playerResponse}"):`, error);
