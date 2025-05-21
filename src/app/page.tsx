@@ -77,7 +77,7 @@ interface PlayerInLobby {
 
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser' | 'isOnline'>[] = [
   { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
-]; // Added closing bracket and semicolon
+];
 
 export default function GamePage() {
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
@@ -89,13 +89,12 @@ export default function GamePage() {
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language, setLanguage: setGlobalLanguage, translate: translateUi } = useLanguage(); // Renamed for clarity
+  const { language, setLanguage: setGlobalLanguage, translate: translateUi } = useLanguage();
   const { activeRoomId, setActiveRoomId } = useRoom();
   const router = useRouter();
 
   const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});
   const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
-  // Original state declarations that might now be part of useGameRoom:
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
   const [totalPlayerScore, setTotalPlayerScore] = useState(0);
@@ -103,15 +102,6 @@ export default function GamePage() {
   const [roundResults, setRoundResults] = useState<RoundResults | null>(null);
   const [roundWinner, setRoundWinner] = useState<string | null>(null);
   const [personalHighScore, setPersonalHighScore] = useState(0);
-
-  // Original state declarations for dialogs and room IDs that might now be part of useGameRoom:
-  // const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
-  // const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
-  // const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
-  // const [joinRoomId, setJoinRoomId] = useState<string>("");
-
-  // Original state declarations for timer that might now be part of useGameRoom:
-  // const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
   const [countdownWarningText, setCountdownWarningText] = useState<string>("");
 
@@ -119,8 +109,9 @@ export default function GamePage() {
   const currentLetterRef = useRef<string | null>(currentLetter);
   const gameStateRef = useRef<GameState>(gameState);
 
-  const countdownTickAudioRef = useRef<HTMLAudioElement | null>(null);
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const stopSoundRef = useRef<HTMLAudioElement | null>(null); // New ref for stop sound
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -130,12 +121,10 @@ export default function GamePage() {
   const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
 
-  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
   const translate = useCallback((key: keyof typeof UI_TEXTS, replacements?: Record<string, string>) => {
-    // Fallback for keys not found in UI_TEXTS
     if (!UI_TEXTS[key]) {
       console.warn(`[GamePage] Missing UI_TEXTS key: ${key} for language ${language}`);
-      return key; // Return the key itself if not found
+      return key;
     }
     let text = translateUi(UI_TEXTS[key]);
     if (replacements) {
@@ -180,7 +169,6 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
-    console.log("[GamePage] Saving friends list to localStorage:", friendsList);
     if (friendsList.length > 0 || localStorage.getItem('globalStopFriendsList')) {
       localStorage.setItem('globalStopFriendsList', JSON.stringify(friendsList));
     }
@@ -220,7 +208,7 @@ export default function GamePage() {
       const defaultPlayerAvatar = user?.photoURL || `https://placehold.co/40x40.png?text=${defaultPlayerName.charAt(0)}`;
       setChatMessages([
           { id: 'system-1', text: translate('chatLoginTitle'), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
-          { id: 'user-welcome-1', text: translate('welcomeTitle'), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) }, // Corrected timestamp here
+          { id: 'user-welcome-1', text: translate('welcomeTitle'), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) },
       ]);
     } else {
         setChatMessages([]);
@@ -231,21 +219,12 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
-        console.log("[GamePage] Attempting to load background audio: /music/the-ticking-of-the-mantel-clock.mp3");
-        backgroundAudioRef.current = new Audio('/music/the-ticking-of-the-mantel-clock.mp3');
+        console.log("[GamePage] Attempting to load background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3");
+        backgroundAudioRef.current = new Audio('/music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3');
         backgroundAudioRef.current.loop = true;
         backgroundAudioRef.current.onerror = () => {
-          console.error("[GamePage] Error loading background audio: /music/the-ticking-of-the-mantel-clock.mp3. Check file path in public/music/ folder.");
+          console.error("[GamePage] Error loading background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3. Check file path in public/music/ folder.");
         };
-      }
-      if (!countdownTickAudioRef.current) {
-        // console.log("[GamePage] Attempting to load audio: /music/countdown_tick.mp3");
-        // countdownTickAudioRef.current = new Audio('/music/countdown_tick.mp3');
-        // if (countdownTickAudioRef.current) {
-        //   countdownTickAudioRef.current.onerror = () => {
-        //     console.error("[GamePage] Error loading audio: /music/countdown_tick.mp3. Check file path.");
-        //   };
-        // }
       }
       if (!countdownUrgentAudioRef.current) {
         console.log("[GamePage] Attempting to load audio: /music/countdown_urgent.mp3");
@@ -256,11 +235,20 @@ export default function GamePage() {
           };
         }
       }
+      if (!stopSoundRef.current) { // Initialize stop sound
+        console.log("[GamePage] Attempting to load audio: /music/dry-cuckoo-sound.mp3");
+        stopSoundRef.current = new Audio('/music/dry-cuckoo-sound.mp3');
+        if (stopSoundRef.current) {
+          stopSoundRef.current.onerror = () => {
+            console.error("[GamePage] Error loading audio: /music/dry-cuckoo-sound.mp3. Check file path in public/music/ folder.");
+          };
+        }
+      }
     }
     return () => {
       backgroundAudioRef.current?.pause();
-      countdownTickAudioRef.current?.pause();
       countdownUrgentAudioRef.current?.pause();
+      stopSoundRef.current?.pause(); // Pause stop sound on unmount
     };
   }, []);
 
@@ -273,7 +261,7 @@ export default function GamePage() {
         backgroundAudioRef.current.pause();
       }
     }
-  }, [gameState, currentLetter, activeRoomId]); // Dependencies updated to reflect refs
+  }, [gameState, currentLetter, activeRoomId]);
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem('globalStopHighScore');
@@ -310,12 +298,12 @@ export default function GamePage() {
         setTotalAiScore(0);
     }
     resetRound();
-    setCurrentLetter(null); // Reset current letter before spinning
+    setCurrentLetter(null);
     setGameState("SPINNING");
   }, [resetRound, activeRoomId]);
 
   const handleSpinComplete = useCallback((letter: string) => {
-    setCurrentLetter(letter); // Set the current letter from roulette
+    setCurrentLetter(letter);
     setGameState("PLAYING");
   }, []);
 
@@ -330,6 +318,11 @@ export default function GamePage() {
     const timestamp = new Date().toISOString();
 
     console.log(`[${timestamp}] [GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
+
+    if (stopSoundRef.current) { // Play stop sound
+      stopSoundRef.current.currentTime = 0;
+      stopSoundRef.current.play().catch(e => console.error("Error playing stop sound:", e));
+    }
 
     if (!letterForValidation || gameStateRef.current === "EVALUATING" || gameStateRef.current === "RESULTS") {
       console.log(`[${timestamp}] [GamePage] handleStopInternal: Aborting - No letter or already evaluating/results. Current GameState: ${gameStateRef.current}`);
@@ -346,12 +339,17 @@ export default function GamePage() {
     const aiPromises = currentCategories.map(async (category) => {
       try {
         const aiInput: AiOpponentResponseInput = { letter: letterForValidation, category, language: currentLang };
-        console.log(`[${timestamp}] [GamePage] Calling generateAiOpponentResponse for ${category} (letter ${letterForValidation}) with input:`, JSON.stringify(aiInput));
+        // console.log(`[${timestamp}] [GamePage] Calling generateAiOpponentResponse for ${category} (letter ${letterForValidation}) with input:`, JSON.stringify(aiInput));
         const aiResult = await generateAiOpponentResponse(aiInput);
-        console.log(`[${timestamp}] [GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
+        // console.log(`[${timestamp}] [GamePage] AI response for ${category} (letter ${letterForValidation}): "${aiResult.response}"`);
         return { category, response: aiResult.response };
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error getting AI response for ${category}:`, error);
+        toast({
+          title: translate('errorAITitle'),
+          description: translate('errorAIDescription', { category }),
+          variant: 'destructive',
+        });
         return { category, response: "" };
       }
     });
@@ -368,7 +366,7 @@ export default function GamePage() {
     console.log(`[${timestamp}] [GamePage] Initiating player word validation...`);
     const playerValidationPromises: Promise<{ category: string, isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason'] }>[] = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
-      console.log(`[${timestamp}] [GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
+      // console.log(`[${timestamp}] [GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
 
       if (playerResponse === "") {
         return { category, isValid: false, errorReason: null };
@@ -384,12 +382,17 @@ export default function GamePage() {
           playerWord: playerResponse,
           language: currentLang,
         };
-        console.log(`[${timestamp}] [GamePage] Calling validatePlayerWord for ${category} with input:`, JSON.stringify(validationInput));
+        // console.log(`[${timestamp}] [GamePage] Calling validatePlayerWord for ${category} with input:`, JSON.stringify(validationInput));
         const validationResult: ValidatePlayerWordOutput = await validatePlayerWord(validationInput);
-        console.log(`[${timestamp}] [GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"):`, JSON.stringify(validationResult));
+        // console.log(`[${timestamp}] [GamePage] Result from validatePlayerWord for ${category} ("${playerResponse}"):`, JSON.stringify(validationResult));
         return { category, isValid: validationResult.isValid, errorReason: validationResult.isValid ? null : 'invalid_word' as 'invalid_word'};
       } catch (error) {
         console.error(`[${timestamp}] [GamePage] Error validating player word for ${category} ("${playerResponse}"):`, error);
+        toast({
+          title: translate('errorValidationTitle'),
+          description: translate('errorValidationDescription', { category, word: playerResponse }),
+          variant: 'destructive',
+        });
         return { category, isValid: false, errorReason: 'api_error' as 'api_error' };
       }
     });
@@ -422,7 +425,7 @@ export default function GamePage() {
       const aiResponseTrimmed = aiResponseRaw.trim();
 
       const validationStatus = playerWordValidity[category];
-      console.log(`  [${timestamp}] [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
+      console.log(`  [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
 
 
       const playerPassesFormatCheck = playerResponseTrimmed !== "" && playerResponseTrimmed.toLowerCase().startsWith(letterForValidation!.toLowerCase());
@@ -474,12 +477,12 @@ export default function GamePage() {
     setTotalAiScore((prev: number) => prev + currentRoundAiScore);
     setRoundResults(detailedRoundResults);
 
-    let winner = translate('roundTie'); // Default to tie
+    let winner = translate('roundTie');
     if (currentRoundPlayerScore > currentRoundAiScore) {
       winner = translate('roundWinnerPlayer');
     } else if (currentRoundAiScore > currentRoundPlayerScore) {
       winner = translate('roundWinnerAI');
-    } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0 && Object.keys(currentResponses).length > 0) {
+    } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0 && Object.values(currentResponses).some(r => r.trim() !== "")) {
       winner = translate('roundNoScore');
     }
     setRoundWinner(winner);
@@ -500,7 +503,7 @@ export default function GamePage() {
 
   useEffect(() => {
     if (gameStateRef.current === "PLAYING" && currentLetterRef.current && !activeRoomId) {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Clear previous timer if any
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       setTimeLeft(ROUND_DURATION_SECONDS);
       setCountdownWarningText("");
 
@@ -538,7 +541,7 @@ export default function GamePage() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [gameState, currentLetter, handleStop, translate, activeRoomId]); // Dependencies updated
+  }, [gameState, currentLetter, handleStop, translate, activeRoomId]);
 
 
   const startNextRound = useCallback(() => {
@@ -622,7 +625,6 @@ export default function GamePage() {
     setActiveRoomId(null);
     setPlayersInLobby([]);
     setGameState("IDLE");
-    // router.push('/'); // No longer pushing to '/' to stay on page.
   };
 
   const handleInviteFriendsLobby = () => {
@@ -746,7 +748,7 @@ export default function GamePage() {
     }
     const newFriendId = `manual-${trimmedIdentifier.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
     const newFriend: PlayerScore = {
-      id: newFriendId, // Assigning a unique ID for manual additions
+      id: newFriendId,
       name: trimmedIdentifier,
       score: 0,
       avatar: `https://placehold.co/40x40.png?text=${trimmedIdentifier.charAt(0).toUpperCase()}`,
@@ -759,7 +761,7 @@ export default function GamePage() {
   };
 
 
-  const handleSendChatMessageLocal = (text: string, roomId?: string | null) => { // roomId is ignored here but kept for signature compatibility
+  const handleSendChatMessageLocal = (text: string, roomId?: string | null) => {
     if (!user) {
       toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
       return;
@@ -974,6 +976,23 @@ export default function GamePage() {
                         <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescriptionLobby')}</p>
                     </div>
                   </div>
+                  <div className="text-center">
+                    <Button
+                        size="lg"
+                        className="w-full text-lg py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+                        onClick={() => {
+                        // Placeholder for starting game with friends
+                        toast({ title: translate('startGameWithFriendsTitle'), description: translate('startGameWithFriendsDescription')});
+                        }}
+                        disabled // This button is currently a placeholder
+                    >
+                        <Sword className="mr-3 h-6 w-6" />
+                        {translate('startGameWithFriendsButton')}
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-1 px-2">
+                        {translate('startGameWithFriendsDescription')}
+                    </p>
+                </div>
               </CardContent>
               <CardFooter className="p-4 sm:p-6 border-t">
                 <Button
@@ -1172,14 +1191,14 @@ export default function GamePage() {
         </div>
       <ChatPanel
         messages={chatMessages}
-        onSendMessage={handleSendChatMessageLocal} // Use local send for main page chat
+        onSendMessage={handleSendChatMessageLocal}
         isOpen={isChatOpen}
         setIsOpen={setIsChatOpen}
         currentUserUid={user?.uid}
         currentUserName={user?.displayName || translate('playerNameDefault')}
         currentUserAvatar={user?.photoURL}
         language={language}
-        currentRoomId={null} // Main page chat is not tied to a DB room
+        currentRoomId={null}
       />
         <AppFooter language={language} />
     </main>
