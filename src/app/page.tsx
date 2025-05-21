@@ -218,11 +218,15 @@ export default function GamePage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Home screen music
       if (!homeScreenAudioRef.current) {
         const audioSrc = '/music/home-screen-music.mp3';
         console.log(`[GamePage] Attempting to load home screen audio from: ${audioSrc}`);
         homeScreenAudioRef.current = new Audio(audioSrc);
         homeScreenAudioRef.current.loop = true;
+        homeScreenAudioRef.current.onloadeddata = () => {
+          console.log(`[GamePage] Successfully loaded data for: ${audioSrc}`);
+        };
         homeScreenAudioRef.current.onerror = () => {
           const mediaError = homeScreenAudioRef.current?.error;
           console.error(
@@ -232,11 +236,15 @@ export default function GamePage() {
           );
         };
       }
+      // Background game music
       if (!backgroundAudioRef.current) {
         const audioSrc = '/music/the-ticking-of-the-mantel-clock.mp3';
         console.log(`[GamePage] Attempting to load background audio: ${audioSrc}`);
         backgroundAudioRef.current = new Audio(audioSrc);
         backgroundAudioRef.current.loop = true;
+        backgroundAudioRef.current.onloadeddata = () => {
+          console.log(`[GamePage] Successfully loaded data for: ${audioSrc}`);
+        };
         backgroundAudioRef.current.onerror = () => {
           const mediaError = backgroundAudioRef.current?.error;
           console.error(
@@ -246,10 +254,14 @@ export default function GamePage() {
           );
         };
       }
+      // Countdown urgent sound
       if (!countdownUrgentAudioRef.current) {
         const audioSrc = '/music/countdown_urgent.mp3';
         console.log(`[GamePage] Attempting to load audio: ${audioSrc}`);
         countdownUrgentAudioRef.current = new Audio(audioSrc);
+        countdownUrgentAudioRef.current.onloadeddata = () => {
+          console.log(`[GamePage] Successfully loaded data for: ${audioSrc}`);
+        };
         countdownUrgentAudioRef.current.onerror = () => {
           const mediaError = countdownUrgentAudioRef.current?.error;
            console.error(
@@ -259,10 +271,14 @@ export default function GamePage() {
           );
         };
       }
+      // Stop sound
       if (!stopSoundRef.current) {
         const audioSrc = '/music/dry-cuckoo-sound.mp3';
         console.log(`[GamePage] Attempting to load audio: ${audioSrc}`);
         stopSoundRef.current = new Audio(audioSrc);
+        stopSoundRef.current.onloadeddata = () => {
+          console.log(`[GamePage] Successfully loaded data for: ${audioSrc}`);
+        };
         stopSoundRef.current.onerror = () => {
            const mediaError = stopSoundRef.current?.error;
            console.error(
@@ -273,22 +289,22 @@ export default function GamePage() {
         };
       }
     }
+    // Cleanup function to pause audio when component unmounts
     return () => {
       homeScreenAudioRef.current?.pause();
       backgroundAudioRef.current?.pause();
       countdownUrgentAudioRef.current?.pause();
       stopSoundRef.current?.pause();
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs once on mount and unmount
 
   useEffect(() => {
     if (homeScreenAudioRef.current) {
       if (gameState === "IDLE" && !activeRoomId) {
         backgroundAudioRef.current?.pause();
         countdownUrgentAudioRef.current?.pause();
-        // stopSoundRef.current?.pause(); // Not typically needed to pause here
         homeScreenAudioRef.current.currentTime = 0;
-        homeScreenAudioRef.current.play().catch(error => console.error("Error playing home screen audio:", error));
+        homeScreenAudioRef.current.play().catch(error => console.error("[GamePage] Error playing home screen audio:", error));
       } else {
         homeScreenAudioRef.current.pause();
       }
@@ -300,7 +316,7 @@ export default function GamePage() {
       if (gameStateRef.current === "PLAYING" && currentLetterRef.current && !activeRoomId) {
         homeScreenAudioRef.current?.pause();
         backgroundAudioRef.current.currentTime = 0;
-        backgroundAudioRef.current.play().catch(error => console.error("Error playing background audio:", error));
+        backgroundAudioRef.current.play().catch(error => console.error("[GamePage] Error playing background audio:", error));
       } else {
         backgroundAudioRef.current.pause();
       }
@@ -366,7 +382,7 @@ export default function GamePage() {
 
     if (stopSoundRef.current) {
       stopSoundRef.current.currentTime = 0;
-      stopSoundRef.current.play().catch(e => console.error("Error playing stop sound:", e));
+      stopSoundRef.current.play().catch(e => console.error("[GamePage] Error playing stop sound:", e));
     }
 
     if (!letterForValidation || gameStateRef.current === "EVALUATING" || gameStateRef.current === "RESULTS") {
@@ -482,7 +498,6 @@ export default function GamePage() {
 
       console.log(`  [${timestamp}] [GamePage] Player Word: "${playerResponseTrimmed}", AI Word: "${aiResponseTrimmed}"`);
       console.log(`  [${timestamp}] [GamePage] playerPassesFormatCheck (frontend check...): ${playerPassesFormatCheck}`);
-      // console.log(`  [${timestamp}] [GamePage] isPlayerWordValidatedByAI (from Genkit flow): ${isPlayerWordValidatedByAI}`); // Already logged above
       console.log(`  [${timestamp}] [GamePage] isPlayerResponseConsideredValid (passes format AND AI validation): ${isPlayerResponseConsideredValid}`);
       console.log(`  [${timestamp}] [GamePage] isAiResponseValid (AI not empty, starts with letter): ${isAiResponseValid}`);
 
@@ -527,7 +542,7 @@ export default function GamePage() {
     let winner = translate('roundTie');
     if (currentRoundPlayerScore > currentRoundAiScore) {
       winner = translate('roundWinnerPlayer');
-    } else if (currentRoundAiScore > currentRoundAiScore) {
+    } else if (currentRoundAiScore > currentRoundAiScore) { // Corrected: aiRoundScore > playerRoundScore
       winner = translate('roundWinnerAI');
     } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0 && Object.values(currentResponses).some(r => r.trim() !== "")) {
       winner = translate('roundNoScore');
@@ -558,20 +573,20 @@ export default function GamePage() {
         setTimeLeft(prevTime => {
           if (prevTime <= 1) {
             if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            handleStop(); // Automatically call handleStop when time runs out
+            handleStop(); 
             return 0;
           }
 
-          if (prevTime === 11) { // Check against prevTime to trigger on the exact second
+          if (prevTime === 11) { 
             setCountdownWarningText(translate('timeEndingSoon'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
           } else if (prevTime === 6) {
             setCountdownWarningText(translate('timeAlmostUp'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
           } else if (prevTime === 4) {
             setCountdownWarningText(translate('timeFinalCountdown'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
-          } else if (prevTime > 10) { // Only clear if it was previously set
+            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
+          } else if (prevTime > 10) { 
             setCountdownWarningText("");
           }
           return prevTime - 1;
@@ -581,7 +596,7 @@ export default function GamePage() {
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
-      setCountdownWarningText(""); // Clear warning if not playing
+      setCountdownWarningText(""); 
     }
     return () => {
       if (timerIntervalRef.current) {
@@ -1252,3 +1267,5 @@ export default function GamePage() {
   </>
 )
 }
+
+      
