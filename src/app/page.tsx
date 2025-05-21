@@ -219,7 +219,7 @@ export default function GamePage() {
     if (typeof window !== 'undefined') {
       // Home screen music
       if (!homeScreenAudioRef.current) {
-        const audioSrc = '/music/home-screen-musi.mp3';
+        const audioSrc = '/music/home-screen-music.mp3';
         console.log(`[GamePage] Attempting to load home screen audio from: ${audioSrc}`);
         homeScreenAudioRef.current = new Audio(audioSrc);
         homeScreenAudioRef.current.loop = true;
@@ -283,8 +283,11 @@ export default function GamePage() {
     if (homeScreenAudioRef.current) {
       if (gameState === "IDLE" && !activeRoomId) {
         backgroundAudioRef.current?.pause();
-        homeScreenAudioRef.current.currentTime = 0;
-        homeScreenAudioRef.current.play().catch(error => console.error("[GamePage] Error playing home screen audio:", error));
+        // Do NOT play automatically to prevent "play() failed because the user didn't interact" error
+        // If user wants home screen music, a play button would be needed.
+        // For now, we just ensure it's ready and other music is paused.
+        // homeScreenAudioRef.current.currentTime = 0;
+        // homeScreenAudioRef.current.play().catch(error => console.error("[GamePage] Error playing home screen audio:", error));
       } else {
         homeScreenAudioRef.current.pause();
       }
@@ -1244,3 +1247,5 @@ export default function GamePage() {
 }
 
       
+
+    
