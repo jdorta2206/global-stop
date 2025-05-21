@@ -11,7 +11,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { auth, firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; // Importar para la verificación
+import { auth, firebaseConfig as appFirebaseConfig } from '@/lib/firebase/config'; 
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -33,10 +33,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Facebook SDK Helper Functions ---
-// These functions are for more manual interaction with the Facebook SDK.
-// The current signInWithFacebook uses Firebase's signInWithPopup, which handles this.
-
 interface FacebookAuthResponse {
   status: 'connected' | 'not_authorized' | 'unknown';
   authResponse?: {
@@ -48,41 +44,17 @@ interface FacebookAuthResponse {
   };
 }
 
-/**
- * A callback function to handle the response from FB.getLoginStatus().
- * @param response The response object from Facebook.
- */
 function statusChangeCallback(response: FacebookAuthResponse) {
   console.log('Facebook statusChangeCallback response:', response);
   if (response.status === 'connected') {
-    // Logged into your app and Facebook.
-    // You could potentially use response.authResponse.accessToken
-    // to sign in with Firebase using FacebookAuthProvider.credential
     console.log('Facebook user is connected. UserID:', response.authResponse?.userID);
   } else if (response.status === 'not_authorized') {
-    // The person is logged into Facebook, but not your app.
     console.log('Facebook user logged into Facebook, but not authorized for this app.');
   } else {
-    // The person is not logged into Facebook, so we don't know if
-    // they are logged into this app or not.
     console.log('Facebook user not logged into Facebook.');
   }
 }
 
-/**
- * Checks the current login status of the user with Facebook.
- * This function needs to be called manually if needed.
- * Make sure the Facebook SDK (FB object) is loaded before calling this.
- */
-// To use this function, you might call it from a button click or useEffect:
-// For example:
-// const handleCheckFbStatus = () => {
-//   if (typeof window !== 'undefined' && window.FB) {
-//     checkLoginState();
-//   } else {
-//     console.log('FB SDK not ready yet');
-//   }
-// };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function checkLoginState() {
   if (typeof window !== 'undefined' && window.FB) {
@@ -93,8 +65,6 @@ function checkLoginState() {
     console.warn('FB SDK not loaded or window.FB not available.');
   }
 }
-// --- End Facebook SDK Helper Functions ---
-
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -103,12 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for placeholder Firebase config
-    const isPlaceholderConfig = 
-      !appFirebaseConfig || // Check if appFirebaseConfig is undefined
-      !appFirebaseConfig.apiKey || appFirebaseConfig.apiKey.startsWith("TU_") ||
-      !appFirebaseConfig.authDomain || appFirebaseConfig.authDomain.startsWith("TU_") || 
-      !appFirebaseConfig.projectId || appFirebaseConfig.projectId.startsWith("TU_");   
+    const isPlaceholderConfig =
+      !appFirebaseConfig ||
+      (appFirebaseConfig.apiKey?.startsWith("TU_")) ||
+      (appFirebaseConfig.authDomain?.startsWith("TU_")) ||
+      (appFirebaseConfig.projectId?.startsWith("TU_"));
 
     if (isPlaceholderConfig) {
       setShowConfigErrorDialog(true);
@@ -124,34 +93,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignInError = (error: any, providerName: string) => {
     console.error(`Error al iniciar sesión con ${providerName}:`, error);
     let title = `Error de inicio de sesión con ${providerName}`;
-    let description = error.message || `No se pudo iniciar sesión con ${providerName}. Revisa la consola del navegador para más detalles y verifica tu configuración de Firebase.`;
+    let description = "";
     let duration = 9000;
     const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'el_dominio_actual_de_tu_app';
 
-    if (error.code === 'auth/popup-closed-by-user') {
-      title = "Inicio de sesión cancelado";
-      description = "Has cerrado la ventana de inicio de sesión.";
-    } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-blocked') {
-      title = "Ventana emergente bloqueada o cerrada";
-      description = "El navegador bloqueó la ventana de inicio de sesión o la cerraste demasiado rápido. Asegúrate de permitir ventanas emergentes para este sitio e inténtalo de nuevo.";
-    } else if (error.code === 'auth/operation-not-allowed') {
-      title = `Inicio de sesión con ${providerName} no habilitado`;
-      description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
-    } else if (error.code === 'auth/unauthorized-domain') {
-      title = "¡ACCIÓN REQUERIDA: Dominio no autorizado!";
-      description = `El dominio "${currentHostname}" NO está autorizado en Firebase. DEBES añadirlo a la lista de "Dominios Autorizados" en tu Consola de Firebase: Authentication > Settings. Copia este dominio y añádelo allí.`;
-      duration = 15000; 
-    } else if (error.code === 'auth/invalid-api-key') {
-      title = "API Key de Firebase Inválida";
-      description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
-    } else if (error.code === 'auth/project-not-found' || error.code === 'auth/invalid-project-id') {
+    switch (error.code) {
+      case 'auth/popup-closed-by-user':
+        title = "Inicio de sesión cancelado";
+        description = "Has cerrado la ventana de inicio de sesión.";
+        break;
+      case 'auth/cancelled-popup-request':
+      case 'auth/popup-blocked':
+        title = "Ventana emergente bloqueada o cerrada";
+        description = "El navegador bloqueó la ventana de inicio de sesión o la cerraste demasiado rápido. Asegúrate de permitir ventanas emergentes para este sitio e inténtalo de nuevo.";
+        break;
+      case 'auth/operation-not-allowed':
+        title = `Inicio de sesión con ${providerName} no habilitado`;
+        description = `El inicio de sesión con ${providerName} no está habilitado en tu proyecto Firebase. Ve a Firebase Console > Authentication > Sign-in method y habilita ${providerName}.`;
+        break;
+      case 'auth/unauthorized-domain':
+        title = "¡ACCIÓN REQUERIDA: Dominio no autorizado!";
+        description = `El dominio "${currentHostname}" NO está autorizado en Firebase. DEBES añadirlo a la lista de "Dominios Autorizados" en tu Consola de Firebase: Authentication > Settings. Copia este dominio y añádelo allí.`;
+        duration = 15000;
+        break;
+      case 'auth/invalid-api-key':
+        title = "API Key de Firebase Inválida";
+        description = `La API Key configurada en 'src/lib/firebase/config.ts' no es válida. Por favor, verifica que sea la correcta de tu proyecto Firebase.`;
+        break;
+      case 'auth/project-not-found':
+      case 'auth/invalid-project-id':
         title = "Proyecto de Firebase no encontrado o ID Inválido";
-        description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración. Es posible que estés usando una configuración de ejemplo o que no se haya desplegado correctamente.`;
-    } else if (providerName === "Facebook" && (error.message?.includes("Invalid App ID") || error.message?.includes("Identificador de aplicación no válido") || error.message?.includes("App Not Set Up"))) {
-        title = "Error de Configuración de Facebook";
-        description = "Facebook indica un problema con la configuración de tu aplicación (App ID inválido o App no configurada). Verifica que el App ID y App Secret estén correctamente configurados en Firebase Console (Authentication > Sign-in method > Facebook) y que coincidan con los de tu aplicación en el portal de Facebook Developers. Asegúrate también de que el URI de redireccionamiento OAuth esté correctamente añadido en Facebook.";
+        description = `El Project ID configurado en 'src/lib/firebase/config.ts' no corresponde a un proyecto de Firebase válido o existente. Revisa tu configuración.`;
+        break;
+      default:
+        if (providerName === "Facebook" && (error.message?.includes("Invalid App ID") || error.message?.includes("Identificador de aplicación no válido") || error.message?.includes("App Not Set Up"))) {
+          title = "Error de Configuración de Facebook";
+          description = "Facebook indica un problema con la configuración de tu aplicación (App ID inválido o App no configurada). Verifica el App ID y App Secret en Firebase Console y en Facebook Developers, y el URI de redireccionamiento OAuth.";
+        } else {
+          // Mensaje genérico mejorado
+          description = `No se pudo iniciar sesión con ${providerName}. Detalles: ${error.message || 'Error desconocido.'} 
+          \nREVISA: 
+          \n1. La consola de tu navegador para errores más detallados.
+          \n2. Que el proveedor (${providerName}) esté HABILITADO en Firebase Console (Authentication > Sign-in method).
+          \n3. Que el dominio actual (${currentHostname}) esté en "Dominios Autorizados" en Firebase Console (Authentication > Settings).
+          \n4. Que tu configuración en 'src/lib/firebase/config.ts' sea la correcta.
+          \n5. (Para Facebook) Que el App ID, App Secret y URI de redirección OAuth estén correctos en Firebase y Facebook Developers.`;
+        }
+        break;
     }
-
 
     toast({
       title: title,
@@ -162,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    if (!appFirebaseConfig || appFirebaseConfig.apiKey.startsWith("TU_")) {
+    if (!appFirebaseConfig || appFirebaseConfig.apiKey?.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
@@ -180,21 +169,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithFacebook = async () => {
-    if (!appFirebaseConfig || appFirebaseConfig.apiKey.startsWith("TU_")) {
+    if (!appFirebaseConfig || appFirebaseConfig.apiKey?.startsWith("TU_")) {
       setShowConfigErrorDialog(true);
       return;
     }
     
-    toast({
-      title: "Nota sobre Facebook Login",
-      description: "Para que el inicio de sesión con Facebook funcione, asegúrate de haber configurado el App ID y App Secret en tu consola de Firebase y el URI de redirección OAuth en tu app de Facebook. Revisa la consola del navegador si hay errores específicos.",
-      variant: "default",
-      duration: 10000,
-    });
-
     setLoading(true);
     try {
       const provider = new FacebookAuthProvider();
+      // provider.addScope('email'); // Opcional: solicitar email
+      // provider.setCustomParameters({ 'display': 'popup' }); // Opcional
       await signInWithPopup(auth, provider);
       toast({ title: "¡Bienvenido!", description: "Has iniciado sesión con Facebook." });
     } catch (error: any) {
@@ -257,11 +241,9 @@ export function useAuth() {
   return context;
 }
 
-// Ensure FB is declared for use with the Facebook SDK
-// This is often available on the window object after the SDK loads.
 declare global {
   interface Window {
-    FB: any; // You can replace 'any' with more specific Facebook SDK types if you install them
+    FB: any; 
     fbAsyncInit: () => void;
   }
 }
