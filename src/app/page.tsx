@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image'; // Import Image from next/image
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,9 +31,6 @@ import type { ChatMessage } from '@/components/chat/chat-message-item';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { EnrichedPlayerScore } from '@/components/game/leaderboard-table';
-// Removed Firebase imports as they are not directly used in page.tsx anymore for game logic
-// import { getDatabase, ref, onValue, update, serverTimestamp, set, off, push, child, remove } from "firebase/database";
-// import { app as firebaseApp } from '@/lib/firebase/config'; // Renamed to avoid conflict
 import { UI_TEXTS } from '@/constants/ui-texts';
 
 
@@ -80,28 +77,25 @@ interface PlayerInLobby {
 
 const MOCK_PLAYERS_IN_LOBBY: Omit<PlayerInLobby, 'isCurrentUser' | 'isOnline'>[] = [
   { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
-  { id: 'player3', name: 'Compañera Ana', avatar: `https://placehold.co/40x40.png?text=A` },
-  { id: 'player4', name: 'Vecina Laura', avatar: `https://placehold.co/40x40.png?text=L` },
-];
-
-// const db = getDatabase(firebaseApp); // Not used directly here anymore
+]; // Added closing bracket and semicolon
 
 export default function GamePage() {
-  const [gameState, setGameState] = useState<GameState>("IDLE");
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
-  const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});
-  const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
+  const [gameState, setGameState] = useState<GameState>("IDLE");
+  const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
+  const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
+  const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
+  const [joinRoomId, setJoinRoomId] = useState<string>("");
   const [isLoadingAi, setIsLoadingAi] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { language, setLanguage: setGlobalLanguage, translate } = useLanguage();
+  const { language, setLanguage: setGlobalLanguage, translate: translateUi } = useLanguage(); // Renamed for clarity
   const { activeRoomId, setActiveRoomId } = useRoom();
   const router = useRouter();
 
-  const playerResponsesRef = useRef(playerResponses);
-  const currentLetterRef = useRef(currentLetter);
-  const gameStateRef = useRef(gameState);
-
+  const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});
+  const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
+  // Original state declarations that might now be part of useGameRoom:
   const [playerRoundScore, setPlayerRoundScore] = useState(0);
   const [aiRoundScore, setAiRoundScore] = useState(0);
   const [totalPlayerScore, setTotalPlayerScore] = useState(0);
@@ -110,16 +104,21 @@ export default function GamePage() {
   const [roundWinner, setRoundWinner] = useState<string | null>(null);
   const [personalHighScore, setPersonalHighScore] = useState(0);
 
-  const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
-  const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
-  const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
-  const [joinRoomId, setJoinRoomId] = useState<string>("");
+  // Original state declarations for dialogs and room IDs that might now be part of useGameRoom:
+  // const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
+  // const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
+  // const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
+  // const [joinRoomId, setJoinRoomId] = useState<string>("");
 
+  // Original state declarations for timer that might now be part of useGameRoom:
+  // const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
   const [countdownWarningText, setCountdownWarningText] = useState<string>("");
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+  const playerResponsesRef = useRef<Record<string, string>>(playerResponses);
+  const currentLetterRef = useRef<string | null>(currentLetter);
+  const gameStateRef = useRef<GameState>(gameState);
+
   const countdownTickAudioRef = useRef<HTMLAudioElement | null>(null);
   const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -130,6 +129,24 @@ export default function GamePage() {
 
   const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
+
+  const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
+  const translate = useCallback((key: keyof typeof UI_TEXTS, replacements?: Record<string, string>) => {
+    // Fallback for keys not found in UI_TEXTS
+    if (!UI_TEXTS[key]) {
+      console.warn(`[GamePage] Missing UI_TEXTS key: ${key} for language ${language}`);
+      return key; // Return the key itself if not found
+    }
+    let text = translateUi(UI_TEXTS[key]);
+    if (replacements) {
+        Object.keys(replacements).forEach(k => {
+            text = text.replace(`{${k}}`, replacements[k]);
+        });
+    }
+    return text;
+  }, [translateUi, language]);
+
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     playerResponsesRef.current = playerResponses;
@@ -163,6 +180,7 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
+    console.log("[GamePage] Saving friends list to localStorage:", friendsList);
     if (friendsList.length > 0 || localStorage.getItem('globalStopFriendsList')) {
       localStorage.setItem('globalStopFriendsList', JSON.stringify(friendsList));
     }
@@ -173,9 +191,9 @@ export default function GamePage() {
     if (activeRoomId && user) {
         const lobbyPlayersFromRoomContext: PlayerInLobby[] = [];
          lobbyPlayersFromRoomContext.push({
-            id: user.uid,
-            name: user.displayName || translate(UI_TEXTS.playerNameDefault),
-            avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
+            id: user?.uid,
+            name: user.displayName || translate('playerNameDefault'),
+            avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate('playerNameDefault')).charAt(0)}`,
             isCurrentUser: true,
             isOnline: true,
         });
@@ -186,9 +204,8 @@ export default function GamePage() {
 
     } else if (!activeRoomId) {
         setPlayersInLobby([]);
-    }
-  }, [user, activeRoomId, language, translate]);
-
+   }
+  }, [activeRoomId, user, translate]);
 
   const exampleGlobalLeaderboard: EnrichedPlayerScore[] = [
     { id: "global-player-1", name: "Star Player", score: 12500, avatar: "https://placehold.co/40x40.png?text=S" },
@@ -197,14 +214,13 @@ export default function GamePage() {
     { id: "global-player-4", name: "ProPlayer123", score: 9800, avatar: "https://placehold.co/40x40.png?text=P" },
     { id: "global-player-5", name: "Ana S.", score: 9200, avatar: "https://placehold.co/40x40.png?text=A" },
   ];
-
   useEffect(() => {
     if (!activeRoomId) {
-      const defaultPlayerName = user?.displayName || translate(UI_TEXTS.playerNameDefault);
+      const defaultPlayerName = user?.displayName || translate('playerNameDefault');
       const defaultPlayerAvatar = user?.photoURL || `https://placehold.co/40x40.png?text=${defaultPlayerName.charAt(0)}`;
       setChatMessages([
-          { id: 'system-1', text: translate(UI_TEXTS.chatLoginTitle), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
-          { id: 'user-welcome-1', text: translate(UI_TEXTS.welcomeTitle), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) },
+          { id: 'system-1', text: translate('chatLoginTitle'), sender: { name: 'System', uid: 'system', avatar: 'https://placehold.co/40x40.png?text=S' }, timestamp: new Date(Date.now() - 120000) },
+          { id: 'user-welcome-1', text: translate('welcomeTitle'), sender: { name: defaultPlayerName, uid: user?.uid || 'user-local', avatar: defaultPlayerAvatar }, timestamp: new Date(Date.now() - 60000) }, // Corrected timestamp here
       ]);
     } else {
         setChatMessages([]);
@@ -215,14 +231,30 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
+        console.log("[GamePage] Attempting to load background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3");
         backgroundAudioRef.current = new Audio('/music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3');
         backgroundAudioRef.current.loop = true;
+        backgroundAudioRef.current.onerror = () => {
+          console.error("[GamePage] Error loading background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3. Check file path in public/music/ folder.");
+        };
       }
       if (!countdownTickAudioRef.current) {
+        // console.log("[GamePage] Attempting to load audio: /music/countdown_tick.mp3");
         // countdownTickAudioRef.current = new Audio('/music/countdown_tick.mp3');
+        // if (countdownTickAudioRef.current) {
+        //   countdownTickAudioRef.current.onerror = () => {
+        //     console.error("[GamePage] Error loading audio: /music/countdown_tick.mp3. Check file path.");
+        //   };
+        // }
       }
       if (!countdownUrgentAudioRef.current) {
+        console.log("[GamePage] Attempting to load audio: /music/countdown_urgent.mp3");
         countdownUrgentAudioRef.current = new Audio('/music/countdown_urgent.mp3');
+        if (countdownUrgentAudioRef.current) {
+          countdownUrgentAudioRef.current.onerror = () => {
+            console.error("[GamePage] Error loading audio: /music/countdown_urgent.mp3. Check file path in public/music/ folder.");
+          };
+        }
       }
     }
     return () => {
@@ -234,14 +266,14 @@ export default function GamePage() {
 
   useEffect(() => {
     if (backgroundAudioRef.current) {
-      if (gameState === "PLAYING" && currentLetter && !activeRoomId) {
+      if (gameStateRef.current === "PLAYING" && currentLetterRef.current && !activeRoomId) {
         backgroundAudioRef.current.currentTime = 0;
         backgroundAudioRef.current.play().catch(error => console.error("Error playing background audio:", error));
       } else {
         backgroundAudioRef.current.pause();
       }
     }
-  }, [gameState, currentLetter, activeRoomId]);
+  }, [gameState, currentLetter, activeRoomId]); // Dependencies updated to reflect refs
 
   useEffect(() => {
     const storedHighScore = localStorage.getItem('globalStopHighScore');
@@ -269,7 +301,7 @@ export default function GamePage() {
     setCountdownWarningText("");
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
-    }
+    };
   }, []);
 
   const startGame = useCallback(() => {
@@ -278,11 +310,12 @@ export default function GamePage() {
         setTotalAiScore(0);
     }
     resetRound();
+    setCurrentLetter(null); // Reset current letter before spinning
     setGameState("SPINNING");
   }, [resetRound, activeRoomId]);
 
   const handleSpinComplete = useCallback((letter: string) => {
-    setCurrentLetter(letter);
+    setCurrentLetter(letter); // Set the current letter from roulette
     setGameState("PLAYING");
   }, []);
 
@@ -298,8 +331,8 @@ export default function GamePage() {
 
     console.log(`[${timestamp}] [GamePage] handleStopInternal triggered. Current Letter: ${letterForValidation}, Game State: ${gameStateRef.current}, Lang: ${currentLang}`);
 
-    if (!letterForValidation || gameStateRef.current === "EVALUATING") {
-      console.log(`[${timestamp}] [GamePage] handleStopInternal: Aborting - No letter or already evaluating.`);
+    if (!letterForValidation || gameStateRef.current === "EVALUATING" || gameStateRef.current === "RESULTS") {
+      console.log(`[${timestamp}] [GamePage] handleStopInternal: Aborting - No letter or already evaluating/results. Current GameState: ${gameStateRef.current}`);
       return;
     }
 
@@ -333,7 +366,7 @@ export default function GamePage() {
     setAiResponses(tempAiResponses);
 
     console.log(`[${timestamp}] [GamePage] Initiating player word validation...`);
-    const playerValidationPromises = currentCategories.map(async (category) => {
+    const playerValidationPromises: Promise<{ category: string, isValid: boolean, errorReason: RoundResultDetail['playerResponseErrorReason'] }>[] = currentCategories.map(async (category) => {
       const playerResponse = (currentResponses[category] || "").trim();
       console.log(`[${timestamp}] [GamePage] Validating for Category: ${category}, Player Word: "${playerResponse}", Required Letter: "${letterForValidation!}", Lang: ${currentLang}`);
 
@@ -388,7 +421,7 @@ export default function GamePage() {
       const aiResponseRaw = tempAiResponses[category] || "";
       const aiResponseTrimmed = aiResponseRaw.trim();
 
-      const validationStatus = playerWordValidity[category]; // This can be undefined if category wasn't in results
+      const validationStatus = playerWordValidity[category];
       console.log(`  [${timestamp}] [GamePage] DEBUG: Category: "${category}", playerWordValidity[category] is:`, JSON.stringify(validationStatus));
 
 
@@ -427,29 +460,29 @@ export default function GamePage() {
         aiScore: aScore,
         playerResponse: playerResponseRaw,
         aiResponse: aiResponseRaw,
-        playerResponseIsValid: isPlayerWordValidatedByAI, // Use the validated status
+        playerResponseIsValid: isPlayerWordValidatedByAI,
         playerResponseErrorReason: validationStatus ? validationStatus.errorReason : (playerPassesFormatCheck ? null : 'format'),
       };
       currentRoundPlayerScore += pScore;
       currentRoundAiScore += aScore;
     });
 
-    console.log(`[${timestamp}] [GamePage] Total Player Round Score: ${currentRoundPlayerScore}, Total AI Round Score: ${currentRoundAiScore}`);
+ console.log(`[${timestamp}] [GamePage] Total Player Round Score: ${currentRoundPlayerScore}, Total AI Round Score: ${currentRoundAiScore}`);
     setPlayerRoundScore(currentRoundPlayerScore);
     setAiRoundScore(currentRoundAiScore);
-    setTotalPlayerScore(prev => prev + currentRoundPlayerScore);
-    setTotalAiScore(prev => prev + currentRoundAiScore);
+    setTotalPlayerScore((prev: number) => prev + currentRoundPlayerScore);
+    setTotalAiScore((prev: number) => prev + currentRoundAiScore);
     setRoundResults(detailedRoundResults);
 
+    let winner = translate('roundTie'); // Default to tie
     if (currentRoundPlayerScore > currentRoundAiScore) {
-      setRoundWinner(translate(UI_TEXTS.roundWinnerPlayer));
+      winner = translate('roundWinnerPlayer');
     } else if (currentRoundAiScore > currentRoundPlayerScore) {
-      setRoundWinner(translate(UI_TEXTS.roundWinnerAI));
-    } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0) {
-      setRoundWinner(translate(UI_TEXTS.roundNoScore));
-    } else {
-      setRoundWinner(translate(UI_TEXTS.roundTie));
+      winner = translate('roundWinnerAI');
+    } else if (currentRoundPlayerScore === 0 && currentRoundAiScore === 0 && Object.keys(currentResponses).length > 0) {
+      winner = translate('roundNoScore');
     }
+    setRoundWinner(winner);
 
     setIsLoadingAi(false);
     setGameState("RESULTS");
@@ -466,8 +499,8 @@ export default function GamePage() {
   }, [handleStopInternal]);
 
   useEffect(() => {
-    if (gameState === "PLAYING" && currentLetter && !activeRoomId) {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    if (gameStateRef.current === "PLAYING" && currentLetterRef.current && !activeRoomId) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Clear previous timer if any
       setTimeLeft(ROUND_DURATION_SECONDS);
       setCountdownWarningText("");
 
@@ -480,13 +513,13 @@ export default function GamePage() {
           }
 
           if (prevTime === 11) {
-            setCountdownWarningText(translate(UI_TEXTS.timeEndingSoon));
+            setCountdownWarningText(translate('timeEndingSoon'));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
           } else if (prevTime === 6) {
-            setCountdownWarningText(translate(UI_TEXTS.timeAlmostUp));
+            setCountdownWarningText(translate('timeAlmostUp'));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
           } else if (prevTime === 4) {
-            setCountdownWarningText(translate(UI_TEXTS.timeFinalCountdown));
+            setCountdownWarningText(translate('timeFinalCountdown'));
             countdownUrgentAudioRef.current?.play().catch(e => console.error("Error playing urgent audio:", e));
           } else if (prevTime > 10) {
             setCountdownWarningText("");
@@ -505,7 +538,7 @@ export default function GamePage() {
         clearInterval(timerIntervalRef.current);
       }
     };
-  }, [gameState, currentLetter, handleStop, translate, activeRoomId]);
+  }, [gameState, currentLetter, handleStop, translate, activeRoomId]); // Dependencies updated
 
 
   const startNextRound = useCallback(() => {
@@ -513,12 +546,12 @@ export default function GamePage() {
   }, [startGame]);
 
   const handleShareScoreToWhatsApp = () => {
-    const playerName = user?.displayName ? `${user.displayName} ${translate(UI_TEXTS.playedText)}` : translate(UI_TEXTS.iJustPlayed);
+    const playerName = user?.displayName ? `${user.displayName} ${translate('playedText')}` : translate('iJustPlayed');
     const message =
       `${playerName} Global Stop! 🕹️\n\n` +
-      `${translate(UI_TEXTS.myTotalScore)}: ${totalPlayerScore}\n` +
-      `${translate(UI_TEXTS.aiTotalScore)}: ${totalAiScore}\n\n` +
-      translate(UI_TEXTS.canYouBeatMe);
+      `${translate('myTotalScore')}: ${totalPlayerScore}\n` +
+      `${translate('aiTotalScore')}: ${totalAiScore}\n\n` +
+      translate('canYouBeatMe');
 
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -526,12 +559,14 @@ export default function GamePage() {
 
   const handleShareGameViaWhatsApp = () => {
     const gameUrl = typeof window !== 'undefined' ? window.location.href : '';
-    const message = `${translate(UI_TEXTS.shareGameMessageWhatsApp)} ${gameUrl}`;
+    const message = `${translate('shareGameMessageWhatsApp')} ${gameUrl}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
   const handleOpenCreateRoomDialog = () => {
+     if (!user) { toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" }); return; }
+
     const newRoomId = Math.random().toString(36).substring(2, 10).toUpperCase();
     setGeneratedRoomId(newRoomId);
     setShowCreateRoomDialog(true);
@@ -546,13 +581,14 @@ export default function GamePage() {
   };
 
   const handleOpenJoinRoomDialog = () => {
+     if (!user) { toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" }); return; }
     setJoinRoomId("");
     setShowJoinRoomDialog(true);
   };
 
   const handleActualJoinRoom = () => {
     if (joinRoomId.trim() === "") {
-      toast({ title: translate(UI_TEXTS.emptyRoomIdToastTitle), description: translate(UI_TEXTS.emptyRoomIdToastDescription), variant: "destructive" });
+      toast({ title: translate('emptyRoomIdToastTitle'), description: translate('emptyRoomIdToastDescription'), variant: "destructive" });
       return;
     }
     const roomIdToJoin = joinRoomId.trim().toUpperCase();
@@ -566,13 +602,13 @@ export default function GamePage() {
       try {
         await navigator.clipboard.writeText(generatedRoomId);
         toast({
-          title: translate(UI_TEXTS.idCopiedToastTitle),
-          description: translate(UI_TEXTS.idCopiedToastDescription),
+          title: translate('idCopiedToastTitle'),
+          description: translate('idCopiedToastDescription'),
         });
       } catch (err) {
         toast({
-          title: translate(UI_TEXTS.errorCopyingIdToastTitle),
-          description: translate(UI_TEXTS.errorCopyingIdToastDescription),
+          title: translate('errorCopyingIdToastTitle'),
+          description: translate('errorCopyingIdToastDescription'),
           variant: "destructive",
         });
       }
@@ -586,14 +622,14 @@ export default function GamePage() {
     setActiveRoomId(null);
     setPlayersInLobby([]);
     setGameState("IDLE");
-    router.push('/');
+    // router.push('/'); // No longer pushing to '/' to stay on page.
   };
 
   const handleInviteFriendsLobby = () => {
     if (activeRoomId) {
       const roomUrl = `${window.location.origin}/room/${activeRoomId}`;
-      const message = `${translate(UI_TEXTS.shareRoomLinkMessageWhatsApp)} ${activeRoomId}. ${translate(UI_TEXTS.joinHere)} ${roomUrl}`;
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      const message = `${translate('shareRoomLinkMessageWhatsApp')} ${activeRoomId}. ${translate('joinHere')} ${roomUrl}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message.trim())}`;
       window.open(whatsappUrl, '_blank');
     }
   };
@@ -603,13 +639,13 @@ export default function GamePage() {
         const roomUrl = `${window.location.origin}/room/${activeRoomId}`;
         navigator.clipboard.writeText(roomUrl).then(() => {
             toast({
-            title: translate(UI_TEXTS.roomLinkCopiedToastTitle),
-            description: translate(UI_TEXTS.roomLinkCopiedToastDescription),
+            title: translate('roomLinkCopiedToastTitle'),
+            description: translate('roomLinkCopiedToastDescription'),
             });
         }).catch(() => {
             toast({
-            title: translate(UI_TEXTS.errorCopyingLinkToastTitle),
-            description: translate(UI_TEXTS.errorCopyingLinkToastDescription),
+            title: translate('errorCopyingLinkToastTitle'),
+            description: translate('errorCopyingLinkToastDescription'),
             variant: "destructive",
             });
         });
@@ -618,19 +654,19 @@ export default function GamePage() {
 
   const handleAddFriend = (player: PlayerInLobby) => {
     if (!user) {
-      toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+      toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
       return;
     }
     if (player.id === user.uid) {
-        toast({ title: translate(UI_TEXTS.cannotAddSelfTitle), description: translate(UI_TEXTS.cannotAddSelfDescription), variant: "default" });
+        toast({ title: translate('cannotAddSelfTitle'), description: translate('cannotAddSelfDescription'), variant: "default" });
         return;
     }
 
     const friendExists = friendsList.some(friend => (friend.id && friend.id === player.id) || friend.name === player.name);
     if (friendExists) {
       toast({
-        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
-        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', player.name),
+        title: translate('friendAlreadyExistsToastTitle'),
+        description: translate('friendAlreadyExistsToastDescription', { name: player.name }),
         variant: "default",
       });
       return;
@@ -643,25 +679,25 @@ export default function GamePage() {
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
     toast({
-      title: translate(UI_TEXTS.friendAddedToastTitle),
-      description: translate(UI_TEXTS.friendAddedToastDescription).replace('{name}', player.name),
+      title: translate('friendAddedToastTitle'),
+      description: translate('friendAddedToastDescription', { name: player.name }),
     });
   };
 
   const handleAddFriendFromLeaderboard = (player: EnrichedPlayerScore) => {
     if (!user) {
-        toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+        toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
         return;
     }
     if (player.id === user.uid) {
-        toast({ title: translate(UI_TEXTS.cannotAddSelfTitle), description: translate(UI_TEXTS.cannotAddSelfDescription), variant: "default" });
+        toast({ title: translate('cannotAddSelfTitle'), description: translate('cannotAddSelfDescription'), variant: "default" });
         return;
     }
     const friendExists = friendsList.some(friend => (friend.id && friend.id === player.id) || friend.name === player.name);
     if (friendExists) {
       toast({
-        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
-        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', player.name),
+        title: translate('friendAlreadyExistsToastTitle'),
+        description: translate('friendAlreadyExistsToastDescription', { name: player.name }),
         variant: "default",
       });
       return;
@@ -674,61 +710,67 @@ export default function GamePage() {
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
     toast({
-      title: translate(UI_TEXTS.friendAddedFromGlobalToastTitle),
-      description: translate(UI_TEXTS.friendAddedFromGlobalToastDescription).replace('{name}', player.name),
+      title: translate('friendAddedFromGlobalToastTitle'),
+      description: translate('friendAddedFromGlobalToastDescription', { name: player.name }),
     });
   };
 
   const handleChallengePlayer = (player: EnrichedPlayerScore) => {
     const playerId = (player.id && String(player.id).trim() !== "") ? String(player.id) : 'unknown';
-    router.push(`/challenge-setup/${playerId}?name=${encodeURIComponent(player.name)}`);
+    const playerName = player.name;
+    toast({
+      title: translate('challengePlayerToastTitle'),
+      description: translate('challengePlayerToastDescription', { name: playerName }),
+      variant: "default",
+    });
+    router.push(`/challenge-setup/${playerId}?name=${encodeURIComponent(playerName)}`);
   };
 
   const handleAddFriendManual = (identifier: string) => {
     if (!user) {
-      toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+      toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
       return;
     }
     if (!identifier.trim()) {
-      toast({ title: translate(UI_TEXTS.emptyIdentifierTitle), description: translate(UI_TEXTS.emptyIdentifierDescription), variant: "destructive"});
+      toast({ title: translate('emptyIdentifierTitle'), description: translate('emptyIdentifierDescription'), variant: "destructive"});
       return;
     }
     const trimmedIdentifier = identifier.trim();
     if (friendsList.some(friend => friend.name.toLowerCase() === trimmedIdentifier.toLowerCase())) {
       toast({
-        title: translate(UI_TEXTS.friendAlreadyExistsToastTitle),
-        description: translate(UI_TEXTS.friendAlreadyExistsToastDescription).replace('{name}', trimmedIdentifier),
+        title: translate('friendAlreadyExistsToastTitle'),
+        description: translate('friendAlreadyExistsToastDescription', { name: trimmedIdentifier }),
         variant: "default",
       });
       return;
     }
     const newFriendId = `manual-${trimmedIdentifier.replace(/\s+/g, '-')}-${Math.random().toString(36).substring(2, 7)}`;
     const newFriend: PlayerScore = {
-      id: newFriendId,
+      id: newFriendId, // Assigning a unique ID for manual additions
       name: trimmedIdentifier,
       score: 0,
       avatar: `https://placehold.co/40x40.png?text=${trimmedIdentifier.charAt(0).toUpperCase()}`,
     };
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
     toast({
-      title: translate(UI_TEXTS.friendManuallyAddedToastTitle),
-      description: translate(UI_TEXTS.friendManuallyAddedToastDescription).replace('{name}', trimmedIdentifier),
+      title: translate('friendManuallyAddedToastTitle'),
+      description: translate('friendManuallyAddedToastDescription', { name: trimmedIdentifier }),
     });
   };
 
 
-  const handleSendChatMessageLocal = (text: string, roomId?: string | null) => { // Updated signature, roomId ignored here
+  const handleSendChatMessageLocal = (text: string, roomId?: string | null) => { // roomId is ignored here but kept for signature compatibility
     if (!user) {
-      toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+      toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
       return;
     }
     const newMessage: ChatMessage = {
         id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         text,
         sender: {
-            name: user.displayName || translate(UI_TEXTS.playerNameDefault),
-            uid: user.uid,
-            avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate(UI_TEXTS.playerNameDefault)).charAt(0)}`,
+            name: user.displayName || translate('playerNameDefault'),
+            uid: user?.uid || 'local-user',
+            avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || translate('playerNameDefault')).charAt(0)}`,
         },
         timestamp: new Date(),
     };
@@ -737,35 +779,35 @@ export default function GamePage() {
 
   const toggleChat = () => setIsChatOpen(prev => !prev);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
-      <AppHeader />
-      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center relative">
-        {(gameState === "PLAYING" || gameState === "RESULTS" || gameState === "IDLE") && (
+ return (
+  <>
+    <AppHeader />
+    <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center relative">
+      {(gameState === "PLAYING" || gameState === "RESULTS" || gameState === "IDLE") && !activeRoomId && (
             <Button
                 onClick={toggleChat}
                 variant="outline"
                 size="icon"
                 className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-xl bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary-foreground/50 transform transition-all duration-150 ease-in-out hover:scale-110 active:scale-100"
-                aria-label={translate(UI_TEXTS.openChatLabel)}
+                aria-label={isChatOpen ? translate('closeChatLabel') : translate('openChatLabel')}
             >
                 <MessageSquare className="h-7 w-7" />
-            </Button>
+ </Button>
         )}
 
-        <div className="w-full max-w-2xl space-y-6">
+        <div className={cn("w-full max-w-2xl space-y-6", activeRoomId && "flex flex-col items-center")}>
           {gameState === "IDLE" && !activeRoomId && (
             <>
               <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
                 <CardHeader className="text-center p-8">
-                  <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.welcomeTitle)}</CardTitle>
+                  <CardTitle className="text-3xl md:text-4xl font-extrabold text-primary">{translate('welcomeTitle')}</CardTitle>
                   <CardDescription className="text-lg text-muted-foreground mt-3">
-                    {translate(UI_TEXTS.welcomeDescription)}
+                    {translate('welcomeDescription')}
                   </CardDescription>
                   <div className="flex justify-center mt-4">
                     <Image
                       src="/logo_stop_game.png"
-                      alt={translate(UI_TEXTS.logoAlt)}
+                      alt={translate('logoAlt')}
                       width={150}
                       height={150}
                       className="rounded-lg shadow-md"
@@ -783,7 +825,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full"
                   >
                     <PlayCircle className="mr-3 h-7 w-7" />
-                    {translate(UI_TEXTS.playVsAI)}
+                    {translate('playVsAI')}
                   </Button>
                   <Button
                     onClick={handleOpenCreateRoomDialog}
@@ -794,7 +836,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full"
                   >
                     <PlusCircle className="mr-3 h-7 w-7" />
-                    {translate(UI_TEXTS.createRoom)}
+                    {translate('createRoom')}
                   </Button>
                    <Button
                     onClick={handleOpenJoinRoomDialog}
@@ -805,7 +847,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-secondary/50 rounded-lg w-full"
                   >
                     <LogIn className="mr-3 h-7 w-7" />
-                    {translate(UI_TEXTS.joinRoom)}
+                    {translate('joinRoom')}
                   </Button>
                   <Button
                     onClick={handleShareGameViaWhatsApp}
@@ -816,7 +858,7 @@ export default function GamePage() {
                               focus-visible:ring-4 focus-visible:ring-muted/50 rounded-lg w-full"
                   >
                     <Share2 className="mr-3 h-7 w-7" />
-                    {translate(UI_TEXTS.shareGame)}
+                    {translate('shareGame')}
                   </Button>
                 </CardContent>
               </Card>
@@ -824,7 +866,7 @@ export default function GamePage() {
               <GlobalLeaderboardCard
                 leaderboardData={exampleGlobalLeaderboard}
                 language={language}
-                currentUserId={user?.uid}
+                currentUserId={user?.uid }
                 onAddFriend={handleAddFriendFromLeaderboard}
                 onChallenge={handleChallengePlayer}
               />
@@ -838,17 +880,17 @@ export default function GamePage() {
             </>
           )}
 
-          {gameState === "IDLE" && activeRoomId && (
+          {activeRoomId && (
             <Card className="shadow-2xl rounded-xl overflow-hidden animate-fadeIn">
               <CardHeader className="text-center p-6 sm:p-8">
                 <div className="flex justify-center items-center mb-3">
                     <PartyPopper className="h-10 w-10 sm:h-12 sm:w-12 text-primary mr-2 sm:mr-3" />
-                    <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-primary">{translate(UI_TEXTS.lobbyTitle)}</CardTitle>
+                    <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-primary">{translate('lobbyTitle')}</CardTitle>
                 </div>
                 <CardDescription className="text-md sm:text-lg text-muted-foreground mt-2">
-                  {translate(UI_TEXTS.inRoomMessage)} <span className="font-bold text-accent">{activeRoomId}</span>
+                  {translate('inRoomMessage')} <span className="font-bold text-accent">{activeRoomId}</span>
                 </CardDescription>
-                 {user && <p className="text-sm sm:text-md text-muted-foreground mt-1">{translate(UI_TEXTS.loggedInAs).replace('{name}', user.displayName || translate(UI_TEXTS.playerNameDefault))}</p>}
+                 {user && <p className="text-sm sm:text-md text-muted-foreground mt-1">{translate('loggedInAs', { name: user?.displayName || translate('playerNameDefault') })}</p>}
               </CardHeader>
               <CardContent className="space-y-4 py-6 px-4 sm:px-6">
                  <div className="text-center">
@@ -857,7 +899,7 @@ export default function GamePage() {
                         className="w-full text-lg py-5 sm:py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
                         onClick={() => {
                           if (!user) {
-                            toast({ title: translate(UI_TEXTS.chatLoginTitle), description: translate(UI_TEXTS.chatLoginMessage), variant: "destructive" });
+                            toast({ title: translate('chatLoginTitle'), description: translate('chatLoginMessage'), variant: "destructive" });
                             return;
                           }
                           router.push(`/room/${activeRoomId}`);
@@ -865,10 +907,10 @@ export default function GamePage() {
                         disabled={!user}
                     >
                         <Gamepad2 className="mr-2 h-5 w-5 sm:mr-3 sm:h-6 sm:w-6" />
-                         {translate(UI_TEXTS.goToGameRoomButton)}
+                         {translate('goToGameRoomButton')}
                     </Button>
                      <p className="text-xs text-muted-foreground mt-1 px-2">
-                        {translate(UI_TEXTS.goToGameRoomDescription)}
+                        {translate('goToGameRoomDescription')}
                     </p>
                  </div>
 
@@ -880,7 +922,7 @@ export default function GamePage() {
                       className="w-full sm:flex-1 text-md sm:text-lg py-4 sm:py-5 border-accent text-accent-foreground hover:bg-accent/10 shadow-md"
                     >
                       <Users className="mr-2 h-5 w-5" />
-                      {translate(UI_TEXTS.inviteFriendsButton)} (WhatsApp)
+                      {translate('inviteFriendsButton')} (WhatsApp)
                     </Button>
                     <Button
                       onClick={handleCopyRoomLinkLobby}
@@ -889,13 +931,13 @@ export default function GamePage() {
                       className="w-full sm:flex-1 text-md sm:text-lg py-4 sm:py-5 border-secondary text-secondary-foreground hover:bg-secondary/10 shadow-md"
                     >
                       <LinkIcon className="mr-2 h-5 w-5" />
-                      {translate(UI_TEXTS.copyRoomLinkButton)}
+                      {translate('copyRoomLinkButton')}
                     </Button>
                   </div>
 
                   <div className="pt-4">
                     <h3 className="text-lg sm:text-xl font-semibold text-secondary mb-2 text-center flex items-center justify-center">
-                      <Users className="mr-2 h-5 w-5" /> {translate(UI_TEXTS.playerListTitle)}
+                      <Users className="mr-2 h-5 w-5" /> {translate('playerListTitle')}
                     </h3>
                     <div className="p-3 sm:p-4 bg-muted/20 rounded-md min-h-[120px] space-y-2">
                       {playersInLobby.length > 0 ? (
@@ -912,24 +954,24 @@ export default function GamePage() {
                                     "absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-background",
                                     player.isOnline ? "bg-green-500" : "bg-gray-400"
                                   )}
-                                  title={player.isOnline ? translate(UI_TEXTS.onlineStatus) : translate(UI_TEXTS.offlineStatus)}
+                                  title={player.isOnline ? translate('onlineStatus') : translate('offlineStatus')}
                                 />
                               </div>
                               <span className="text-sm text-card-foreground">
-                                {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate(UI_TEXTS.youSuffix)}</span>}
+                                {player.name} {player.isCurrentUser && <span className="text-xs text-primary">{translate('youSuffix')}</span>}
                               </span>
                             </div>
                             {!player.isCurrentUser && user && (
                               <Button variant="outline" size="sm" className="text-xs" onClick={() => handleAddFriend(player)}>
-                                <UserPlus className="mr-1 h-3 w-3" /> {translate(UI_TEXTS.addFriendButton)}
+                                <UserPlus className="mr-1 h-3 w-3" /> {translate('addFriendButton')}
                               </Button>
                             )}
                           </div>
                         ))
                       ) : (
-                         <p className="text-sm text-muted-foreground text-center py-2">{user ? translate(UI_TEXTS.waitingForPlayers) : translate(UI_TEXTS.chatLoginMessage) }</p>
+                         <p className="text-sm text-muted-foreground text-center py-2">{user ? translate('waitingForPlayers') : translate('chatLoginMessage') }</p>
                       )}
-                        <p className="text-xs text-muted-foreground text-center pt-2">{translate(UI_TEXTS.playerListDescriptionLobby)}</p>
+                        <p className="text-xs text-muted-foreground text-center pt-2">{translate('playerListDescriptionLobby')}</p>
                     </div>
                   </div>
               </CardContent>
@@ -940,7 +982,7 @@ export default function GamePage() {
                     className="w-full text-destructive hover:text-destructive/90 hover:bg-destructive/10"
                 >
                     <LogOut className="mr-2 h-5 w-5" />
-                    {translate(UI_TEXTS.leaveRoomButton)}
+                    {translate('leaveRoomButton')}
                 </Button>
               </CardFooter>
             </Card>
@@ -950,22 +992,22 @@ export default function GamePage() {
           <AlertDialog open={showCreateRoomDialog} onOpenChange={setShowCreateRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{translate(UI_TEXTS.createRoomDialogTitle)}</AlertDialogTitle>
+                <AlertDialogTitle>{translate('createRoomDialogTitle')}</AlertDialogTitle>
                 <AlertDialogDescription>
-                 {translate(UI_TEXTS.createRoomDialogDescription)}
+                 {translate('createRoomDialogDescription')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="my-4 p-4 bg-muted rounded-md text-center">
-                <p className="text-sm text-muted-foreground">{translate(UI_TEXTS.roomIdLabel)}</p>
+                <p className="text-sm text-muted-foreground">{translate('roomIdLabel')}</p>
                 <p className="text-2xl font-bold text-primary tracking-widest">{generatedRoomId}</p>
                  <Button variant="outline" size="sm" onClick={copyRoomIdToClipboard} className="mt-2">
-                  <Copy className="mr-2 h-4 w-4" /> {translate(UI_TEXTS.copyIdButton)}
+                  <Copy className="mr-2 h-4 w-4" /> {translate('copyIdButton')}
                 </Button>
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setShowCreateRoomDialog(false)}>{translate(UI_TEXTS.closeButton)}</AlertDialogCancel>
+                <AlertDialogCancel onClick={() => setShowCreateRoomDialog(false)}>{translate('closeButton')}</AlertDialogCancel>
                 <AlertDialogAction onClick={handleGoToCreatedRoom}>
-                  {translate(UI_TEXTS.goToRoomButton)} <ArrowRight className="ml-2 h-4 w-4" />
+                  {translate('goToRoomButton')} <ArrowRight className="ml-2 h-4 w-4" />
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -974,30 +1016,30 @@ export default function GamePage() {
           <AlertDialog open={showJoinRoomDialog} onOpenChange={setShowJoinRoomDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>{translate(UI_TEXTS.joinRoomDialogTitle)}</AlertDialogTitle>
+                <AlertDialogTitle>{translate('joinRoomDialogTitle')}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  {translate(UI_TEXTS.joinRoomDialogDescription)}
+                  {translate('joinRoomDialogDescription')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="my-4 space-y-2">
-                <Label htmlFor="join-room-id" className="text-primary">{translate(UI_TEXTS.joinRoomIdInputLabel)}</Label>
+                <Label htmlFor="join-room-id" className="text-primary">{translate('joinRoomIdInputLabel')}</Label>
                 <Input
                   id="join-room-id"
-                  placeholder={translate(UI_TEXTS.joinRoomIdInputPlaceholder)}
+                  placeholder={translate('joinRoomIdInputPlaceholder')}
                   value={joinRoomId}
                   onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())}
                   className="text-lg"
                 />
               </div>
               <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setShowJoinRoomDialog(false)}>{translate(UI_TEXTS.cancelButton)}</AlertDialogCancel>
-                <AlertDialogAction onClick={handleActualJoinRoom}>{translate(UI_TEXTS.joinButton)}</AlertDialogAction>
+                <AlertDialogCancel onClick={() => setShowJoinRoomDialog(false)}>{translate('cancelButton')}</AlertDialogCancel>
+                <AlertDialogAction onClick={handleActualJoinRoom}>{translate('joinButton')}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 
 
-          {gameState === "SPINNING" && !activeRoomId && (
+          {(gameState === "SPINNING" && !activeRoomId) && (
             <div className="animate-fadeIn">
               <RouletteWheel
                 isSpinning={true}
@@ -1008,11 +1050,11 @@ export default function GamePage() {
             </div>
           )}
 
-          {gameState === "PLAYING" && currentLetter && !activeRoomId && (
+          {gameState === "PLAYING" && currentLetterRef.current && !activeRoomId && (
             <div className="my-4 w-full max-w-md text-center p-4 bg-card rounded-lg shadow animate-fadeIn">
               <div className="flex items-center justify-center mb-2">
                 <Clock className="h-6 w-6 mr-2 text-primary" />
-                <p className="text-2xl font-semibold text-primary">{translate(UI_TEXTS.timeLeftLabel)} {timeLeft}s</p>
+                <p className="text-2xl font-semibold text-primary">{translate('timeLeftLabel')} {timeLeft}s</p>
               </div>
               <Progress value={(timeLeft / ROUND_DURATION_SECONDS) * 100} className="w-full h-3 mb-2" />
               {countdownWarningText && (
@@ -1021,10 +1063,10 @@ export default function GamePage() {
             </div>
           )}
 
-          {(gameState === "PLAYING" || gameState === "EVALUATING" || gameState === "RESULTS") && currentLetter && !activeRoomId && (
+          {(!activeRoomId && (gameState === "PLAYING" || gameState === "EVALUATING" || gameState === "RESULTS") && currentLetterRef.current) && (
              <div className="animate-fadeIn w-full">
               <GameArea
-                letter={currentLetter}
+                letter={currentLetterRef.current}
                 categories={currentCategories}
                 playerResponses={playerResponses}
                 onInputChange={handleInputChange}
@@ -1037,9 +1079,9 @@ export default function GamePage() {
             </div>
           )}
 
-          {gameState === "PLAYING" && !activeRoomId && (
+          {(gameState === "PLAYING" && !activeRoomId) && (
             <div className="flex justify-center animate-fadeInUp mt-6">
-              <StopButton onClick={handleStop} disabled={isLoadingAi || timeLeft <= 0} language={language} />
+              <StopButton onClick={handleStop} disabled={isLoadingAi || timeLeft <= 0} language={language} label={translate('stopButtonLabel')} />
             </div>
           )}
 
@@ -1047,39 +1089,39 @@ export default function GamePage() {
             <Card className="shadow-xl rounded-lg animate-fadeIn p-8 mt-6 w-full">
               <CardContent className="flex flex-col items-center justify-center space-y-4 text-center">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                <p className="text-2xl font-semibold text-primary">{translate(UI_TEXTS.loadingAIMessage)}</p>
-                <p className="text-muted-foreground">{translate(UI_TEXTS.loadingAIDescription)}</p>
+                <p className="text-2xl font-semibold text-primary">{translate('loadingAIMessage')}</p>
+                <p className="text-muted-foreground">{translate('loadingAIDescription')}</p>
               </CardContent>
             </Card>
           )}
 
-          {gameState === "RESULTS" && roundResults && !activeRoomId && (
+          {(gameState === "RESULTS" && roundResults && !activeRoomId) && (
             <>
               <Card className="shadow-xl rounded-lg animate-fadeInUp mt-6 w-full">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-2xl text-center text-primary">{translate(UI_TEXTS.resultsTitle)}</CardTitle>
+                  <CardTitle className="text-2xl text-center text-primary">{translate('resultsTitle')}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-center space-y-3 p-6">
                   {roundWinner && <p className="text-xl font-bold text-accent">{roundWinner}</p>}
                   <div className="grid grid-cols-2 gap-4 text-lg">
                     <div>
-                        <p>{translate(UI_TEXTS.yourRoundScore)}</p>
+                        <p>{translate('yourRoundScore')}</p>
                         <p className="font-bold text-primary text-2xl">{playerRoundScore}</p>
                     </div>
                     <div>
-                        <p>{translate(UI_TEXTS.aiRoundScore)}</p>
+                        <p>{translate('aiRoundScore')}</p>
                         <p className="font-bold text-primary text-2xl">{aiRoundScore}</p>
                     </div>
                   </div>
                   <Separator className="my-4" />
-                  <p className="text-xl font-semibold">{translate(UI_TEXTS.totalScoreLabel)}</p>
+                  <p className="text-xl font-semibold">{translate('totalScoreLabel')}</p>
                   <div className="grid grid-cols-2 gap-4 text-lg">
                     <div>
-                        <p>{translate(UI_TEXTS.youLabel)}</p>
+                        <p>{translate('youLabel')}</p>
                         <p className="font-bold text-primary text-2xl">{totalPlayerScore}</p>
                     </div>
                     <div>
-                        <p>{translate(UI_TEXTS.aiLabel)}</p>
+                        <p>{translate('aiLabel')}</p>
                         <p className="font-bold text-primary text-2xl">{totalAiScore}</p>
                     </div>
                   </div>
@@ -1095,7 +1137,7 @@ export default function GamePage() {
                             focus-visible:ring-4 focus-visible:ring-primary/50 rounded-lg w-full sm:w-auto"
                 >
                   <RotateCcw className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
-                  {translate(UI_TEXTS.nextRoundButton)}
+                  {translate('nextRoundButton')}
                 </Button>
                 <Button
                   onClick={handleShareScoreToWhatsApp}
@@ -1106,7 +1148,7 @@ export default function GamePage() {
                             focus-visible:ring-4 focus-visible:ring-accent/50 rounded-lg w-full sm:w-auto"
                 >
                   <Share2 className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" />
-                  {translate(UI_TEXTS.shareScoreButton)}
+                  {translate('shareScoreButton')}
                 </Button>
               </div>
               <GlobalLeaderboardCard
@@ -1128,36 +1170,19 @@ export default function GamePage() {
             </>
           )}
         </div>
-        <ChatPanel
-          messages={chatMessages}
-          onSendMessage={handleSendChatMessageLocal}
-          isOpen={isChatOpen}
-          setIsOpen={setIsChatOpen}
-          currentUserUid={user?.uid}
-          currentUserName={user?.displayName || translate(UI_TEXTS.playerNameDefault)}
-          currentUserAvatar={user?.photoURL}
-          language={language}
-          currentRoomId={null} 
-        />
-      </main>
-      <AppFooter language={language} />
-      <style jsx global>{`
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease-out;
-        }
-        .animate-fadeInUp {
-          animation: fadeInUp 0.5s ease-out forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </div>
-  );
+      <ChatPanel
+        messages={chatMessages}
+        onSendMessage={handleSendChatMessageLocal}
+        isOpen={isChatOpen}
+        setIsOpen={setIsChatOpen}
+        currentUserUid={user?.uid}
+        currentUserName={user?.displayName || translate('playerNameDefault')}
+        currentUserAvatar={user?.photoURL}
+        language={language}
+        currentRoomId={null} // Main page chat is not tied to a DB room
+      />
+        <AppFooter language={language} />
+    </main>
+  </>
+)
 }
-
