@@ -231,11 +231,11 @@ export default function GamePage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if (!backgroundAudioRef.current) {
-        console.log("[GamePage] Attempting to load background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3");
-        backgroundAudioRef.current = new Audio('/music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3');
+        console.log("[GamePage] Attempting to load background audio: /music/the-ticking-of-the-mantel-clock.mp3");
+        backgroundAudioRef.current = new Audio('/music/the-ticking-of-the-mantel-clock.mp3');
         backgroundAudioRef.current.loop = true;
         backgroundAudioRef.current.onerror = () => {
-          console.error("[GamePage] Error loading background audio: /music/2019-12-11_-_Retro_Platforming_-_David_Fesliyan.mp3. Check file path in public/music/ folder.");
+          console.error("[GamePage] Error loading background audio: /music/the-ticking-of-the-mantel-clock.mp3. Check file path in public/music/ folder.");
         };
       }
       if (!countdownTickAudioRef.current) {
@@ -1172,7 +1172,7 @@ export default function GamePage() {
         </div>
       <ChatPanel
         messages={chatMessages}
-        onSendMessage={handleSendChatMessageLocal}
+        onSendMessage={handleSendChatMessageLocal} // Use local send for main page chat
         isOpen={isChatOpen}
         setIsOpen={setIsChatOpen}
         currentUserUid={user?.uid}
@@ -1186,3 +1186,4 @@ export default function GamePage() {
   </>
 )
 }
+
