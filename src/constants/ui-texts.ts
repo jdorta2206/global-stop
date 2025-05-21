@@ -1,3 +1,4 @@
+
 import type { Language } from '@/contexts/language-context';
 
 export const UI_TEXTS: Record<string, Record<Language, string>> = {
@@ -88,12 +89,12 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
     pt: "Por favor, aguarde enquanto a IA prepara suas respostas, validamos as suas e calculamos as pontuações."
   },
   chatLoginMessage: {
-    es: "Debes iniciar sesión para chatear.",
-    en: "You must be logged in to chat.",
-    fr: "Vous devez être connecté pour discuter.",
-    pt: "Você precisa estar logado para conversar."
+    es: "Debes iniciar sesión para chatear y participar plenamente.",
+    en: "You must be logged in to chat and participate fully.",
+    fr: "Vous devez être connecté pour discuter et participer pleinement.",
+    pt: "Você precisa estar logado para conversar e participar plenamente."
   },
-  chatLoginTitle: { es: "Inicia sesión para chatear", en: "Login to Chat", fr: "Connectez-vous pour discuter", pt: "Faça login para conversar" },
+  chatLoginTitle: { es: "Inicia sesión", en: "Login Required", fr: "Connexion Requise", pt: "Login Necessário" },
   timeLeftLabel: { es: "Tiempo Restante:", en: "Time Left:", fr: "Temps Restant :", pt: "Tempo Restante:"},
   timeEndingSoon: { es: "¡Solo 10 segundos!", en: "Only 10 seconds left!", fr: "Plus que 10 secondes !", pt: "Apenas 10 segundos!" },
   timeAlmostUp: { es: "¡5 segundos! ¡RÁPIDO!", en: "5 seconds! QUICK!", fr: "5 secondes ! VITE !", pt: "5 segundos! RÁPIDO!" },
@@ -123,10 +124,10 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
   playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
   playerListDescriptionLobby: {
-    es: "Los jugadores conectados aparecerán aquí. (Funcionalidad completa de presencia próximamente)",
-    en: "Connected players will appear here. (Full presence functionality coming soon)",
-    fr: "Les joueurs connectés apparaîtront ici. (Fonctionnalité de présence complète bientôt disponible)",
-    pt: "Jogadores conectados aparecerão aqui. (Funcionalidade completa de presença em breve)"
+    es: "Los jugadores conectados aparecerán aquí. El estado en línea se actualiza en tiempo real desde Firebase.",
+    en: "Connected players will appear here. Online status updates in real-time from Firebase.",
+    fr: "Les joueurs connectés apparaîtront ici. Le statut en ligne est mis à jour en temps réel depuis Firebase.",
+    pt: "Jogadores conectados aparecerão aqui. O status online atualiza em tempo real do Firebase."
   },
   addFriendButton: { es: "Añadir Amigo", en: "Add Friend", fr: "Ajouter un Ami", pt: "Adicionar Amigo" },
   friendAddedToastTitle: { es: "¡Amigo Añadido!", en: "Friend Added!", fr: "Ami Ajouté !", pt: "Amigo Adicionado!"},
@@ -134,7 +135,7 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   friendAlreadyExistsToastTitle: { es: "Amigo ya Existe", en: "Friend Already Exists", fr: "Ami Existe Déjà", pt: "Amigo Já Existe"},
   friendAlreadyExistsToastDescription: { es: "{name} ya está en tu lista de amigos.", en: "{name} is already on your friends list.", fr: "{name} est déjà dans votre liste d'amis.", pt: "{name} já está na sua lista de amigos."},
   youSuffix: { es: "(Tú)", en: "(You)", fr: "(Vous)", pt: "(Você)" },
-  waitingForPlayers: { es: "Esperando a otros jugadores...", en: "Waiting for other players...", fr: "En attente d'autres joueurs...", pt: "Aguardando outros jogadores..." },
+  waitingForPlayers: { es: "Esperando a otros jugadores... Comparte el ID de la sala.", en: "Waiting for other players... Share the room ID.", fr: "En attente d'autres joueurs... Partagez l'ID de la salle.", pt: "Aguardando outros jogadores... Compartilhe o ID da sala." },
   loggedInAs: { es: "Conectado como: {name}", en: "Logged in as: {name}", fr: "Connecté en tant que : {name}", pt: "Conectado como: {name}" },
   challengePlayerToastTitle: { es: "Desafío Próximamente", en: "Challenge Coming Soon", fr: "Défi Bientôt Disponible", pt: "Desafio Em Breve" },
   challengePlayerToastDescription: { es: "La funcionalidad para desafiar a '{name}' se añadirá en futuras actualizaciones.", en: "The feature to challenge '{name}' will be added in future updates.", fr: "La fonctionnalité pour défier '{name}' sera ajoutée dans les futures mises à jour.", pt: "A funcionalidade para desafiar '{name}' será adicionada em futuras atualizações." },
@@ -158,4 +159,27 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   logoAlt: { es: "Logo del juego Global Stop", en: "Global Stop Game Logo", fr: "Logo du jeu Global Stop", pt: "Logo do Jogo Global Stop" },
   onlineStatus: { es: "En línea", en: "Online", fr: "En ligne", pt: "Online" },
   offlineStatus: { es: "Desconectado", en: "Offline", fr: "Hors ligne", pt: "Offline" },
+  errorToastTitle: { es: "Error", en: "Error", fr: "Erreur", pt: "Erro" },
+  errorToastDescription: { es: "Ha ocurrido un error inesperado.", en: "An unexpected error occurred.", fr: "Une erreur inattendue s'est produite.", pt: "Ocorreu um erro inesperado." },
+  errorAITitle: { es: "Error de IA", en: "AI Error", fr: "Erreur IA", pt: "Erro de IA" },
+  errorAIDescription: { es: "La IA no pudo generar una respuesta para la categoría {category}.", en: "The AI could not generate a response for category {category}.", fr: "L'IA n'a pas pu générer de réponse pour la catégorie {category}.", pt: "A IA não conseguiu gerar uma resposta para a categoria {category}." },
+  errorValidationTitle: { es: "Error de Validación", en: "Validation Error", fr: "Erreur de Validation", pt: "Erro de Validação" },
+  errorValidationDescription: { es: "No se pudo validar la palabra '{word}' para la categoría {category}.", en: "Could not validate the word '{word}' for category {category}.", fr: "Impossible de valider le mot '{word}' pour la catégorie {category}.", pt: "Não foi possível validar a palavra '{word}' para a categoria {category}." },
+  stopButtonLabel: { es: "¡ALTO!", en: "STOP!", fr: "STOP !", pt: "PARE!" },
+  youWillBeHost: { es: "Serás el anfitrión al iniciar la partida.", en: "You will be the host when starting the game.", fr: "Vous serez l'hôte au démarrage de la partie.", pt: "Você será o anfitrião ao iniciar o jogo." },
+  youAreHost: { es: "Eres el anfitrión. ¡Puedes iniciar la partida!", en: "You are the host. You can start the game!", fr: "Vous êtes l'hôte. Vous pouvez démarrer la partie !", pt: "Você é o anfitrião. Pode iniciar o jogo!" },
+  startGameWithFriendsButton: { es: "Iniciar Partida (Amigos) - Próximamente", en: "Start Game (Friends) - Coming Soon", fr: "Démarrer la Partie (Amis) - Bientôt Disponible", pt: "Iniciar Jogo (Amigos) - Em Breve" },
+  startGameWithFriendsDescription: { es: "La funcionalidad para iniciar una partida multijugador real con otros jugadores en esta sala se añadirá en futuras actualizaciones.", en: "The functionality to start a real multiplayer game with other players in this room will be added in future updates.", fr: "La fonctionnalité pour démarrer une vraie partie multijoueur avec d'autres joueurs dans cette salle sera ajoutée dans les futures mises à jour.", pt: "A funcionalidade para iniciar um jogo multijogador real com outros jogadores nesta sala será adicionada em futuras atualizações." },
+  actionNotAllowedTitle: { es: "Acción no Permitida", en: "Action Not Allowed", fr: "Action non Autorisée", pt: "Ação não Permitida" },
+  onlyHostCanStart: { es: "Solo el anfitrión puede iniciar la partida.", en: "Only the host can start the game.", fr: "Seul l'hôte peut démarrer la partie.", pt: "Apenas o anfitrião pode iniciar o jogo." },
+  onlyHostCanEvaluate: { es: "Solo el anfitrión puede evaluar la ronda.", en: "Only the host can evaluate the round.", fr: "Seul l'hôte peut évaluer la manche.", pt: "Apenas o anfitrião pode avaliar a rodada." },
+  resultsAvailable: { es: "Los resultados están disponibles para todos.", en: "Results are available for everyone.", fr: "Les résultats sont disponibles pour tous.", pt: "Os resultados estão disponíveis para todos." },
+  errorSubmittingAnswers: { es: "No se pudieron enviar tus respuestas.", en: "Could not submit your answers.", fr: "Impossible d'envoyer vos réponses.", pt: "Não foi possível enviar suas respostas." },
+  errorSendingMessage: { es: "No se pudo enviar tu mensaje.", en: "Could not send your message.", fr: "Impossible d'envoyer votre message.", pt: "Não foi possível enviar sua mensagem." },
+  wordValid: { es: "Válido", en: "Valid", fr: "Valide", pt: "Válido" },
+  wordFormatError: { es: "Formato Incorrecto", en: "Incorrect Format", fr: "Format Incorrect", pt: "Formato Incorreto" },
+  wordInvalidError: { es: "Palabra Inválida", en: "Invalid Word", fr: "Mot Invalide", pt: "Palavra Inválida" },
+  hostLabel: { es: "Anfitrión", en: "Host", fr: "Hôte", pt: "Anfitrião" },
+  waitingSubmissions: { es: "Esperando envíos", en: "Waiting for submissions", fr: "En attente des soumissions", pt: "Aguardando envios" },
+  checkDbRules: { es: "Comprueba las reglas de tu base de datos Firebase.", en: "Check your Firebase database rules.", fr: "Vérifiez les règles de votre base de données Firebase.", pt: "Verifique as regras do seu banco de dados Firebase."},
 };
