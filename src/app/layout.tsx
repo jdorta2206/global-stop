@@ -23,11 +23,13 @@ export const metadata: Metadata = {
   description: '¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!',
   manifest: '/manifest.json',
   icons: {
-    shortcut: '/logo_stop_game.png', // For general shortcut icon
+    // Prioritize logo_stop_game.png for modern browsers
     icon: [
-      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' }, // Main icon, any size
-      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' }, // Traditional favicon
+      { url: '/logo_stop_game.png', type: 'image/png', sizes: 'any' },
+      // Fallback to traditional favicon.ico
+      { url: '/favicon.ico', type: 'image/x-icon', sizes: '48x48' },
     ],
+    shortcut: '/logo_stop_game.png', // For older browsers
     apple: [ // For Apple touch icons
       { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],

@@ -110,7 +110,6 @@ export default function GamePage() {
 
   const homeScreenAudioRef = useRef<HTMLAudioElement | null>(null);
   const backgroundAudioRef = useRef<HTMLAudioElement | null>(null);
-  const countdownUrgentAudioRef = useRef<HTMLAudioElement | null>(null);
   const stopSoundRef = useRef<HTMLAudioElement | null>(null);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -220,7 +219,7 @@ export default function GamePage() {
     if (typeof window !== 'undefined') {
       // Home screen music
       if (!homeScreenAudioRef.current) {
-        const audioSrc = '/music/home-screen-music.mp3';
+        const audioSrc = '/music/home-screen-musi.mp3';
         console.log(`[GamePage] Attempting to load home screen audio from: ${audioSrc}`);
         homeScreenAudioRef.current = new Audio(audioSrc);
         homeScreenAudioRef.current.loop = true;
@@ -254,23 +253,6 @@ export default function GamePage() {
           );
         };
       }
-      // Countdown urgent sound
-      if (!countdownUrgentAudioRef.current) {
-        const audioSrc = '/music/countdown_urgent.mp3';
-        console.log(`[GamePage] Attempting to load audio: ${audioSrc}`);
-        countdownUrgentAudioRef.current = new Audio(audioSrc);
-        countdownUrgentAudioRef.current.onloadeddata = () => {
-          console.log(`[GamePage] Successfully loaded data for: ${audioSrc}`);
-        };
-        countdownUrgentAudioRef.current.onerror = () => {
-          const mediaError = countdownUrgentAudioRef.current?.error;
-           console.error(
-            `[GamePage] Error loading audio: ${audioSrc}. `+
-            `Check file path in public/music/ folder. ` +
-            `Details: Code ${mediaError?.code}, Message: ${mediaError?.message}`
-          );
-        };
-      }
       // Stop sound
       if (!stopSoundRef.current) {
         const audioSrc = '/music/dry-cuckoo-sound.mp3';
@@ -293,7 +275,6 @@ export default function GamePage() {
     return () => {
       homeScreenAudioRef.current?.pause();
       backgroundAudioRef.current?.pause();
-      countdownUrgentAudioRef.current?.pause();
       stopSoundRef.current?.pause();
     };
   }, []); // Empty dependency array ensures this runs once on mount and unmount
@@ -302,7 +283,6 @@ export default function GamePage() {
     if (homeScreenAudioRef.current) {
       if (gameState === "IDLE" && !activeRoomId) {
         backgroundAudioRef.current?.pause();
-        countdownUrgentAudioRef.current?.pause();
         homeScreenAudioRef.current.currentTime = 0;
         homeScreenAudioRef.current.play().catch(error => console.error("[GamePage] Error playing home screen audio:", error));
       } else {
@@ -578,14 +558,9 @@ export default function GamePage() {
           }
 
           if (prevTime === 11) { 
-            setCountdownWarningText(translate('timeEndingSoon'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
-          } else if (prevTime === 6) {
-            setCountdownWarningText(translate('timeAlmostUp'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
+ setCountdownWarningText(translate('timeEndingSoon'));
           } else if (prevTime === 4) {
             setCountdownWarningText(translate('timeFinalCountdown'));
-            countdownUrgentAudioRef.current?.play().catch(e => console.error("[GamePage] Error playing urgent audio:", e));
           } else if (prevTime > 10) { 
             setCountdownWarningText("");
           }
