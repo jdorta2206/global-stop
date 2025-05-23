@@ -41,11 +41,11 @@ export async function validatePlayerWord(input: ValidatePlayerWordInput): Promis
 }
 
 const currentPromptText = `Eres un juez experto para el juego "Stop" (también conocido como Tutti Frutti o Basta).
-Tu tarea específica es determinar si la palabra '{{{playerWord}}}' es una entrada válida para la letra '{{{letter}}}' en el idioma '{{{language}}}'.
+Your specific task is to determine if the word '{{{playerWord}}}' is a valid entry for the letter '{{{letter}}}' in the language '{{{language}}}'.
 
-Reglas a seguir ESTRICTAMENTE:
-1.  La palabra DEBE comenzar con la letra '{{{letter}}}' (ignora mayúsculas/minúsculas).
-2.  La palabra '{{{playerWord}}}' DEBE ser una palabra en {{{language}}} real, comúnmente conocida y correctamente escrita, O un nombre propio común en {{{language}}} (ejemplos para 'es': Paco, París, Zorro, Irene, Sofía; ejemplos para 'en': John, London, Fox, Irene, Sophia). No debe ser una palabra inventada, un error tipográfico, una cadena aleatoria de letras o una palabra de otro idioma (a menos que sea un préstamo muy común en {{{language}}} como 'hobby' o 'sándwich').
+Rules to follow STRICTLY:
+1. The word MUST start with the letter '{{{letter}}}' (case-insensitive).
+2. The word '{{{playerWord}}}' MUST be a real, commonly known, correctly spelled {{{language}}} word, OR a common proper noun in {{{language}}} (examples for 'es': Paco, París, Zorro, Irene, Sofía; examples for 'en': John, London, Fox, Irene, Sophia). It must not be a made-up word, a typo, a random string of letters, or a word from another language (unless it's a very common loanword in {{{language}}} like 'hobby' or 'sandwich').
 3.  La palabra NO debe estar vacía ni consistir solo en espacios en blanco.
 
 Palabra del jugador: '{{{playerWord}}}'

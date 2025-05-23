@@ -44,9 +44,9 @@ interface PlayerInRoom {
   avatar?: string | null;
   isCurrentUser?: boolean;
   isOnline?: boolean;
-  joinedAt?: number;
-  hasSubmitted?: boolean; 
-  submittedAnswersForRound?: string | null; 
+ joinedAt?: any; // Firebase Timestamp object or number or Date
+  hasSubmitted?: any; // Allow serverTimestamp
+  submittedAnswersForRound?: string | null | any; // Allow serverTimestamp
 }
 
 interface GameData {
@@ -248,8 +248,14 @@ export default function RoomPage() {
     return text;
   }, [language]); 
 
-  const commonTranslate = useCallback((textKey: keyof typeof UI_TEXTS) => {
-    return UI_TEXTS[textKey]?.[language] || UI_TEXTS[textKey]?.['en'] || String(textKey);
+  const commonTranslate = useCallback((textKey: keyof typeof UI_TEXTS, replacements?: Record<string, string>) => {
+    let text = UI_TEXTS[textKey]?.[language] || UI_TEXTS[textKey]?.['en'] || String(textKey);
+    if (replacements) {
+      Object.keys(replacements).forEach(key => {
+        text = text.replace(`{${key}}`, replacements[key]);
+      });
+    }
+    return text;
   }, [language]); 
 
   const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
@@ -268,15 +274,15 @@ export default function RoomPage() {
     const playerRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}`);
     const playerStatusRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/isOnline`);
     const playerLastSeenRef = ref(db, `rooms/${roomIdFromParams}/players/${user.uid}/lastSeen`);
-    
+
     const playerData: Omit<PlayerInRoom, 'id' | 'isCurrentUser'> & { joinedAt: any; lastSeen: any; submittedAnswersForRound: string | null; hasSubmitted: boolean; } = {
       name: user.displayName || currentDefaultPlayerName,
       avatar: user.photoURL || `https://placehold.co/40x40.png?text=${(user.displayName || currentDefaultPlayerName).charAt(0)}`,
-      isOnline: true,
+      isOnline: true as any, // Explicitly cast to any if serverTimestamp returns object
       hasSubmitted: false, 
-      submittedAnswersForRound: null,
-      joinedAt: serverTimestamp(),
-      lastSeen: serverTimestamp(),
+      submittedAnswersForRound: null as any, // Explicitly cast to any if serverTimestamp returns object
+      joinedAt: serverTimestamp() as any, // Explicitly cast to any
+      lastSeen: serverTimestamp() as any, // Explicitly cast to any
     };
 
     console.log(`[${timestamp}] [RoomPage] handlePlayerJoin: Player data to write:`, JSON.stringify(playerData));
@@ -851,15 +857,15 @@ export default function RoomPage() {
     const friendExists = friendsList.some(friend => friend.id === player.id || friend.name === player.name);
     if (friendExists) {
       console.log(`[${timestamp}] [RoomPage] handleAddFriendFromRoom: Friend ${player.name} already exists.`);
-      toast({
-        title: commonTranslate('friendAlreadyExistsToastTitle'),
-        description: commonTranslate('friendAlreadyExistsToastDescription', { name: player.name }),
-        variant: "default",
+ toast({ 
+ title: commonTranslate('friendAlreadyExistsToastTitle'),
+ description: commonTranslate('friendAlreadyExistsToastDescription'), // Keep replacement here
+ variant: "default",
       });
       return;
     }
     const newFriend: PlayerScore = {
-      id: player.id, 
+ id: player.id || `friend-${Date.now()}`, // Ensure id exists
       name: player.name,
       score: 0, 
       avatar: player.avatar || `https://placehold.co/40x40.png?text=${player.name.charAt(0)}`,
@@ -867,9 +873,9 @@ export default function RoomPage() {
     console.log(`[${timestamp}] [RoomPage] handleAddFriendFromRoom: Adding new friend:`, newFriend);
     setFriendsList(prevFriends => [...prevFriends, newFriend]);
     toast({
-      title: commonTranslate('friendAddedToastTitle'),
-      description: commonTranslate('friendAddedToastDescription', { name: player.name }),
-    });
+ title: commonTranslate('friendAddedToastTitle'),
+ description: commonTranslate('friendAddedToastDescription'), // Keep replacement here
+ });
   }, [user, friendsList, setFriendsList, toast, commonTranslate]);
 
 
