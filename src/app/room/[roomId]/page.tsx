@@ -1,18 +1,19 @@
+"use client";
+
 // Define ROUND_DURATION_SECONDS here
 const ROUND_DURATION_SECONDS = 60; // Defaulting to 60 seconds
 
 // Define PlayerScore interface
 interface PlayerScore {
-  id: string;
+  id: string; // Make id mandatory
   name: string;
   score: number;
   avatar?: string;
 }
 
-"use client";
-
 import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // Assuming Link is needed for the join room button
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
