@@ -53,7 +53,7 @@ export default function RootLayout({
             <RoomGameProvider>
               {children}
               <Toaster />
-            </RoomProvider>
+            </RoomGameProvider>
           </AuthProvider>
         </LanguageProvider>
         {/* Facebook SDK Scripts */}
