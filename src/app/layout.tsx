@@ -5,7 +5,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context';
 import { LanguageProvider } from '@/contexts/language-context';
-import { RoomProvider } from '@/contexts/room-context';
+import { RoomGameProvider } from '@/contexts/room-context';
 import Script from 'next/script';
 
 const geistSans = Geist({
@@ -50,7 +50,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <LanguageProvider>
           <AuthProvider>
-            <RoomProvider>
+            <RoomGameProvider>
               {children}
               <Toaster />
             </RoomProvider>
