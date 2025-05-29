@@ -1,0 +1,13 @@
+# .apphosting.yaml
+# Configuración para Firebase App Hosting
+
+# Directorio de salida de la construcción.
+# Para Next.js con App Router, el output está en la raíz después de `next build`.
+# Asegúrate de que esta ruta sea correcta para tu proyecto.
+rootDir: .
+
+# Opciones de despliegue específicas para frameworks (opcional).
+# Firebase suele detectar automáticamente Next.js, pero puedes especificarlo si es necesario.
+# frameworks:
+#   type: nextjs
+#   version: 13 # O la versión de Next.js que uses

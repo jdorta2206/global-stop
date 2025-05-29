@@ -1,0 +1,22 @@
+{
+  "name": "Juego Stop",
+  "short_name": "Stop",
+  "description": "¡Juega al clásico juego Stop, multilenguaje, contra la IA o amigos!",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#C0474A",
+  "background_color": "#C0474A",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any"
+}
