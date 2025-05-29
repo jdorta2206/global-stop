@@ -19,7 +19,7 @@ import { validatePlayerWord, type ValidatePlayerWordInput, type ValidatePlayerWo
 import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus, Sword, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, useRoomGameContext } from '@/contexts/auth-context';
 import { useLanguage, type Language, type LanguageOption } from '@/contexts/language-context';
 import { useRoom } from '@/contexts/room-context';
 import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
@@ -89,7 +89,7 @@ export default function GamePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { language, setLanguage: setGlobalLanguage, translate: translateUi } = useLanguage();
-  const { activeRoomId, setActiveRoomId } = useRoom();
+  const { activeRoomId, setActiveRoomId } = useRoomGameContext();
   const router = useRouter();
 
   const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});

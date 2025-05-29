@@ -177,10 +177,4 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   hostLabel: { es: "Anfitrión", en: "Host", fr: "Hôte", pt: "Anfitrião" },
   waitingSubmissions: { es: "Esperando envíos", en: "Waiting for submissions", fr: "En attente des soumissions", pt: "Aguardando envios" },
   checkDbRules: { es: "Comprueba las reglas de tu base de datos Firebase.", en: "Check your Firebase database rules.", fr: "Vérifiez les règles de votre base de données Firebase.", pt: "Verifique as regras do seu banco de dados Firebase." },
-  playVsAI: { es: "Jugar contra IA", en: "Play against AI", fr: "Jouer contre l'IA", pt: "Jogar contra IA" }, // Re-added this key with the correct name
 };
-
-// Re-added missing keys
-UI_TEXTS.createRoom = { es: "Crear Sala (Amigos)", en: "Create Room (Friends)", fr: "Créer une Salle (Amis)", pt: "Criar Sala (Amigos)" };
-UI_TEXTS.joinRoom = { es: "Unirse a Sala", en: "Join Room", fr: "Rejoindre une Salle", pt: "Entrar na Sala" };
-UI_TEXTS.shareGame = { es: "Compartir Stop", en: "Share Stop", fr: "Partager Stop", pt: "Compartilhar Stop" };
