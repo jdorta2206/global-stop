@@ -4,6 +4,8 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 // Assuming this is the interface you want to export
 export interface RoomGameContextValue {
     // Add the actual properties of your RoomGameContextValue here
+    activeRoomId: string | null;
+    setActiveRoomId: (id: string | null) => void;
     gameData: any; // Replace 'any' with the actual type
     connectedPlayers: any[]; // Replace 'any' with the actual type
     isEvaluatingByHost: boolean;
@@ -18,6 +20,7 @@ interface RoomGameProviderProps {
 }
 
 export function RoomGameProvider({ children }: RoomGameProviderProps) {
+    const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
     const [gameData, setGameData] = useState<any>(null); // Replace 'any' with the actual type
     const [connectedPlayers, setConnectedPlayers] = useState<any[]>([]); // Replace 'any' with the actual type
     const [isEvaluatingByHost, setIsEvaluatingByHost] = useState(false);
@@ -30,7 +33,7 @@ export function RoomGameProvider({ children }: RoomGameProviderProps) {
     }, []);
 
     return (
-        <RoomGameContext.Provider value={{ gameData, connectedPlayers, isEvaluatingByHost, setIsEvaluatingByHost, resetGame }}>
+        <RoomGameContext.Provider value={{ activeRoomId, setActiveRoomId, gameData, connectedPlayers, isEvaluatingByHost, setIsEvaluatingByHost, resetGame }}>
             {children}
         </RoomGameContext.Provider>
     );
