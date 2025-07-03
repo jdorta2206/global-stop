@@ -1,3 +1,21 @@
 {
-  "secrets_manager": {}
+  "secrets_manager": {
+    "provider": "git_crypt",
+    "environments": {
+      "development": {
+        "method": "local_env_file",
+        "files": [".env.local"]
+      },
+      "production": {
+        "method": "vercel_env",
+        "integration": "vercel"
+      }
+    },
+    "integrations": {
+      "vercel": {
+        "enabled": true,
+        "auto_sync": true
+      }
+    }
+  }
 }
