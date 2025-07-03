@@ -1,17 +1,101 @@
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+// src/ai/local-ai.ts - Reemplazo gratuito para Genkit/Google AI
 
-// Línea temporal para depuración (lo más temprano posible)
-console.log("[Genkit Init Early Debug] GOOGLE_API_KEY is set:", !!process.env.GOOGLE_API_KEY);
-console.log("[Genkit Init Early Debug] process.env keys:", Object.keys(process.env).join(', ')); // Opcional: log todas las keys (¡con cuidado!)
+/**
+ * Módulo de IA local - Versión gratuita
+ * Proporciona funcionalidades similares a Genkit pero sin dependencias de pago
+ */
 
+import { LocalAIModel } from './local-models';
+import { DictionaryValidator } from './dictionary-validator';
 
-console.log("[Genkit Init] Starting Genkit initialization process, relying on GOOGLE_GENERATIVE_AI_API_KEY.");
+// Configuración inicial
+const localModel = new LocalAIModel();
+const dictionaryValidator = new DictionaryValidator();
 
+export const ai = {
+  /**
+   * Generador de respuestas de IA local
+   */
+  async generateResponse(input: {
+    letter: string;
+    category: string;
+    language: string;
+  }): Promise<{ response: string }> {
+    console.log("[LocalAI] Generating response for:", input);
+    return localModel.generate(input);
+  },
 
-export const ai = genkit({
-  plugins: [googleAI({})],
-  model: 'googleai/gemini-1.5-flash-latest',
-});
+  /**
+   * Validador de palabras local
+   */
+  async validateWord(input: {
+    word: string;
+    language: string;
+  }): Promise<{ isValid: boolean }> {
+    console.log("[LocalAI] Validating word:", input);
+    return dictionaryValidator.validate(input);
+  },
 
-console.log("[Genkit Init] Genkit initialization code complete.")
+  // Compatibilidad con la interfaz original (opcional)
+  definePrompt: () => {
+    console.warn("definePrompt no es necesario en la versión local");
+    return (input: any) => localModel.generate(input);
+  },
+
+  defineFlow: () => {
+    console.warn("defineFlow no es necesario en la versión local");
+    return (input: any) => localModel.generate(input);
+  }
+};
+
+// Implementación del modelo local
+class LocalAIModel {
+  private dictionaries: Record<string, Record<string, string[]>> = {
+    es: {
+      animales: ['ardilla', 'ballena', 'camello'],
+      países: ['argentina', 'brasil', 'colombia']
+    },
+    en: {
+      animals: ['antelope', 'bear', 'cat'],
+      countries: ['argentina', 'belgium', 'canada']
+    }
+  };
+
+  async generate(input: {
+    letter: string;
+    category: string;
+    language: string;
+  }): Promise<{ response: string }> {
+    const { letter, category, language } = input;
+    const lowerLetter = letter.toLowerCase();
+
+    const words = this.dictionaries[language]?.[category.toLowerCase()] || [];
+    const validWords = words.filter(word => 
+      word.toLowerCase().startsWith(lowerLetter)
+    );
+
+    return {
+      response: validWords.length > 0 
+        ? validWords[Math.floor(Math.random() * validWords.length)]
+        : ""
+    };
+  }
+}
+
+// Implementación del validador
+class DictionaryValidator {
+  private wordSets: Record<string, Set<string>> = {
+    es: new Set(['ardilla', 'ballena', 'camello']),
+    en: new Set(['antelope', 'bear', 'cat'])
+  };
+
+  async validate(input: {
+    word: string;
+    language: string;
+  }): Promise<{ isValid: boolean }> {
+    const { word, language } = input;
+    return {
+      isValid: this.wordSets[language]?.has(word.toLowerCase()) || false
+    };
+  }
+}
