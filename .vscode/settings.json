@@ -1,4 +1,26 @@
 {
-    "IDX.aI.enableInlineCompletion": true,
-    "IDX.aI.enableCodebaseIndexing": true
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true
+  },
+  "eslint.validate": ["javascript", "typescript", "javascriptreact", "typescriptreact"],
+  "prettier.enable": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  
+  // Extensiones gratuitas recomendadas para productividad
+  "extensions.recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "GitHub.copilot-labs", // Versión gratuita con funcionalidades limitadas
+    "streetsidesoftware.code-spell-checker",
+    "bradlc.vscode-tailwindcss"
+  ],
+  
+  // Configuración para GitHub Copilot (versión gratuita para estudiantes)
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": false
+  }
 }
