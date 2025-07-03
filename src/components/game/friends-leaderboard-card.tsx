@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -10,6 +9,7 @@ import type { Language } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 interface FriendsLeaderboardCardProps {
   leaderboardData: EnrichedPlayerScore[];
@@ -17,7 +17,7 @@ interface FriendsLeaderboardCardProps {
   language: Language;
   currentUserId?: string | null;
   onChallenge?: (player: EnrichedPlayerScore) => void;
-  onAddFriendManual: (identifier: string) => void; // New prop
+  onAddFriendManual: (identifier: string) => void;
 }
 
 const TEXTS = {
@@ -40,36 +40,57 @@ const TEXTS = {
   },
 };
 
-
 export function FriendsLeaderboardCard({ 
   leaderboardData, 
   className, 
   language,
   currentUserId,
   onChallenge,
-  onAddFriendManual // Destructure new prop
+  onAddFriendManual
 }: FriendsLeaderboardCardProps) {
   const [newFriendIdentifier, setNewFriendIdentifier] = useState("");
+  const supabase = createClientComponentClient();
 
   const translate = (textKey: keyof typeof TEXTS) => {
     return TEXTS[textKey][language] || TEXTS[textKey]['en'];
   };
 
-  const handleAddManually = () => {
-    if (newFriendIdentifier.trim()) {
+  const handleAddManually = async () => {
+    if (!newFriendIdentifier.trim() || !currentUserId) return;
+
+    // 1. Buscar usuario por email o nombre
+    const { data: users, error } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .or(`username.ilike.%${newFriendIdentifier}%,email.ilike.%${newFriendIdentifier}%`)
+      .limit(1);
+
+    if (error || !users?.length) {
+      // Si no se encuentra, añadir como amigo manual
       onAddFriendManual(newFriendIdentifier.trim());
-      setNewFriendIdentifier(""); // Clear input after adding
+    } else {
+      // Si se encuentra, añadir relación en tabla friends
+      const { error: friendError } = await supabase
+        .from('friends')
+        .insert({
+          user_id: currentUserId,
+          friend_id: users[0].id,
+          friend_name: users[0].username,
+          friend_avatar: users[0].avatar_url
+        });
     }
+
+    setNewFriendIdentifier("");
   };
 
   return (
     <Card className={cn("shadow-lg rounded-xl", className)}>
       <CardHeader>
-         <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-                <Users className="h-7 w-7 text-primary" />
-                <CardTitle className="text-2xl font-semibold text-primary">{translate('title')}</CardTitle>
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Users className="h-7 w-7 text-primary" />
+            <CardTitle className="text-2xl font-semibold text-primary">{translate('title')}</CardTitle>
+          </div>
         </div>
         <CardDescription className="mt-2">
           {translate('description')}
@@ -97,13 +118,14 @@ export function FriendsLeaderboardCard({
               value={newFriendIdentifier}
               onChange={(e) => setNewFriendIdentifier(e.target.value)}
               className="flex-grow"
+              onKeyPress={(e) => e.key === 'Enter' && handleAddManually()}
             />
             <Button type="button" onClick={handleAddManually} size="sm">
               <PlusCircle className="mr-2 h-4 w-4" />
               {translate('addFriendButton')}
             </Button>
           </div>
-           <Label htmlFor="manual-friend-identifier" className="text-xs text-muted-foreground mt-1">
+          <Label htmlFor="manual-friend-identifier" className="text-xs text-muted-foreground mt-1">
             {translate('addFriendInputLabel')}
           </Label>
         </div>
