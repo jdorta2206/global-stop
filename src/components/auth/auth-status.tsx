@@ -1,14 +1,12 @@
-
 "use client";
 
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth } from '@/contexts/supabase-auth-context'; // Cambiado a Supabase
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { LogIn, LogOut, UserCircle, Loader2, ShieldAlert, Facebook } from 'lucide-react';
-import Image from 'next/image'; // Para el ícono de Google
 
-// Icono de Google como componente SVG (más fácil de manejar que un archivo de imagen en este contexto)
+// Icono de Google (se mantiene igual)
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" width="18" height="18" {...props}>
     <path fill="#4285F4" d="M21.35 11.1h-9.2v2.7h5.3c-.2 1.1-.9 2-2.1 2.7v1.9c2.1-1 3.8-3.1 3.8-5.7 0-.6-.1-1.1-.2-1.6z"></path>
@@ -18,9 +16,13 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-
 export function AuthStatus() {
   const { user, loading, signInWithGoogle, signInWithFacebook, logout } = useAuth();
+
+  // Datos del usuario adaptados a Supabase
+  const userName = user?.user_metadata?.full_name || user?.email || 'Usuario';
+  const userAvatar = user?.user_metadata?.avatar_url || undefined;
+  const userEmail = user?.email || "Sin email";
 
   if (loading) {
     return (
@@ -36,11 +38,11 @@ export function AuthStatus() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full">
             <Avatar className="h-8 w-8">
-              {user.photoURL ? (
-                <AvatarImage src={user.photoURL} alt={user.displayName || 'Avatar de usuario'} />
-              ) : null}
+              {userAvatar && (
+                <AvatarImage src={userAvatar} alt={userName} />
+              )}
               <AvatarFallback>
-                {user.displayName ? user.displayName.charAt(0).toUpperCase() : <UserCircle className="h-5 w-5" />}
+                {userName ? userName.charAt(0).toUpperCase() : <UserCircle className="h-5 w-5" />}
               </AvatarFallback>
             </Avatar>
           </Button>
@@ -49,15 +51,18 @@ export function AuthStatus() {
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium leading-none">
-                {user.displayName || "Usuario"}
+                {userName}
               </p>
               <p className="text-xs leading-none text-muted-foreground">
-                {user.email || "Sin email"}
+                {userEmail}
               </p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={logout} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+          <DropdownMenuItem 
+            onClick={logout} 
+            className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+          >
             <LogOut className="mr-2 h-4 w-4" />
             Cerrar sesión
           </DropdownMenuItem>
@@ -85,11 +90,11 @@ export function AuthStatus() {
           <Facebook className="mr-2 h-4 w-4" />
           Facebook
         </DropdownMenuItem>
-         <DropdownMenuSeparator />
-         <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-            <ShieldAlert className="mr-2 h-3 w-3" />
-            <span>Facebook necesita config. adicional</span>
-         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+          <ShieldAlert className="mr-2 h-3 w-3" />
+          <span>Facebook necesita configuración adicional</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
