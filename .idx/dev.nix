@@ -1,27 +1,33 @@
-# To learn more about how to use Nix to configure your environment
-# see: https://firebase.google.com/docs/studio/customize-workspace
+# .idx/dev.nix - Configuración gratuita alternativa
 {pkgs}: {
-  # Which nixpkgs channel to use.
-  channel = "stable-24.11"; # or "unstable"
-  # Use https://search.nixos.org/packages to find packages
+  channel = "stable-24.11"; # o "unstable" para paquetes más nuevos
   packages = [
     pkgs.nodejs_20
     pkgs.zulu
+    # Añade estas nuevas dependencias gratuitas
+    pkgs.sqlite
+    pkgs.supabase-cli
   ];
-  # Sets environment variables in the workspace
-  env = {};
-  # This adds a file watcher to startup the firebase emulators. The emulators will only start if
-  # a firebase.json file is written into the user's directory
-  services.firebase.emulators = {
-    detect = true;
-    projectId = "demo-app";
-    services = ["auth" "firestore"];
+  
+  env = {
+    # Variables para Supabase local
+    NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    NEXT_PUBLIC_SUPABASE_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...";
   };
+
+  # Configuración alternativa a Firebase Emulators
+  services.supabase = {
+    enable = true;
+    localMode = true;
+  };
+
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
-      # "vscodevim.vim"
+      # Extensiones recomendadas para desarrollo
+      "dbaeumer.vscode-eslint"
+      "esbenp.prettier-vscode"
     ];
+    
     workspace = {
       onCreate = {
         default.openFiles = [
@@ -29,7 +35,7 @@
         ];
       };
     };
-    # Enable previews and customize configuration
+    
     previews = {
       enable = true;
       previews = {
