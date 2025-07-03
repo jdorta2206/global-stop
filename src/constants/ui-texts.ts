@@ -4,12 +4,12 @@ import type { Language } from '@/contexts/language-context';
 export const UI_TEXTS: Record<string, Record<Language, string>> = {
   welcomeTitle: { es: "¡Bienvenido a Stop!", en: "Welcome to Stop!", fr: "Bienvenue à Stop!", pt: "Bem-vindo ao Stop!" },
   playVsAI: { es: "Elige cómo quieres jugar:", en: "Choose how you want to play:", fr: "Choisissez comment vous voulez jouer :", pt: "Escolha como você quer jogar:" },
-  shareGameMessageWhatsApp: { es: "¡Oye! ¡Juega Stop conmigo! Es muy divertido:",
+  shareGameMessageWhatsApp: { 
+    es: "¡Oye! ¡Juega Stop conmigo! Es muy divertido:",
     en: "Hey! Play Stop with me! It's great fun:",
     fr: "Salut ! Joue à Stop avec moi ! C'est très amusant :",
     pt: "Ei! Jogue Stop comigo! É muito divertido:"
- },
-
+  },
   createRoomDialogTitle: { es: "¡Sala Creada!", en: "Room Created!", fr: "Salle Créée !", pt: "Sala Criada!" },
   createRoomDialogDescription: {
     es: "Comparte este ID con tus amigos. Al hacer clic en 'Ir a la Sala', serás llevado a la página de esta sala.",
@@ -103,7 +103,7 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   aiTotalScore: { es: "Puntuación total de la IA", en: "AI's total score", fr: "Score total de l'IA", pt: "Pontuação total da IA" },
   canYouBeatMe: { es: "¿Crees que puedes superarme? ¡Inténtalo en Stop!", en: "Think you can beat me? Try Stop!", fr: "Pensez-vous pouvoir me battre ? Essayez Stop !", pt: "Acha que pode me vencer? Experimente o Stop!" },
   lobbyTitle: { es: "Sala de Espera Multijugador", en: "Multiplayer Lobby", fr: "Salon Multijoueur", pt: "Lobby Multijogador" },
-  inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" }, // Mantener esta línea como está
+  inRoomMessage: { es: "Estás en la Sala:", en: "You are in Room:", fr: "Vous êtes dans la Salle :", pt: "Você está na Sala:" },
   goToGameRoomButton: { es: "Ir a la Sala de Juego", en: "Go to Game Room", fr: "Aller à la Salle de Jeu", pt: "Ir para a Sala de Jogo" },
   goToGameRoomDescription: {
     es: "La partida se desarrollará en la página de la sala. ¡Allí podrás ver a otros jugadores!",
@@ -114,9 +114,9 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   inviteFriendsButton: { es: "Invitar Amigos", en: "Invite Friends", fr: "Inviter des Amis", pt: "Convidar Amigos" },
   leaveRoomButton: { es: "Salir de la Sala", en: "Leave Room", fr: "Quitter la Salle", pt: "Sair da Sala" },
   shareRoomLinkMessageWhatsApp: { es: "¡Únete a mi sala en Global Stop! ID:", en: "Join my room in Global Stop! ID:", fr: "Rejoins ma salle sur Global Stop ! ID :", pt: "Entre na minha sala no Global Stop! ID:" },
-  joinHere: { es: "¡Únete a mi sala en Stop! ID: {roomId}. ¡Aquí tienes el enlace:", en: "Join my room in Stop! ID: {roomId}. Here's the link:", fr: "Rejoins ma salle sur Stop ! ID : {roomId}. Voici le lien :", pt: "Entre na minha sala no Stop! ID: {roomId}. Aqui está o link:" }, // Adjusted text for clarity and brevity
+  joinHere: { es: "¡Únete a mi sala en Stop! ID: {roomId}. ¡Aquí tienes el enlace:", en: "Join my room in Stop! ID: {roomId}. Here's the link:", fr: "Rejoins ma salle sur Stop ! ID : {roomId}. Voici le lien :", pt: "Entre na minha sala no Stop! ID: {roomId}. Aqui está o link:" },
   copyRoomLinkButton: { es: "Copiar Enlace de la Sala", en: "Copy Room Link", fr: "Copier le Lien de la Salle", pt: "Copiar Link da Sala" },
-  roomLinkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!", fr: "Lien Copié !", pt: "Link Copiado!" }, // Simplified toast title
+  roomLinkCopiedToastTitle: { es: "¡Enlace Copiado!", en: "Link Copied!", fr: "Lien Copié !", pt: "Link Copiado!" },
   roomLinkCopiedToastDescription: { es: "El enlace a la sala ha sido copiado a tu portapapeles.", en: "The room link has been copied to your clipboard.", fr: "Le lien de la salle a été copié dans votre presse-papiers.", pt: "O link da sala foi copiado para sua área de transferência." },
   playerListTitle: { es: "Jugadores en la Sala", en: "Players in Room", fr: "Joueurs dans la Salle", pt: "Jogadores na Sala" },
   playerListDescriptionLobby: {
@@ -142,18 +142,18 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   addFriendManualPlaceholder: { es: "Introduce nombre o email", en: "Enter name or email", fr: "Entrez nom ou email", pt: "Insira nome ou email"},
   addFriendManualButton: { es: "Añadir", en: "Add", fr: "Ajouter", pt: "Adicionar"},
   friendManuallyAddedToastTitle: { es: "¡Amigo Añadido Manualmente!", en: "Friend Added Manually!", fr: "Ami Ajouté Manuellement !", pt: "Amigo Adicionado Manualmente!"},
- friendManuallyAddedToastDescription: { es: "{name} ha sido añadido a tu lista local de amigos.", en: "{name} has been added to your local friends list.", fr: "{name} a été ajouté à votre liste d'amis locale.", pt: "{name} foi adicionado à sua lista local de amigos."},
+  friendManuallyAddedToastDescription: { es: "{name} ha sido añadido a tu lista local de amigos.", en: "{name} has been added to your local friends list.", fr: "{name} a été ajouté à votre liste d'amis locale.", pt: "{name} foi adicionado à sua lista local de amigos."},
   challengeSetupPageTitle: { es: "Configurar Desafío", en: "Setup Challenge", fr: "Configurer le Défi", pt: "Configurar Desafio"},
   challengeSetupDescription: { es: "Preparando desafío con {playerName} (ID: {playerId}).", en: "Setting up challenge with {playerName} (ID: {playerId}).", fr: "Préparation du défi avec {playerName} (ID : {playerId}).", pt: "Preparando desafio com {playerName} (ID: {playerId})."},
- challengeSettingsComingSoon: { es: "Configuración del juego (próximamente)", en: "Game settings (coming soon)", fr: "Paramètres du jeu (bientôt disponible)", pt: "Configurações do jogo (em breve)"},
+  challengeSettingsComingSoon: { es: "Configuración del juego (próximamente)", en: "Game settings (coming soon)", fr: "Paramètres du jeu (bientôt disponible)", pt: "Configurações do jogo (em breve)"},
   sendChallengeComingSoon: { es: "Enviar desafío (próximamente)", en: "Send challenge (coming soon)", fr: "Envoyer le défi (bientôt disponible)", pt: "Enviar desafio (em breve)"},
   backToHomeButton: { es: "Volver al Inicio", en: "Back to Home", fr: "Retour à l'Accueil", pt: "Voltar ao Início"},
   cannotAddSelfTitle: {es: "No puedes agregarte", en: "Cannot add self", fr:"Ne peut pas s'ajouter", pt: "Não pode adicionar a si mesmo"},
   cannotAddSelfDescription: {es: "No puedes ser tu propio amigo.", en: "You cannot be your own friend.", fr: "Vous ne pouvez pas être votre propre ami.", pt: "Você não pode ser seu próprio amigo."},
   emptyIdentifierTitle: {es: "Nombre/Email Vacío", en: "Empty Name/Email", fr: "Nom/Email Vide", pt: "Nome/Email Vazio"},
   emptyIdentifierDescription: {es: "Por favor, introduce un nombre o email.", en: "Please enter a name or email.", fr: "Veuillez entrer un nom ou un email.", pt: "Por favor, insira um nome ou email."},
-  logoAlt: { es: "Logo del juego Stop", en: "Stop Game Logo", fr: "Logo du jeu Stop", pt: "Logo do Jogo Stop" }, // Changed from Global Stop Game Logo
-  onlineStatus: { es: "Jugando Stop", en: "Playing Stop", fr: "Jouant à Stop", pt: "Jogando Stop" }, // Changed to be more descriptive of status
+  logoAlt: { es: "Logo del juego Stop", en: "Stop Game Logo", fr: "Logo du jeu Stop", pt: "Logo do Jogo Stop" },
+  onlineStatus: { es: "Jugando Stop", en: "Playing Stop", fr: "Jouant à Stop", pt: "Jogando Stop" },
   offlineStatus: { es: "Desconectado", en: "Offline", fr: "Hors ligne", pt: "Offline" },
   errorToastTitle: { es: "Error", en: "Error", fr: "Erreur", pt: "Erro" },
   errorToastDescription: { es: "Ha ocurrido un error inesperado.", en: "An unexpected error occurred.", fr: "Une erreur inattendue s'est produite.", pt: "Ocorreu um erro inesperado." },
@@ -176,5 +176,6 @@ export const UI_TEXTS: Record<string, Record<Language, string>> = {
   wordInvalidError: { es: "Palabra Inválida", en: "Invalid Word", fr: "Mot Invalide", pt: "Palavra Inválida" },
   hostLabel: { es: "Anfitrión", en: "Host", fr: "Hôte", pt: "Anfitrião" },
   waitingSubmissions: { es: "Esperando envíos", en: "Waiting for submissions", fr: "En attente des soumissions", pt: "Aguardando envios" },
-  checkDbRules: { es: "Comprueba las reglas de tu base de datos Firebase.", en: "Check your Firebase database rules.", fr: "Vérifiez les règles de votre base de données Firebase.", pt: "Verifique as regras do seu banco de dados Firebase." },
+  checkDbRules: { es: "Comprueba las reglas de tu base de datos Firebase.", en: "Check your Firebase database rules.", fr: "Vérifiez les règles de votre base de données Firebase.", pt: "Verifique as regras do seu banco de dados Firebase." }
+};
 };
