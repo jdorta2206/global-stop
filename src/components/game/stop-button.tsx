@@ -1,17 +1,8 @@
-
 "use client";
 
 import * as React from 'react';
 import type { Language } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
-
-// If this file continues to cause a "Unexpected token Button" parsing error
-// after applying this change, PLEASE try the following:
-// 1. Manually DELETE this file (stop-button.tsx) from your project.
-// 2. CREATE a NEW file with the same name in the same location.
-// 3. PASTE this exact code into the new file.
-// 4. Stop your dev server, run "rm -rf .next" in your terminal, then restart your dev server.
-// This often resolves persistent parsing issues caused by hidden characters or cache problems.
 
 const internalStopButtonTexts: Record<Language, { ariaDefaultLabel: string }> = {
   es: { ariaDefaultLabel: "Detener la ronda" },
@@ -21,7 +12,7 @@ const internalStopButtonTexts: Record<Language, { ariaDefaultLabel: string }> = 
 };
 
 interface StopButtonProps {
-  onClick: () => void;
+  onClick: () => void | Promise<void>;  // Soporta async para Supabase
   disabled?: boolean;
   language: Language;
   label?: string; 
@@ -33,16 +24,30 @@ export const StopButton: React.FC<StopButtonProps> = ({
   language, 
   label 
 }) => {
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleClick = async () => {
+    if (typeof onClick === 'function') {
+      setIsLoading(true);
+      try {
+        await onClick();  // Funciona con operaciones de Supabase
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   const translateText = (key: keyof typeof internalStopButtonTexts[Language]) => {
     const langTexts = internalStopButtonTexts[language] || internalStopButtonTexts['en'];
     return langTexts?.[key] || String(key);
-  }
+  };
+
   const accessibleLabel = label || translateText('ariaDefaultLabel');
 
   return (
     <Button
-      onClick={onClick}
-      disabled={disabled}
+      onClick={handleClick}
+      disabled={disabled || isLoading}
       variant="default"
       size="lg"
       className="
@@ -64,7 +69,9 @@ export const StopButton: React.FC<StopButtonProps> = ({
       }}
       aria-label={accessibleLabel}
     >
-      <span className="block leading-none">STOP</span>
+      <span className="block leading-none">
+        {isLoading ? "..." : "STOP"}
+      </span>
     </Button>
   );
-}
+};
