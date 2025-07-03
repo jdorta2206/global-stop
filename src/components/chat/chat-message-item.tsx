@@ -1,9 +1,7 @@
-
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { User } from "firebase/auth"; // Assuming user object might be available
 
 export interface ChatMessage {
   id: string;
@@ -33,8 +31,14 @@ export function ChatMessageItem({ message, currentUserUid }: ChatMessageItemProp
     >
       {!isSenderCurrentUser && (
         <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage src={message.sender.avatar} alt={message.sender.name} data-ai-hint="avatar person" />
-          <AvatarFallback>{message.sender.name.charAt(0).toUpperCase()}</AvatarFallback>
+          <AvatarImage 
+            src={message.sender.avatar} 
+            alt={message.sender.name} 
+            data-ai-hint="avatar person" 
+          />
+          <AvatarFallback>
+            {message.sender.name.charAt(0).toUpperCase()}
+          </AvatarFallback>
         </Avatar>
       )}
       <div
@@ -44,7 +48,9 @@ export function ChatMessageItem({ message, currentUserUid }: ChatMessageItemProp
         )}
       >
         {!isSenderCurrentUser && (
-          <p className="text-xs text-muted-foreground font-medium">{message.sender.name}</p>
+          <p className="text-xs text-muted-foreground font-medium">
+            {message.sender.name}
+          </p>
         )}
         <div
           className={cn(
@@ -57,13 +63,22 @@ export function ChatMessageItem({ message, currentUserUid }: ChatMessageItemProp
           <p className="text-sm whitespace-pre-wrap">{message.text}</p>
         </div>
         <p className="text-xs text-muted-foreground/80">
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {message.timestamp.toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          })}
         </p>
       </div>
       {isSenderCurrentUser && (
-         <Avatar className="h-8 w-8 shrink-0 ml-3">
-          <AvatarImage src={message.sender.avatar} alt={message.sender.name} data-ai-hint="avatar person"/>
-          <AvatarFallback>{message.sender.name.charAt(0).toUpperCase()}</AvatarFallback>
+        <Avatar className="h-8 w-8 shrink-0 ml-3">
+          <AvatarImage 
+            src={message.sender.avatar} 
+            alt={message.sender.name} 
+            data-ai-hint="avatar person"
+          />
+          <AvatarFallback>
+            {message.sender.name.charAt(0).toUpperCase()}
+          </AvatarFallback>
         </Avatar>
       )}
     </div>
