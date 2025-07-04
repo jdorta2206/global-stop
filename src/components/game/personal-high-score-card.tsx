@@ -16,49 +16,20 @@ interface PersonalHighScoreCardProps {
 }
 
 const TEXTS = {
-  title: { 
-    es: "Tu Récord Personal", 
-    en: "Personal Best", 
-    fr: "Votre Record", 
-    pt: "Seu Recorde" 
-  },
+  title: { es: "Tu Récord Personal", en: "Personal Best", fr: "Votre Record", pt: "Seu Recorde" },
   subtitle: { 
     es: (score: number) => `Actual: ${score} puntos`, 
     en: (score: number) => `Current: ${score} pts`, 
     fr: (score: number) => `Actuel: ${score} pts`, 
     pt: (score: number) => `Atual: ${score} pts` 
   },
-  loading: { 
-    es: "Cargando...", 
-    en: "Loading...", 
-    fr: "Chargement...", 
-    pt: "Carregando..." 
-  },
-  error: { 
-    es: "Error al cargar", 
-    en: "Loading error", 
-    fr: "Erreur de chargement", 
-    pt: "Erro ao carregar" 
-  },
-  updateSuccess: { 
-    es: "¡Nuevo récord!", 
-    en: "New high score!", 
-    fr: "Nouveau record !", 
-    pt: "Novo recorde!" 
-  },
-  shareButton: { 
-    es: "Compartir", 
-    en: "Share", 
-    fr: "Partager", 
-    pt: "Compartilhar" 
-  },
+  loading: { es: "Cargando...", en: "Loading...", fr: "Chargement...", pt: "Carregando..." },
+  error: { es: "Error al cargar", en: "Loading error", fr: "Erreur de chargement", pt: "Erro ao carregar" },
+  updateSuccess: { es: "¡Nuevo récord!", en: "New high score!", fr: "Nouveau record !", pt: "Novo recorde!" },
+  shareButton: { es: "Compartir", en: "Share", fr: "Partager", pt: "Compartilhar" },
 } as const;
 
-export function PersonalHighScoreCard({ 
-  className = "", 
-  language, 
-  userId 
-}: PersonalHighScoreCardProps) {
+export function PersonalHighScoreCard({ className = "", language, userId }: PersonalHighScoreCardProps) {
   const [highScore, setHighScore] = useState<number>(0);
   const [currentScore, setCurrentScore] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
