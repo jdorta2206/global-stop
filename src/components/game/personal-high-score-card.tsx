@@ -16,30 +16,59 @@ interface PersonalHighScoreCardProps {
 }
 
 const TEXTS = {
-  title: { es: "Tu Récord Personal", en: "Personal Best", fr: "Votre Record", pt: "Seu Recorde" },
+  title: { 
+    es: "Tu Récord Personal", 
+    en: "Personal Best", 
+    fr: "Votre Record", 
+    pt: "Seu Recorde" 
+  },
   subtitle: { 
     es: (score: number) => `Actual: ${score} puntos`, 
     en: (score: number) => `Current: ${score} pts`, 
     fr: (score: number) => `Actuel: ${score} pts`, 
     pt: (score: number) => `Atual: ${score} pts` 
   },
-  loading: { es: "Cargando...", en: "Loading...", fr: "Chargement...", pt: "Carregando..." },
-  error: { es: "Error al cargar", en: "Loading error", fr: "Erreur de chargement", pt: "Erro ao carregar" },
-  updateSuccess: { es: "¡Nuevo récord!", en: "New high score!", fr: "Nouveau record !", pt: "Novo recorde!" },
-  shareButton: { es: "Compartir", en: "Share", fr: "Partager", pt: "Compartilhar" },
-};
+  loading: { 
+    es: "Cargando...", 
+    en: "Loading...", 
+    fr: "Chargement...", 
+    pt: "Carregando..." 
+  },
+  error: { 
+    es: "Error al cargar", 
+    en: "Loading error", 
+    fr: "Erreur de chargement", 
+    pt: "Erro ao carregar" 
+  },
+  updateSuccess: { 
+    es: "¡Nuevo récord!", 
+    en: "New high score!", 
+    fr: "Nouveau record !", 
+    pt: "Novo recorde!" 
+  },
+  shareButton: { 
+    es: "Compartir", 
+    en: "Share", 
+    fr: "Partager", 
+    pt: "Compartilhar" 
+  },
+} as const;
 
-export function PersonalHighScoreCard({ className, language, userId }: PersonalHighScoreCardProps) {
+export function PersonalHighScoreCard({ 
+  className = "", 
+  language, 
+  userId 
+}: PersonalHighScoreCardProps) {
   const [highScore, setHighScore] = useState<number>(0);
   const [currentScore, setCurrentScore] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
   const { toast } = useToast();
 
-  const translate = (textKey: keyof typeof TEXTS, dynamicValue?: number) => {
+  const translate = (textKey: keyof typeof TEXTS, dynamicValue?: number): string => {
     const text = TEXTS[textKey][language] || TEXTS[textKey]['en'];
-    return typeof text === 'function' ? text(dynamicValue || 0) : text;
+    return typeof text === 'function' ? text(dynamicValue ?? 0) : text;
   };
 
   const localeForNumber = {
@@ -50,21 +79,24 @@ export function PersonalHighScoreCard({ className, language, userId }: PersonalH
   }[language] || 'en-US';
 
   useEffect(() => {
+    if (!userId) {
+      setIsLoading(false);
+      return;
+    }
+
     const fetchHighScore = async () => {
-      if (!userId) return;
-      
       try {
         setIsLoading(true);
-        const { data, error } = await supabase
+        const { data, error: queryError } = await supabase
           .from('player_stats')
           .select('high_score, current_score')
           .eq('user_id', userId)
           .single();
 
-        if (error) throw error;
+        if (queryError) throw queryError;
 
-        setHighScore(data?.high_score || 0);
-        setCurrentScore(data?.current_score || 0);
+        setHighScore(data?.high_score ?? 0);
+        setCurrentScore(data?.current_score ?? 0);
       } catch (err) {
         console.error("Error fetching high score:", err);
         setError(translate('error'));
@@ -75,7 +107,6 @@ export function PersonalHighScoreCard({ className, language, userId }: PersonalH
 
     fetchHighScore();
 
-    // Realtime subscription for score updates
     const channel = supabase
       .channel(`user_scores:${userId}`)
       .on(
@@ -87,7 +118,7 @@ export function PersonalHighScoreCard({ className, language, userId }: PersonalH
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          const newHigh = payload.new.high_score;
+          const newHigh = payload.new.high_score as number;
           if (newHigh > highScore) {
             toast({
               title: translate('updateSuccess'),
@@ -95,7 +126,7 @@ export function PersonalHighScoreCard({ className, language, userId }: PersonalH
             });
           }
           setHighScore(newHigh);
-          setCurrentScore(payload.new.current_score);
+          setCurrentScore(payload.new.current_score as number);
         }
       )
       .subscribe();
@@ -103,32 +134,27 @@ export function PersonalHighScoreCard({ className, language, userId }: PersonalH
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, supabase, language]);
+  }, [userId, supabase, language, highScore, toast]);
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: translate('title'),
-        text: `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}`,
-        url: window.location.href,
-      }).catch(() => {
-        // Fallback if share fails
-        navigator.clipboard.writeText(
-          `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}`
-        );
+  const handleShare = async () => {
+    const shareData = {
+      title: translate('title'),
+      text: `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}`,
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.text);
         toast({
           title: translate('shareButton'),
           description: "Score copied to clipboard!",
         });
-      });
-    } else {
-      navigator.clipboard.writeText(
-        `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}`
-      );
-      toast({
-        title: translate('shareButton'),
-        description: "Score copied to clipboard!",
-      });
+      }
+    } catch (err) {
+      console.error("Sharing failed:", err);
     }
   };
 
