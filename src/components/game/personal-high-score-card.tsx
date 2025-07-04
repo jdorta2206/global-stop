@@ -1,13 +1,14 @@
+// src/components/game/personal-high-score-card.tsx
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Loader2 } from 'lucide-react';
+import { Trophy, Loader2, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Language } from '@/contexts/language-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useEffect, useState } from 'react';
-import { Button } from './ui/button';
-import { useToast } from './ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 
 interface PersonalHighScoreCardProps {
   className?: string;
@@ -16,20 +17,55 @@ interface PersonalHighScoreCardProps {
 }
 
 const TEXTS = {
-  title: { es: "Tu Récord Personal", en: "Personal Best", fr: "Votre Record", pt: "Seu Recorde" },
-  subtitle: { 
-    es: (score: number) => `Actual: ${score} puntos`, 
-    en: (score: number) => `Current: ${score} pts`, 
-    fr: (score: number) => `Actuel: ${score} pts`, 
-    pt: (score: number) => `Atual: ${score} pts` 
+  title: { 
+    es: "Tu Récord Personal", 
+    en: "Personal Best", 
+    fr: "Votre Record", 
+    pt: "Seu Recorde" 
   },
-  loading: { es: "Cargando...", en: "Loading...", fr: "Chargement...", pt: "Carregando..." },
-  error: { es: "Error al cargar", en: "Loading error", fr: "Erreur de chargement", pt: "Erro ao carregar" },
-  updateSuccess: { es: "¡Nuevo récord!", en: "New high score!", fr: "Nouveau record !", pt: "Novo recorde!" },
-  shareButton: { es: "Compartir", en: "Share", fr: "Partager", pt: "Compartilhar" },
+  subtitle: { 
+    es: (score: number) => `Puntuación actual: ${score}`, 
+    en: (score: number) => `Current score: ${score}`, 
+    fr: (score: number) => `Score actuel: ${score}`, 
+    pt: (score: number) => `Pontuação atual: ${score}` 
+  },
+  loading: { 
+    es: "Cargando...", 
+    en: "Loading...", 
+    fr: "Chargement...", 
+    pt: "Carregando..." 
+  },
+  error: { 
+    es: "Error al cargar datos", 
+    en: "Error loading data", 
+    fr: "Erreur de chargement", 
+    pt: "Erro ao carregar" 
+  },
+  updateSuccess: { 
+    es: "¡Nuevo récord!", 
+    en: "New high score!", 
+    fr: "Nouveau record !", 
+    pt: "Novo recorde!" 
+  },
+  shareSuccess: {
+    es: "¡Puntuación compartida!",
+    en: "Score shared!",
+    fr: "Score partagé !",
+    pt: "Pontuação compartilhada!"
+  },
+  shareError: {
+    es: "Error al compartir",
+    en: "Share error",
+    fr: "Erreur de partage",
+    pt: "Erro ao compartilhar"
+  }
 } as const;
 
-export function PersonalHighScoreCard({ className = "", language, userId }: PersonalHighScoreCardProps) {
+export function PersonalHighScoreCard({ 
+  className = "", 
+  language, 
+  userId 
+}: PersonalHighScoreCardProps) {
   const [highScore, setHighScore] = useState<number>(0);
   const [currentScore, setCurrentScore] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -58,6 +94,8 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
     const fetchHighScore = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+        
         const { data, error: queryError } = await supabase
           .from('player_stats')
           .select('high_score, current_score')
@@ -90,14 +128,17 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
         },
         (payload) => {
           const newHigh = payload.new.high_score as number;
+          const newCurrent = payload.new.current_score as number;
+          
           if (newHigh > highScore) {
             toast({
               title: translate('updateSuccess'),
+              description: `${translate('subtitle', newCurrent)}`,
               variant: 'default',
             });
           }
           setHighScore(newHigh);
-          setCurrentScore(payload.new.current_score as number);
+          setCurrentScore(newCurrent);
         }
       )
       .subscribe();
@@ -105,33 +146,37 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, supabase, language, highScore, toast]);
+  }, [userId, supabase, language, toast]);
 
   const handleShare = async () => {
-    const shareData = {
-      title: translate('title'),
-      text: `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}`,
-      url: window.location.href,
-    };
-
     try {
+      const shareData = {
+        title: translate('title'),
+        text: `${translate('title')}: ${highScore.toLocaleString(localeForNumber)}\n${translate('subtitle', currentScore)}`,
+        url: window.location.href,
+      };
+
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareData.text);
         toast({
-          title: translate('shareButton'),
-          description: "Score copied to clipboard!",
+          title: translate('shareSuccess'),
+          description: shareData.text,
         });
       }
     } catch (err) {
       console.error("Sharing failed:", err);
+      toast({
+        title: translate('shareError'),
+        variant: 'destructive',
+      });
     }
   };
 
   if (isLoading) {
     return (
-      <Card className={cn("shadow-lg rounded-xl", className)}>
+      <Card className={cn("shadow-lg rounded-xl animate-pulse", className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-medium text-primary">
             {translate('title')}
@@ -149,12 +194,12 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
 
   if (error) {
     return (
-      <Card className={cn("shadow-lg rounded-xl", className)}>
+      <Card className={cn("shadow-lg rounded-xl border-destructive/20", className)}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-medium text-primary">
+          <CardTitle className="text-xl font-medium text-destructive">
             {translate('title')}
           </CardTitle>
-          <Trophy className="h-6 w-6 text-muted-foreground" />
+          <Trophy className="h-6 w-6 text-destructive/50" />
         </CardHeader>
         <CardContent>
           <p className="text-destructive">{error}</p>
@@ -174,9 +219,10 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
             variant="ghost" 
             size="sm" 
             onClick={handleShare}
-            className="text-xs h-6 px-2"
+            className="text-xs h-6 px-2 hover:bg-primary/10"
           >
-            {translate('shareButton')}
+            <Share2 className="h-4 w-4 mr-1" />
+            {translate('shareSuccess')}
           </Button>
           <Trophy className="h-6 w-6 text-yellow-500" />
         </div>
@@ -192,9 +238,10 @@ export function PersonalHighScoreCard({ className = "", language, userId }: Pers
         </div>
         <div className="w-full bg-secondary rounded-full h-2 mt-3">
           <div 
-            className="bg-primary h-2 rounded-full" 
+            className="bg-primary h-2 rounded-full transition-all duration-500" 
             style={{ 
-              width: `${Math.min(100, (currentScore / Math.max(highScore, 1)) * 100}%` 
+              width: `${Math.min(100, (currentScore / Math.max(highScore, 1)) * 100)}%`,
+              maxWidth: '100%'
             }}
           />
         </div>
