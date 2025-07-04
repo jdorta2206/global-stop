@@ -20,7 +20,6 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'graph.facebook.com',
       },
-      // Add Supabase storage domain if needed
       {
         protocol: 'https',
         hostname: '*.supabase.co',
@@ -28,13 +27,25 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverActions: true, // Recommended for Supabase integration
+    serverActions: {
+      allowedOrigins: [
+        "localhost:9003",
+        "10.0.0.90:9003",
+        "*.supabase.co",
+        "*.vercel.app"
+      ],
+    },
     allowedDevOrigins: [
-      "http://localhost:3000", // Standard Next.js dev port
-      "http://localhost:9003" // Keep if still needed
+      "localhost:3000",
+      "localhost:9003",
+      "10.0.0.90:9003"
     ],
+    turbo: {
+      resolveAlias: {
+        // Opcional: Configura alias para Turbopack si es necesario
+      }
+    }
   },
-  // Vercel-specific optimizations
   output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
 };
 
