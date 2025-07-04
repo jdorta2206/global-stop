@@ -1,16 +1,15 @@
-# Stop
-<<<<<<< HEAD
+# Stop - Juego Multijugador
 
-=======
-      
->>>>>>> f75a070d39ea2a2fa02ac6d3857db86cb1aff210
-Este es un proyecto de juego llamado "Stop". Es un juego divertido.
+Proyecto del juego "Stop" desarrollado con:
 
-Puedes encontrar más detalles sobre cómo empezar en src/app/page.tsx.
+- Next.js 15
+- Supabase (base de datos y autenticación)
+- Tailwind CSS
+- TypeScript
 
-## Próximos pasos
+## Cómo empezar
 
-* Explora la [documentación de Firebase Studio](/docs/studio).
-* [Comienza con Firebase Studio](https://studio.firebase.google.com/).
-
-Envía tus comentarios.
+1. Clona el repositorio
+2. Instala dependencias:
+```bash
+npm install

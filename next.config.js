@@ -1,10 +1,5 @@
 /** @type {import('next').NextConfig} */
-
-console.log("--- next.config.js execution start ---");
-console.log(`Current NODE_ENV: ${process.env.NODE_ENV}`);
-
 const nextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: false,
   },
@@ -16,34 +11,31 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'graph.facebook.com',
-        port: '',
-        pathname: '/**',
+      },
+      // Add Supabase storage domain if needed
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
       }
     ],
   },
   experimental: {
+    serverActions: true, // Recommended for Supabase integration
     allowedDevOrigins: [
-      "http://localhost:9003",
- "https://9003-firebase-studio-1747394567673.cluster-6vyo4gb53jczovun3dxslzjahs.cloudworkstations.dev",
- "https://9003-firebase-studio-1747394567673.cluster-6vyo4gb53jczovun3dxslzjahs.cloudworkstations.dev"
+      "http://localhost:3000", // Standard Next.js dev port
+      "http://localhost:9003" // Keep if still needed
     ],
   },
+  // Vercel-specific optimizations
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
 };
-
-console.log("Effective ignoreBuildErrors (TypeScript):", nextConfig.typescript?.ignoreBuildErrors);
-console.log("Effective ignoreDuringBuilds (ESLint):", nextConfig.eslint?.ignoreDuringBuilds);
-console.log("--- next.config.js execution end ---");
 
 module.exports = nextConfig;

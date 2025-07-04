@@ -15,7 +15,11 @@
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
     "lib": "@/lib",
-    "hooks": "@/hooks"
+    "hooks": "@/hooks",
+    "supabase": "@/lib/supabase"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "supabase": {
+    "authRedirect": "/auth/callback"
+  }
 }

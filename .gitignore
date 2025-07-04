@@ -1,6 +1,6 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Configuración para Supabase + Vercel (sin Firebase)
 
-# dependencies
+# Dependencias
 /node_modules
 /.pnp
 .pnp.*
@@ -10,36 +10,29 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Entornos de desarrollo
 /.next/
 /out/
-
-# production
 /build
 
-# misc
+# Variables de entorno (incluye Supabase)
+.env*
+.env.local
+.env.development
+.env.production
+
+# Archivos del sistema y logs
 .DS_Store
 *.pem
+*.log*
+*.tsbuildinfo
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# vercel
+# Configuración específica de Vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
+# Archivos de generación
+.genkit/*
 next-env.d.ts
 
-.genkit/*
-.env*
-
-# firebase
-firebase-debug.log
-firestore-debug.log
+# Testing
+/coverage

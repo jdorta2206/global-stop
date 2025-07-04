@@ -1,3 +1,4 @@
 [submodule "global-stop"]
-        path = global-stop
-        url = https://github.com/jdorta2206/global-stop.git
+	path = global-stop
+	url = https://github.com/jdorta2206/global-stop.git
+	branch = main
