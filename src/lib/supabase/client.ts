@@ -1,17 +1,11 @@
-// src/lib/supabase/client.ts
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js'
 
-export const createClient = () => {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error(
-      'Supabase URL and Anon Key must be defined in environment variables'
-    );
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true
   }
-
-  return createPagesBrowserClient({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  });
-};
-
-export type SupabaseClient = ReturnType<typeof createClient>;
+})
