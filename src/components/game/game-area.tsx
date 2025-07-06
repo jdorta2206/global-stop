@@ -35,7 +35,74 @@ interface RoundResults {
 }
 
 const GAME_AREA_TEXTS = {
-  // ... (mantener igual todos los textos de traducción)
+  errorFormat: {
+    en: "Invalid format",
+    es: "Formato inválido"
+  },
+  errorInvalidWord: {
+    en: "Invalid word",
+    es: "Palabra inválida"
+  },
+  errorApi: {
+    en: "Verification error",
+    es: "Error de verificación"
+  },
+  evaluatingRoomDescription: {
+    en: "Evaluating responses...",
+    es: "Evaluando respuestas..."
+  },
+  resultsRoomDescription: {
+    en: "Round results",
+    es: "Resultados de la ronda"
+  },
+  waitingForHost: {
+    en: "Waiting for host to start next round",
+    es: "Esperando a que el host inicie la siguiente ronda"
+  },
+  instructionsRoom: {
+    en: "Fill in the fields and wait for all players",
+    es: "Rellena los campos y espera a todos los jugadores"
+  },
+  evaluatingDescription: {
+    en: "Evaluating your responses...",
+    es: "Evaluando tus respuestas..."
+  },
+  resultsDescription: {
+    en: "Here are the results of this round",
+    es: "Aquí están los resultados de esta ronda"
+  },
+  instructions: {
+    en: "Fill in all the fields with words that start with the letter",
+    es: "Rellena todos los campos con palabras que empiecen por la letra"
+  },
+  letterLabel: {
+    en: "Letter:",
+    es: "Letra:"
+  },
+  inputPlaceholder: {
+    en: "Enter",
+    es: "Escribe"
+  },
+  youLabel: {
+    en: "You:",
+    es: "Tú:"
+  },
+  noResponsePlayer: {
+    en: "No response",
+    es: "Sin respuesta"
+  },
+  pointsSuffix: {
+    en: "pts",
+    es: "pts"
+  },
+  aiLabel: {
+    en: "AI:",
+    es: "IA:"
+  },
+  noResponseAI: {
+    en: "No response",
+    es: "Sin respuesta"
+  }
 };
 
 export function GameArea({
@@ -55,7 +122,8 @@ export function GameArea({
   if (!letter) return null;
 
   const translate = (textKey: keyof typeof GAME_AREA_TEXTS, dynamicPart?: string) => {
-    const baseText = GAME_AREA_TEXTS[textKey][language] || GAME_AREA_TEXTS[textKey]['en'];
+    const translationObj = GAME_AREA_TEXTS[textKey];
+    const baseText = (translationObj as any)[language] || translationObj['en'];
     return dynamicPart ? `${baseText} ${dynamicPart}` : baseText;
   };
 
@@ -95,9 +163,9 @@ export function GameArea({
           {categories.map((category, index) => (
             <div key={category}>
               <div className="space-y-2">
-                <Label htmlFor={`${category}-${gameMode}`} className="text-xl font-semibold text-primary">
+                <label htmlFor={`${category}-${gameMode}`} className="text-xl font-semibold text-primary">
                   {category}
-                </Label>
+                </label>
                 <Input
                   id={`${category}-${gameMode}`}
                   value={playerResponses[category] || ''}
@@ -130,7 +198,7 @@ export function GameArea({
                         {roundResults[category].playerScore} {translate('pointsSuffix')}
                       </Badge>
                     </div>
-                    <Separator className="my-1 bg-border" />
+                    <Separator />
                     <div className="flex justify-between items-center">
                       <p className="text-md flex-grow">
                         <span className="font-semibold text-accent-foreground">{translate('aiLabel')} </span>
@@ -149,7 +217,7 @@ export function GameArea({
                   </div>
                 )}
               </div>
-              {index < categories.length - 1 && <Separator className="my-6" />}
+              {index < categories.length - 1 && <div className="border-t my-6" />}
             </div>
           ))}
         </CardContent>

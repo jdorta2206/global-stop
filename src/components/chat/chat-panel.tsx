@@ -3,8 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter, SheetDescription } from "@/components/ui/sheet";
 import { Send, MessageSquare } from "lucide-react";
 import type { ChatMessage } from "./chat-message-item";
 import { ChatMessageItem } from "./chat-message-item";
@@ -20,6 +18,16 @@ interface ChatPanelProps {
   currentUserAvatar?: string | null;
   language: Language;
   currentRoomId?: string | null;
+}
+
+interface DatabaseMessage {
+  id: string;
+  text: string;
+  room_id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_avatar?: string;
+  created_at: string;
 }
 
 const CHAT_PANEL_TEXTS = {
@@ -49,6 +57,18 @@ export function ChatPanel({
     return CHAT_PANEL_TEXTS[textKey]?.[language] || CHAT_PANEL_TEXTS[textKey]?.['en'] || String(textKey);
   }
 
+  // Convertir mensaje de base de datos a ChatMessage
+  const convertToMessage = (dbMessage: DatabaseMessage): ChatMessage => ({
+    id: dbMessage.id,
+    text: dbMessage.text,
+    sender: {
+      uid: dbMessage.sender_id,
+      name: dbMessage.sender_name,
+      avatar: dbMessage.sender_avatar
+    },
+    timestamp: new Date(dbMessage.created_at)
+  });
+
   // Suscribirse a mensajes en tiempo real
   useEffect(() => {
     if (!currentRoomId) return;
@@ -63,8 +83,8 @@ export function ChatPanel({
           table: 'messages',
           filter: `room_id=eq.${currentRoomId}`
         },
-        (payload) => {
-          setMessages(prev => [...prev, payload.new as ChatMessage]);
+        (payload: { new: DatabaseMessage }) => {
+          setMessages(prev => [...prev, convertToMessage(payload.new)]);
         }
       )
       .subscribe();
@@ -86,7 +106,7 @@ export function ChatPanel({
         .order('created_at', { ascending: true });
 
       if (!error && data) {
-        setMessages(data as ChatMessage[]);
+        setMessages(data.map(convertToMessage));
       }
     };
 
@@ -127,77 +147,70 @@ export function ChatPanel({
 
   useEffect(() => {
     if (isOpen && scrollAreaRef.current) {
-      const scrollableViewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
-      if (scrollableViewport) {
-        scrollableViewport.scrollTop = scrollableViewport.scrollHeight;
-      }
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages, isOpen]);
 
+  if (!isOpen) return null;
+
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetContent side="right" className="w-[350px] sm:w-[400px] flex flex-col p-0">
-        <SheetHeader className="p-4 border-b">
-          <SheetTitle className="flex items-center">
+    <div className="fixed right-0 top-0 h-full w-[350px] sm:w-[400px] bg-background border-l shadow-lg flex flex-col z-50">
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
             <MessageSquare className="h-6 w-6 mr-2 text-primary" />
-            {translate('title')}
-          </SheetTitle>
-          <SheetDescription>
-            {translate('description')}
-          </SheetDescription>
-        </SheetHeader>
-        <ScrollArea className="flex-grow" ref={scrollAreaRef}>
-          <div className="p-4 space-y-2">
-            {messages.map((msg) => (
-              <ChatMessageItem 
-                key={msg.id} 
-                message={{
-                  id: msg.id,
-                  text: msg.text,
-                  sender: {
-                    uid: msg.sender_id,
-                    name: msg.sender_name,
-                    avatar: msg.sender_avatar
-                  },
-                  timestamp: new Date(msg.created_at)
-                }} 
-                currentUserUid={currentUserUid} 
-              />
-            ))}
-            {messages.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {translate('noMessages')}
-              </p>
-            )}
+            <h2 className="text-lg font-semibold">{translate('title')}</h2>
           </div>
-        </ScrollArea>
-        <SheetFooter className="p-4 border-t bg-background">
-          <div className="flex w-full items-center space-x-2">
-            <Input
-              type="text"
-              placeholder={translate('inputPlaceholder')}
-              value={inputText}
-              onChange={handleInputChange}
-              onKeyPress={handleKeyPress}
-              className="flex-grow"
-              disabled={!currentUserUid}
-            />
-            <Button 
-              type="button" 
-              onClick={handleSend} 
-              disabled={!inputText.trim() || !currentUserUid}
-            >
-              <Send className="h-4 w-4" />
-              <span className="sr-only">{translate('sendSrOnly')}</span>
-            </Button>
-          </div>
-          {!currentUserUid && (
-            <p className="text-xs text-destructive text-center mt-2">
-              {translate('loginToChat')}
-            </p>
-          )}
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          <Button variant="ghost" size="sm" onClick={() => setIsOpen(false)}>
+            ×
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          {translate('description')}
+        </p>
+      </div>
+      
+      <div className="flex-grow overflow-y-auto p-4 space-y-2" ref={scrollAreaRef}>
+        {messages.map((msg) => (
+          <ChatMessageItem 
+            key={msg.id} 
+            message={msg} 
+            currentUserUid={currentUserUid} 
+          />
+        ))}
+        {messages.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            {translate('noMessages')}
+          </p>
+        )}
+      </div>
+      
+      <div className="p-4 border-t bg-background">
+        <div className="flex w-full items-center space-x-2">
+          <Input
+            type="text"
+            placeholder={translate('inputPlaceholder')}
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            className="flex-grow"
+            disabled={!currentUserUid}
+          />
+          <Button 
+            type="button" 
+            onClick={handleSend} 
+            disabled={!inputText.trim() || !currentUserUid}
+          >
+            <Send className="h-4 w-4" />
+            <span className="sr-only">{translate('sendSrOnly')}</span>
+          </Button>
+        </div>
+        {!currentUserUid && (
+          <p className="text-xs text-destructive text-center mt-2">
+            {translate('loginToChat')}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

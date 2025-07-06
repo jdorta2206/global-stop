@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaderboardTable, type EnrichedPlayerScore } from './leaderboard-table';
 import { BarChart3 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { Language } from '@/contexts/language-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useEffect, useState } from 'react';
@@ -51,7 +50,8 @@ export function GlobalLeaderboardCard({
   const supabase = createClientComponentClient();
 
   const translate = (textKey: keyof typeof TEXTS) => {
-    return TEXTS[textKey][language] || TEXTS[textKey]['en'];
+    const translationObj = TEXTS[textKey];
+    return (translationObj as any)[language] || translationObj['en'];
   };
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function GlobalLeaderboardCard({
 
         if (error) throw error;
 
-        setLeaderboardData(data?.map(player => ({
+        setLeaderboardData(data?.map((player: any) => ({
           id: player.id,
           name: player.username,
           score: player.score,
@@ -109,7 +109,7 @@ export function GlobalLeaderboardCard({
   }, [supabase, language]);
 
   return (
-    <Card className={cn("shadow-lg rounded-xl", className)}>
+    <Card className={className ? `shadow-lg rounded-xl ${className}` : "shadow-lg rounded-xl"}>
       <CardHeader>
         <div className="flex items-center space-x-3">
           <BarChart3 className="h-7 w-7 text-accent" />

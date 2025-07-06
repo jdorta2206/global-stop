@@ -1,14 +1,7 @@
 'use server';
 
-/**
- * Generador de respuestas para un oponente IA en el juego Global Stop (Versión Gratuita)
- * - Usa un diccionario local para respuestas predefinidas
- * - Alternativa con TensorFlow.js para modelo simple
- */
-
 import type { Language } from '@/contexts/language-context';
 
-// Tipos de entrada/salida
 interface AiOpponentResponseInput {
   letter: string;
   category: string;
@@ -19,27 +12,35 @@ interface AiOpponentResponseOutput {
   response: string;
 }
 
-// Diccionario local de palabras por categoría e idioma
+// Diccionario completo con todas las lenguas y categorías básicas
 const WORD_DATABASE: Record<Language, Record<string, string[]>> = {
   es: {
     animales: ['ardilla', 'ballena', 'camello', 'delfín', 'elefante'],
     países: ['argentina', 'brasil', 'colombia', 'dinamarca', 'españa'],
-    colores: ['amarillo', 'blanco', 'celeste', 'dorado', 'esmeralda']
+    colores: ['amarillo', 'blanco', 'celeste', 'dorado', 'esmeralda'],
+    nombres: ['ana', 'berto', 'carla', 'david', 'elena'],
+    frutas: ['arándano', 'banana', 'cereza', 'durazno', 'frambuesa']
   },
   en: {
     animals: ['antelope', 'bear', 'cat', 'dog', 'elephant'],
     countries: ['argentina', 'belgium', 'canada', 'denmark', 'england'],
-    colors: ['amber', 'blue', 'cyan', 'daffodil', 'emerald']
+    colors: ['amber', 'blue', 'cyan', 'daffodil', 'emerald'],
+    names: ['alice', 'bob', 'charlie', 'david', 'emma'],
+    fruits: ['apple', 'banana', 'cherry', 'date', 'elderberry']
   },
   fr: {
     animaux: ['abeille', 'baleine', 'chat', 'dauphin', 'éléphant'],
     pays: ['allemagne', 'belgique', 'canada', 'danemark', 'espagne'],
-    couleurs: ['argent', 'bleu', 'cyan', 'doré', 'émeraude']
+    couleurs: ['argent', 'bleu', 'cyan', 'doré', 'émeraude'],
+    prénoms: ['anne', 'bernard', 'claire', 'david', 'émilie'],
+    fruits: ['abricot', 'banane', 'cerise', 'datte', 'figue']
   },
   pt: {
     animais: ['abelha', 'baleia', 'cachorro', 'dromedário', 'elefante'],
     países: ['alemanha', 'brasil', 'canadá', 'dinamarca', 'espanha'],
-    cores: ['amarelo', 'branco', 'ciano', 'dourado', 'esmeralda']
+    cores: ['amarelo', 'branco', 'ciano', 'dourado', 'esmeralda'],
+    nomes: ['ana', 'bruno', 'carla', 'daniel', 'elena'],
+    frutas: ['abacaxi', 'banana', 'cereja', 'damasco', 'figo']
   }
 };
 
@@ -49,43 +50,62 @@ export async function generateAiOpponentResponse(
   try {
     const { letter, category, language } = input;
     const lowerLetter = letter.toLowerCase();
-    
-    // 1. Buscar en diccionario local primero
-    const categoryWords = WORD_DATABASE[language]?.[category.toLowerCase()] || [];
+    const normalizedCategory = normalizeCategory(category, language);
+
+    // 1. Buscar en diccionario local
+    const categoryWords = WORD_DATABASE[language]?.[normalizedCategory] || [];
     const validWords = categoryWords.filter(word => 
       word.toLowerCase().startsWith(lowerLetter)
     );
 
     if (validWords.length > 0) {
-      // Selección aleatoria simple
-      const randomIndex = Math.floor(Math.random() * validWords.length);
-      return { response: validWords[randomIndex] };
+      return { 
+        response: validWords[Math.floor(Math.random() * validWords.length)] 
+      };
     }
 
-    // 2. Fallback a algoritmo generativo simple
+    // 2. Fallback generativo mejorado
     return { 
-      response: generateSimpleWord(lowerLetter, category, language) 
+      response: generateFallbackWord(lowerLetter, normalizedCategory, language) 
     };
   } catch (error) {
-    console.error('Error en IA local:', error);
+    console.error('Error en IA:', error);
     return { response: "" };
   }
 }
 
-// Algoritmo generativo básico
-function generateSimpleWord(letter: string, category: string, language: Language): string {
-  const prefixes: Record<Language, Record<string, string[]>> = {
-    es: {
-      animales: ['oso', 'tigre', 'leon', 'jirafa'],
-      países: ['rusia', 'china', 'india', 'japon']
-    },
-    // ... otros idiomas
+// Normaliza categorías entre idiomas
+function normalizeCategory(category: string, language: Language): string {
+  const categoryMap: Record<string, Record<Language, string>> = {
+    animal: { es: 'animales', en: 'animals', fr: 'animaux', pt: 'animais' },
+    país: { es: 'países', en: 'countries', fr: 'pays', pt: 'países' },
+    color: { es: 'colores', en: 'colors', fr: 'couleurs', pt: 'cores' }
   };
 
-  const suffix = {
-    animales: letter === 'a' ? 'beja' : 'ino',
-    países: letter === 'a' ? 'ngola' : 'ilandia'
-  }[category] || '';
+  return categoryMap[category.toLowerCase()]?.[language] || category.toLowerCase();
+}
 
-  return letter + (suffix || 'default');
+// Generador de palabras de respaldo mejorado
+function generateFallbackWord(letter: string, category: string, language: Language): string {
+  const fallbackPatterns: Record<Language, Record<string, string[]>> = {
+    es: {
+      animales: ['a', 'e', 'i', 'o', 'u'].map(v => letter + 'r' + v + 'co'),
+      países: ['a', 'e', 'i', 'o', 'u'].map(v => letter + v + 'landia')
+    },
+    en: {
+      animals: ['a', 'e', 'i', 'o', 'u'].map(v => letter + 'r' + v + 'ph'),
+      countries: ['a', 'e', 'i', 'o', 'u'].map(v => letter + v + 'land')
+    },
+    fr: {
+      animaux: ['a', 'e', 'i', 'o', 'u'].map(v => letter + 'r' + v + 'que'),
+      pays: ['a', 'e', 'i', 'o', 'u'].map(v => letter + v + 'sie')
+    },
+    pt: {
+      animais: ['a', 'e', 'i', 'o', 'u'].map(v => letter + 'r' + v + 'ca'),
+      países: ['a', 'e', 'i', 'o', 'u'].map(v => letter + v + 'lândia')
+    }
+  };
+
+  const patterns = fallbackPatterns[language]?.[category] || [letter + 'a', letter + 'e', letter + 'i'];
+  return patterns[Math.floor(Math.random() * patterns.length)];
 }

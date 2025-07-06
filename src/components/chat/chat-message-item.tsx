@@ -1,15 +1,18 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+
+function cn(...classes: (string | undefined | null | boolean)[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 export interface ChatMessage {
   id: string;
   text: string;
   sender: {
     name: string;
-    avatar?: string; // URL to avatar image
-    uid: string; // User ID
+    avatar?: string;
+    uid: string;
   };
   timestamp: Date;
 }
@@ -30,16 +33,11 @@ export function ChatMessageItem({ message, currentUserUid }: ChatMessageItemProp
       )}
     >
       {!isSenderCurrentUser && (
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage 
-            src={message.sender.avatar} 
-            alt={message.sender.name} 
-            data-ai-hint="avatar person" 
-          />
-          <AvatarFallback>
+        <div className="h-8 w-8 shrink-0 bg-gray-300 rounded-full flex items-center justify-center">
+          <span className="text-xs font-medium">
             {message.sender.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+          </span>
+        </div>
       )}
       <div
         className={cn(
@@ -70,16 +68,11 @@ export function ChatMessageItem({ message, currentUserUid }: ChatMessageItemProp
         </p>
       </div>
       {isSenderCurrentUser && (
-        <Avatar className="h-8 w-8 shrink-0 ml-3">
-          <AvatarImage 
-            src={message.sender.avatar} 
-            alt={message.sender.name} 
-            data-ai-hint="avatar person"
-          />
-          <AvatarFallback>
+        <div className="h-8 w-8 shrink-0 ml-3 bg-gray-300 rounded-full flex items-center justify-center">
+          <span className="text-xs font-medium">
             {message.sender.name.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+          </span>
+        </div>
       )}
     </div>
   );

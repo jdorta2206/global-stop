@@ -3,8 +3,33 @@
 import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Language } from '@/contexts/language-context';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useSound } from '@/hooks/use-sound';
+
+// Solución temporal para framer-motion
+const motion = {
+  div: ({ children, className, initial, animate, exit }: any) => (
+    <div className={className} style={{
+      transform: `scale(${animate?.scale || 1}) rotate(${animate?.rotate || 0}deg)`,
+      opacity: animate?.opacity || 1,
+      transition: 'all 0.3s ease'
+    }}>
+      {children}
+    </div>
+  ),
+  p: ({ children, className }: any) => <p className={className}>{children}</p>
+};
+
+const AnimatePresence = ({ children }: any) => <>{children}</>;
+
+// Solución temporal para use-sound
+const useSound = (soundPath: string) => {
+  return [
+    () => {
+      console.log('Playing sound:', soundPath);
+      // Implementación real usaría Audio API
+    },
+    { stop: () => console.log('Sound stopped') }
+  ];
+};
 
 interface RouletteWheelProps {
   isSpinning: boolean;
@@ -44,8 +69,8 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet, language }
   const [displayLetter, setDisplayLetter] = useState<string>(alphabet[0] || 'A');
   const [isAnimating, setIsAnimating] = useState(false);
   const spinCountRef = useRef(0);
-  const { play: playSpinSound, stop: stopSpinSound } = useSound('/sounds/spin.mp3');
-  const { play: playStopSound } = useSound('/sounds/wheel-stop.mp3');
+  const [playSpinSound, { stop: stopSpinSound }] = useSound('/music/the-ticking-of-the-mantel-clock.mp3');
+  const [playStopSound] = useSound('/music/dry-cuckoo-sound.mp3');
 
   const translate = (textKey: keyof typeof ROULETTE_TEXTS) => {
     return ROULETTE_TEXTS[textKey][language] || ROULETTE_TEXTS[textKey]['en'];
@@ -54,7 +79,7 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet, language }
   useEffect(() => {
     if (isSpinning) {
       setIsAnimating(true);
-      playSpinSound({ loop: true });
+      playSpinSound();
       const maxSpins = 25 + Math.floor(Math.random() * 15);
       spinCountRef.current = 0;
 
@@ -105,10 +130,8 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet, language }
               animate={{ 
                 scale: 1, 
                 opacity: 1, 
-                rotate: 0,
-                transition: { type: 'spring', stiffness: 500, damping: 15 }
+                rotate: 0
               }}
-              exit={{ scale: 0.5, opacity: 0 }}
               className="absolute inset-0 flex items-center justify-center"
             >
               <span className="text-6xl md:text-8xl font-extrabold text-primary-foreground tabular-nums">
@@ -118,11 +141,7 @@ export function RouletteWheel({ isSpinning, onSpinComplete, alphabet, language }
           </AnimatePresence>
         </div>
         {isSpinning && (
-          <motion.p 
-            className="text-primary"
-            animate={{ opacity: [0.6, 1, 0.6] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-          >
+          <motion.p className="text-primary">
             {translate('spinningStatus')}
           </motion.p>
         )}

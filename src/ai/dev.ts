@@ -1,68 +1,43 @@
-// src/ai/events.ts - Configuración de eventos de IA (Versión Gratuita)
-import { setupLocalAI } from './local-ai';
-import { setupWordValidation } from './word-validator';
+// src/ai/dev.ts
+const WORD_DICTIONARY: Record<string, Record<string, string[]>> = {
+  es: {
+    animales: ['ardilla', 'ballena', 'caballo'],
+    ciudades: ['alicante', 'barcelona', 'cádiz'],
+    nombres: ['ana', 'bernardo', 'carla']
+  },
+  en: {
+    animals: ['ant', 'bear', 'cat'],
+    cities: ['austin', 'boston', 'chicago'],
+    names: ['alice', 'bob', 'charlie']
+  }
+};
 
-// Configuración inicial de los servicios de IA
-export function initializeAIEvents() {
-  // 1. Configura el generador de respuestas de IA local
-  setupLocalAI({
-    dictionaryPath: '/public/dictionaries',
-    languages: ['es', 'en', 'fr', 'pt']
-  });
-
-  // 2. Configura el validador de palabras
-  setupWordValidation({
-    strictMode: true,
-    allowProperNouns: true
-  });
-
-  // 3. Eventos disponibles
-  return {
-    generateAIResponse: generateAiOpponentResponse,
-    validatePlayerWord: validatePlayerWord
-  };
+export async function generateAiOpponentResponse(input: {
+  letter: string;
+  category: string;
+  language: 'es' | 'en' | 'fr' | 'pt';
+}): Promise<{ response: string }> {
+  const { letter, category, language } = input;
+  const lowerLetter = letter.toLowerCase();
+  const categoryWords = WORD_DICTIONARY[language]?.[category] || [];
+  const validWords = categoryWords.filter(word => word.toLowerCase().startsWith(lowerLetter));
+  return { response: validWords[Math.floor(Math.random() * validWords.length)] || '' };
 }
 
-// Tipos para TypeScript
-interface AIEvents {
-  generateAIResponse: (input: {
-    letter: string;
-    category: string;
-    language: 'es' | 'en' | 'fr' | 'pt';
-  }) => Promise<{ response: string }>;
-
-  validatePlayerWord: (input: {
-    letter: string;
-    category: string;
-    playerWord: string;
-    language: 'es' | 'en' | 'fr' | 'pt';
-  }) => Promise<{ isValid: boolean }>;
+export async function validatePlayerWord(input: {
+  letter: string;
+  category: string;
+  playerWord: string;
+  language: 'es' | 'en' | 'fr' | 'pt';
+}): Promise<{ isValid: boolean }> {
+  const { letter, playerWord, category, language } = input;
+  const lowerLetter = letter.toLowerCase();
+  const lowerWord = playerWord.toLowerCase();
+  const categoryWords = WORD_DICTIONARY[language]?.[category] || [];
+  return { isValid: lowerWord.startsWith(lowerLetter) && categoryWords.includes(lowerWord) };
 }
 
-// Implementación alternativa con TensorFlow.js (opcional)
-import * as tf from '@tensorflow/tfjs';
-
-class AIModel {
-  private model: tf.LayersModel;
-
-  async initialize() {
-    this.model = await tf.loadLayersModel('/models/word-model.json');
-  }
-
-  async predict(input: string): Promise<string> {
-    const prediction = this.model.predict(tf.tensor([this.encodeInput(input)]));
-    return this.decodeOutput(prediction);
-  }
-
-  private encodeInput(text: string): number[] {
-    // Implementación básica de codificación
-    return Array.from(text).map(c => c.charCodeAt(0) / 255);
-  }
-
-  private decodeOutput(tensor: tf.Tensor): string {
-    // Decodificación básica
-    return String.fromCharCode(Math.round(tensor.dataSync()[0] * 255));
-  }
-}
-
-export const aiEvents: AIEvents = initializeAIEvents();
+export const aiEvents = {
+  generateAIResponse: generateAiOpponentResponse,
+  validatePlayerWord: validatePlayerWord
+};

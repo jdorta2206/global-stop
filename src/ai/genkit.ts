@@ -1,101 +1,58 @@
-// src/ai/local-ai.ts - Reemplazo gratuito para Genkit/Google AI
+// src/ai/genkit.ts
+type Language = 'es' | 'en';
+type Categories = {
+  animales?: string[];
+  países?: string[];
+  nombres?: string[];
+  ciudades?: string[];
+  animals?: string[];
+  countries?: string[];
+  names?: string[];
+  cities?: string[];
+};
 
-/**
- * Módulo de IA local - Versión gratuita
- * Proporciona funcionalidades similares a Genkit pero sin dependencias de pago
- */
-
-import { LocalAIModel } from './local-models';
-import { DictionaryValidator } from './dictionary-validator';
-
-// Configuración inicial
-const localModel = new LocalAIModel();
-const dictionaryValidator = new DictionaryValidator();
-
-export const ai = {
-  /**
-   * Generador de respuestas de IA local
-   */
-  async generateResponse(input: {
-    letter: string;
-    category: string;
-    language: string;
-  }): Promise<{ response: string }> {
-    console.log("[LocalAI] Generating response for:", input);
-    return localModel.generate(input);
+const DICTIONARIES: Record<Language, Categories> = {
+  es: {
+    animales: ['ardilla', 'ballena', 'camello'],
+    países: ['argentina', 'brasil', 'colombia'],
+    nombres: ['ana', 'bernardo', 'carla'],
+    ciudades: ['alicante', 'barcelona', 'cádiz']
   },
-
-  /**
-   * Validador de palabras local
-   */
-  async validateWord(input: {
-    word: string;
-    language: string;
-  }): Promise<{ isValid: boolean }> {
-    console.log("[LocalAI] Validating word:", input);
-    return dictionaryValidator.validate(input);
-  },
-
-  // Compatibilidad con la interfaz original (opcional)
-  definePrompt: () => {
-    console.warn("definePrompt no es necesario en la versión local");
-    return (input: any) => localModel.generate(input);
-  },
-
-  defineFlow: () => {
-    console.warn("defineFlow no es necesario en la versión local");
-    return (input: any) => localModel.generate(input);
+  en: {
+    animals: ['antelope', 'bear', 'cat'],
+    countries: ['argentina', 'belgium', 'canada'],
+    names: ['alice', 'bob', 'charlie'],
+    cities: ['austin', 'boston', 'chicago']
   }
 };
 
-// Implementación del modelo local
-class LocalAIModel {
-  private dictionaries: Record<string, Record<string, string[]>> = {
-    es: {
-      animales: ['ardilla', 'ballena', 'camello'],
-      países: ['argentina', 'brasil', 'colombia']
-    },
-    en: {
-      animals: ['antelope', 'bear', 'cat'],
-      countries: ['argentina', 'belgium', 'canada']
-    }
-  };
-
-  async generate(input: {
+export const ai = {
+  async generateResponse(input: {
     letter: string;
-    category: string;
-    language: string;
+    category: keyof Categories;
+    language: Language;
   }): Promise<{ response: string }> {
     const { letter, category, language } = input;
-    const lowerLetter = letter.toLowerCase();
-
-    const words = this.dictionaries[language]?.[category.toLowerCase()] || [];
-    const validWords = words.filter(word => 
-      word.toLowerCase().startsWith(lowerLetter)
+    const words = DICTIONARIES[language][category] || [];
+    const validWords = words.filter((word: string) => 
+      word.toLowerCase().startsWith(letter.toLowerCase())
     );
-
     return {
-      response: validWords.length > 0 
-        ? validWords[Math.floor(Math.random() * validWords.length)]
-        : ""
+      response: validWords[Math.floor(Math.random() * validWords.length)] || ""
     };
-  }
-}
+  },
 
-// Implementación del validador
-class DictionaryValidator {
-  private wordSets: Record<string, Set<string>> = {
-    es: new Set(['ardilla', 'ballena', 'camello']),
-    en: new Set(['antelope', 'bear', 'cat'])
-  };
-
-  async validate(input: {
+  async validateWord(input: {
     word: string;
-    language: string;
+    language: Language;
   }): Promise<{ isValid: boolean }> {
     const { word, language } = input;
+    const allWords = Object.values(DICTIONARIES[language]).flat() as string[];
     return {
-      isValid: this.wordSets[language]?.has(word.toLowerCase()) || false
+      isValid: allWords.includes(word.toLowerCase())
     };
-  }
-}
+  },
+
+  definePrompt: () => (input: any) => ai.generateResponse(input),
+  defineFlow: () => (input: any) => ai.generateResponse(input)
+};

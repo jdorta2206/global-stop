@@ -4,9 +4,13 @@ import { AppHeader } from '@/components/layout/header';
 import { AppFooter } from '@/components/layout/footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Home, Info, Users, Gamepad2, Settings, Send } from 'lucide-react';
+import { Home, Info, Gamepad2, Send } from 'lucide-react';
 import { useLanguage } from '@/contexts/language-context';
 import { UI_TEXTS } from '@/constants/ui-texts';
+
+type ChallengeTextKey = 'challengeSetupPageTitle' | 'challengeSetupDescription' | 
+                      'challengeSettingsComingSoon' | 'sendChallengeButton' | 
+                      'backToHomeButton';
 
 export default function ChallengeSetupPage() {
   const params = useParams();
@@ -17,9 +21,10 @@ export default function ChallengeSetupPage() {
   const playerId = params.playerId as string;
   const playerName = searchParams.get('name') || playerId;
 
-  // Textos localizados
-  const getLocalizedText = (key: keyof typeof UI_TEXTS, replacements?: Record<string, string>) => {
-    let text = UI_TEXTS[key]?.[language] || UI_TEXTS[key]?.['en'] || '';
+  const getLocalizedText = (key: ChallengeTextKey, replacements?: Record<string, string>) => {
+    const textObj = (UI_TEXTS as unknown as Record<ChallengeTextKey, Record<string, string>>)[key] || {};
+    let text = textObj[language] || textObj['en'] || '';
+    
     if (replacements) {
       Object.entries(replacements).forEach(([key, value]) => {
         text = text.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
@@ -28,10 +33,8 @@ export default function ChallengeSetupPage() {
     return text;
   };
 
-  // Función para enviar desafío (versión simplificada sin backend de pago)
   const sendChallenge = async () => {
     try {
-      // Implementación con WebSockets o API routes de Next.js
       const response = await fetch('/api/challenges', {
         method: 'POST',
         headers: {

@@ -1,18 +1,20 @@
-// src/components/game/personal-high-score-card.tsx
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Trophy, Loader2, Share2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { Language } from '@/contexts/language-context';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
+
+// Implementación local simple de toast
+const toast = {
+  success: (message: string) => console.log('Success:', message),
+  error: (message: string) => console.error('Error:', message)
+};
 
 interface PersonalHighScoreCardProps {
   className?: string;
-  language: Language;
+  language: 'es' | 'en' | 'fr' | 'pt';
   userId?: string;
 }
 
@@ -63,7 +65,7 @@ const TEXTS = {
 
 export function PersonalHighScoreCard({ 
   className = "", 
-  language, 
+  language = 'es', 
   userId 
 }: PersonalHighScoreCardProps) {
   const [highScore, setHighScore] = useState<number>(0);
@@ -71,7 +73,6 @@ export function PersonalHighScoreCard({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
-  const { toast } = useToast();
 
   const translate = (textKey: keyof typeof TEXTS, dynamicValue?: number): string => {
     const text = TEXTS[textKey][language] || TEXTS[textKey]['en'];
@@ -126,16 +127,12 @@ export function PersonalHighScoreCard({
           table: 'player_stats',
           filter: `user_id=eq.${userId}`
         },
-        (payload) => {
+        (payload: any) => {
           const newHigh = payload.new.high_score as number;
           const newCurrent = payload.new.current_score as number;
           
           if (newHigh > highScore) {
-            toast({
-              title: translate('updateSuccess'),
-              description: `${translate('subtitle', newCurrent)}`,
-              variant: 'default',
-            });
+            console.log(translate('updateSuccess'), translate('subtitle', newCurrent));
           }
           setHighScore(newHigh);
           setCurrentScore(newCurrent);
@@ -146,7 +143,7 @@ export function PersonalHighScoreCard({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, supabase, language, toast]);
+  }, [userId, supabase, language]);
 
   const handleShare = async () => {
     try {
@@ -160,23 +157,16 @@ export function PersonalHighScoreCard({
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(shareData.text);
-        toast({
-          title: translate('shareSuccess'),
-          description: shareData.text,
-        });
+        console.log(translate('shareSuccess'), shareData.text);
       }
     } catch (err) {
-      console.error("Sharing failed:", err);
-      toast({
-        title: translate('shareError'),
-        variant: 'destructive',
-      });
+      console.error("Sharing failed:", err, translate('shareError'));
     }
   };
 
   if (isLoading) {
     return (
-      <Card className={cn("shadow-lg rounded-xl animate-pulse", className)}>
+      <Card className={`shadow-lg rounded-xl animate-pulse ${className}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-medium text-primary">
             {translate('title')}
@@ -194,7 +184,7 @@ export function PersonalHighScoreCard({
 
   if (error) {
     return (
-      <Card className={cn("shadow-lg rounded-xl border-destructive/20", className)}>
+      <Card className={`shadow-lg rounded-xl border-destructive/20 ${className}`}>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xl font-medium text-destructive">
             {translate('title')}
@@ -209,7 +199,7 @@ export function PersonalHighScoreCard({
   }
 
   return (
-    <Card className={cn("shadow-lg rounded-xl", className)}>
+    <Card className={`shadow-lg rounded-xl ${className}`}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xl font-medium text-primary">
           {translate('title')}

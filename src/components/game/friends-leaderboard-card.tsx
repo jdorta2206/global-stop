@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaderboardTable, type EnrichedPlayerScore } from './leaderboard-table';
 import { Users, UserPlus, PlusCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import type { Language } from '@/contexts/language-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+
+function cn(...classes: (string | undefined | null | boolean)[]) {
+  return classes.filter(Boolean).join(" ");
+}
 
 interface FriendsLeaderboardCardProps {
   leaderboardData: EnrichedPlayerScore[];
@@ -125,9 +127,9 @@ export function FriendsLeaderboardCard({
               {translate('addFriendButton')}
             </Button>
           </div>
-          <Label htmlFor="manual-friend-identifier" className="text-xs text-muted-foreground mt-1">
+          <label htmlFor="manual-friend-identifier" className="text-xs text-muted-foreground mt-1 block">
             {translate('addFriendInputLabel')}
-          </Label>
+          </label>
         </div>
       </CardFooter>
     </Card>

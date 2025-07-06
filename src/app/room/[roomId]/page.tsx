@@ -16,16 +16,38 @@ import { useLanguage } from '@/contexts/language-context';
 import { Progress } from '@/components/ui/progress';
 import { ChatPanel } from '@/components/chat/chat-panel';
 
-// Constantes del juego
 const ROUND_DURATION_SECONDS = 60;
 const CATEGORIES_BY_LANG = {
   es: ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"],
   en: ["Name", "Place", "Animal", "Thing", "Color", "Fruit or Vegetable"],
   fr: ["Nom", "Lieu", "Animal", "Chose", "Couleur", "Fruit ou Légume"],
   pt: ["Nome", "Lugar", "Animal", "Coisa", "Cor", "Fruta ou Legume"]
-};
+} as const;
+
+const ALPHABET = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 
 type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
+
+interface GameTexts {
+  welcomeTitle: Record<string, string>;
+  startGameButton: Record<string, string>;
+  currentLetterLabel: Record<string, string>;
+  timeLeftLabel: Record<string, string>;
+  resultsTitle: Record<string, string>;
+  yourRoundScore: Record<string, string>;
+  myTotalScore: Record<string, string>;
+  nextRoundButton: Record<string, string>;
+  highScoreLabel: Record<string, string>;
+}
+
+interface RoundResult {
+  playerScore: number;
+  aiScore: number;
+  playerResponse: string;
+  aiResponse: string;
+  playerResponseIsValid?: boolean;
+  playerResponseErrorReason?: "format" | "invalid_word" | "api_error" | null;
+}
 
 export default function GamePage() {
   const { user } = useAuth();
@@ -34,41 +56,45 @@ export default function GamePage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Estado del juego
   const [gameState, setGameState] = useState<GameState>("IDLE");
   const [currentLetter, setCurrentLetter] = useState<string | null>(null);
   const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
   const [totalPlayerScore, setTotalPlayerScore] = useState(0);
   const [personalHighScore, setPersonalHighScore] = useState(0);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [roundResults, setRoundResults] = useState<Record<string, RoundResult>>({});
+  const [gameMode, setGameMode] = useState<"solo" | "room">(activeRoomId ? "room" : "solo");
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
-  // Referencias
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const gameStateRef = useRef(gameState);
 
-  // Efectos
   useEffect(() => {
     gameStateRef.current = gameState;
+    setIsEvaluating(gameState === "EVALUATING");
+    setShowResults(gameState === "RESULTS" || gameState === "EVALUATING");
   }, [gameState]);
 
   useEffect(() => {
-    // Cargar puntuación máxima local
     const storedHighScore = localStorage.getItem('globalStopHighScore');
     if (storedHighScore) {
       setPersonalHighScore(parseInt(storedHighScore, 10));
     }
 
     return () => {
-      // Limpiar intervalo al desmontar
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
       }
     };
   }, []);
 
-  // Funciones del juego
   const resetRound = useCallback(() => {
     setPlayerResponses({});
+    setRoundResults({});
     setTimeLeft(ROUND_DURATION_SECONDS);
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
@@ -78,11 +104,13 @@ export default function GamePage() {
   const startGame = useCallback(() => {
     resetRound();
     setGameState("SPINNING");
+    setIsSpinning(true);
   }, [resetRound]);
 
   const handleSpinComplete = useCallback((letter: string) => {
     setCurrentLetter(letter);
     setGameState("PLAYING");
+    setIsSpinning(false);
     startTimer();
   }, []);
 
@@ -111,20 +139,45 @@ export default function GamePage() {
   }, [playerResponses, currentLetter]);
 
   const evaluateAnswers = useCallback(() => {
-    // Lógica de evaluación simplificada
+    const results: Record<string, RoundResult> = {};
     let roundScore = 0;
     
     Object.entries(playerResponses).forEach(([category, answer]) => {
-      if (answer && answer.toLowerCase().startsWith(currentLetter?.toLowerCase() || '')) {
-        roundScore += 10; // Puntos básicos por respuesta válida
+      const isValid = Boolean(answer && answer.toLowerCase().startsWith(currentLetter?.toLowerCase() || ''));
+      results[category] = {
+        playerScore: isValid ? 10 : 0,
+        aiScore: 0,
+        playerResponse: answer,
+        aiResponse: "",
+        playerResponseIsValid: isValid,
+        playerResponseErrorReason: isValid ? null : "invalid_word"
+      };
+      if (isValid) {
+        roundScore += 10;
       }
     });
 
-    setTotalPlayerScore(prev => prev + roundScore);
-    setGameState("RESULTS");
-  }, [playerResponses, currentLetter]);
+    setRoundResults(results);
+    const newTotalScore = totalPlayerScore + roundScore;
+    setTotalPlayerScore(newTotalScore);
+    
+    if (newTotalScore > personalHighScore) {
+      setPersonalHighScore(newTotalScore);
+      localStorage.setItem('globalStopHighScore', newTotalScore.toString());
+    }
 
-  // Renderizado
+    setGameState("RESULTS");
+  }, [playerResponses, currentLetter, totalPlayerScore, personalHighScore]);
+
+  const getText = (key: keyof GameTexts) => {
+    const texts = UI_TEXTS as unknown as GameTexts;
+    return texts[key][language] || '';
+  };
+
+  const handleResponseChange = useCallback((category: string, value: string) => {
+    setPlayerResponses(prev => ({ ...prev, [category]: value }));
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
@@ -133,17 +186,19 @@ export default function GamePage() {
         {gameState === "IDLE" && (
           <div className="flex flex-col items-center justify-center gap-8">
             <h1 className="text-4xl font-bold text-center">
-              {UI_TEXTS.welcomeTitle[language]}
+              {getText('welcomeTitle')}
             </h1>
             <Button onClick={startGame} size="lg">
-              {UI_TEXTS.startGameButton[language]}
+              {getText('startGameButton')}
             </Button>
           </div>
         )}
 
         {gameState === "SPINNING" && (
           <RouletteWheel 
-            letters={Object.keys(CATEGORIES_BY_LANG).flatMap(lang => CATEGORIES_BY_LANG[lang as keyof typeof CATEGORIES_BY_LANG])}
+            isSpinning={isSpinning}
+            alphabet={ALPHABET}
+            language={language}
             onSpinComplete={handleSpinComplete}
           />
         )}
@@ -152,24 +207,28 @@ export default function GamePage() {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-2xl font-bold">
-                {UI_TEXTS.currentLetterLabel[language]}: {currentLetter}
+                {getText('currentLetterLabel')}: {currentLetter}
               </h2>
               <Progress value={(timeLeft / ROUND_DURATION_SECONDS) * 100} />
-              <p>{timeLeft}s {UI_TEXTS.timeLeftLabel[language]}</p>
+              <p>{timeLeft}s {getText('timeLeftLabel')}</p>
             </div>
 
             <GameArea
-              categories={CATEGORIES_BY_LANG[language]}
+              categories={[...CATEGORIES_BY_LANG[language as keyof typeof CATEGORIES_BY_LANG]]}
               letter={currentLetter}
-              responses={playerResponses}
-              onInputChange={(category, value) => 
-                setPlayerResponses(prev => ({ ...prev, [category]: value }))
-              }
+              playerResponses={playerResponses}
+              onInputChange={handleResponseChange}
+              isEvaluating={isEvaluating}
+              showResults={showResults}
+              roundResults={roundResults}
+              language={language}
+              gameMode={gameMode}
             />
 
             <StopButton 
               onClick={endRound}
               disabled={Object.keys(playerResponses).length === 0}
+              language={language}
             />
           </div>
         )}
@@ -177,15 +236,16 @@ export default function GamePage() {
         {gameState === "RESULTS" && (
           <Card className="mx-auto max-w-md">
             <CardHeader>
-              <CardTitle>{UI_TEXTS.resultsTitle[language]}</CardTitle>
+              <CardTitle>{getText('resultsTitle')}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p>{UI_TEXTS.yourRoundScore[language]}: {totalPlayerScore}</p>
-              <p>{UI_TEXTS.myTotalScore[language]}: {totalPlayerScore}</p>
+            <CardContent className="space-y-4">
+              <p>{getText('yourRoundScore')}: {totalPlayerScore - personalHighScore}</p>
+              <p>{getText('myTotalScore')}: {totalPlayerScore}</p>
+              <p>{getText('highScoreLabel')}: {personalHighScore}</p>
             </CardContent>
             <div className="flex justify-center p-4">
               <Button onClick={startGame}>
-                {UI_TEXTS.nextRoundButton[language]}
+                {getText('nextRoundButton')}
               </Button>
             </div>
           </Card>
@@ -194,9 +254,13 @@ export default function GamePage() {
 
       {activeRoomId && (
         <ChatPanel 
-          roomId={activeRoomId}
-          userId={user?.uid || 'guest'}
-          userName={user?.displayName || 'Guest'}
+          currentRoomId={activeRoomId}
+          currentUserUid={user?.uid || 'guest'}
+          currentUserName={user?.displayName || 'Guest'}
+          messages={messages}
+          isOpen={isChatOpen}
+          setIsOpen={setIsChatOpen}
+          language={language}
         />
       )}
 
