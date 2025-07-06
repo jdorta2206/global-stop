@@ -4,33 +4,49 @@ import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
 import { ChevronDown } from "lucide-react"
 
-import { cn } from "@/lib/utils"
-
 const Accordion = AccordionPrimitive.Root
 
+// Tipos personalizados con children explícito
+type AccordionItemProps = {
+  className?: string
+  children: React.ReactNode
+  value: string
+} & React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
+
+type AccordionTriggerComponentProps = {
+  className?: string
+  children: React.ReactNode
+} & Omit<React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>, 'children'>
+
+type AccordionContentComponentProps = {
+  className?: string
+  children: React.ReactNode
+} & Omit<React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>, 'children'>
+
+// Implementación de los componentes
 const AccordionItem = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Item>
->(({ className, ...props }, ref) => (
+  HTMLDivElement,
+  AccordionItemProps
+>(({ className, children, value, ...props }, ref) => (
   <AccordionPrimitive.Item
     ref={ref}
-    className={cn("border-b", className)}
+    value={value}
+    className={`border-b ${className || ''}`}
     {...props}
-  />
+  >
+    {children}
+  </AccordionPrimitive.Item>
 ))
 AccordionItem.displayName = "AccordionItem"
 
 const AccordionTrigger = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Trigger>
+  HTMLButtonElement,
+  AccordionTriggerComponentProps
 >(({ className, children, ...props }, ref) => (
-  <AccordionPrimitive.Header className="flex">
+  <AccordionPrimitive.Header>
     <AccordionPrimitive.Trigger
       ref={ref}
-      className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
-        className
-      )}
+      className={`flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180 ${className || ''}`}
       {...props}
     >
       {children}
@@ -41,15 +57,15 @@ const AccordionTrigger = React.forwardRef<
 AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName
 
 const AccordionContent = React.forwardRef<
-  React.ElementRef<typeof AccordionPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
+  HTMLDivElement,
+  AccordionContentComponentProps
 >(({ className, children, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+    className={`overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down ${className || ''}`}
     {...props}
   >
-    <div className={cn("pb-4 pt-0", className)}>{children}</div>
+    <div className={`pb-4 pt-0 ${className || ''}`}>{children}</div>
   </AccordionPrimitive.Content>
 ))
 
