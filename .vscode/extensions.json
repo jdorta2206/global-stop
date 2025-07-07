@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "GitHub.copilot-labs",
+    "streetsidesoftware.code-spell-checker",
+    "bradlc.vscode-tailwindcss"
+  ]
+}

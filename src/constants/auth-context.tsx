@@ -1,6 +1,7 @@
 "use client";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { createContext, useContext, useEffect, useState } from "react";
+import type { Session } from "@supabase/auth-helpers-nextjs"; // Cambiado aquí
 
 interface User {
     id: string;
@@ -21,7 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event: string, session: Session | null) => {
                 setUser(session?.user ?? null);
             }
         );
