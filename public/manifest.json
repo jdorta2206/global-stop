@@ -21,8 +21,8 @@
       "type": "image/png"
     }
   ],
-  "theme_color": "#29ABE2",  // Usando tu azul primario
-  "background_color": "#E5F5FC",  // Usando tu azul claro de fondo
+  "theme_color": "#29ABE2",
+  "background_color": "#E5F5FC",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "orientation": "portrait-primary",

@@ -1,112 +1,80 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+:root {
+  --background: hsl(1, 56%, 51%);
+  --foreground: hsl(40, 62%, 87%);
+  --card: hsl(1, 45%, 57%);
+  --card-foreground: hsl(40, 62%, 87%);
+  --popover: hsl(1, 35%, 45%);
+  --popover-foreground: hsl(40, 62%, 87%);
+  --primary: hsl(30, 91%, 60%);
+  --primary-foreground: hsl(30, 50%, 15%);
+  --secondary: hsl(25, 80%, 65%);
+  --secondary-foreground: hsl(25, 50%, 20%);
+  --muted: hsl(10, 30%, 35%);
+  --muted-foreground: hsl(40, 50%, 78%);
+  --accent: hsl(202, 42%, 48%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 72%, 51%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --border: hsl(1, 50%, 40%);
+  --input: hsl(10, 20%, 30%);
+  --ring: hsl(30, 91%, 60%);
+  --radius: 0.5rem;
+  --sidebar-background: hsl(10, 25%, 25%);
+  --sidebar-foreground: hsl(40, 62%, 87%);
+  --sidebar-primary: hsl(30, 91%, 60%);
+  --sidebar-primary-foreground: hsl(30, 50%, 15%);
+  --sidebar-accent: hsl(202, 42%, 48%);
+  --sidebar-accent-foreground: hsl(0, 0%, 100%);
+  --sidebar-border: hsl(10, 30%, 20%);
+  --sidebar-ring: hsl(30, 91%, 60%);
+  --chart-1: hsl(12, 76%, 61%);
+  --chart-2: hsl(173, 58%, 39%);
+  --chart-3: hsl(197, 37%, 24%);
+  --chart-4: hsl(43, 74%, 66%);
+  --chart-5: hsl(27, 87%, 67%);
+}
+
+.dark {
+  --background: hsl(10, 20%, 12%);
+  --foreground: hsl(40, 62%, 87%);
+  --card: hsl(10, 20%, 18%);
+  --card-foreground: hsl(40, 62%, 87%);
+  --popover: hsl(10, 15%, 15%);
+  --popover-foreground: hsl(40, 62%, 87%);
+  --primary: hsl(30, 85%, 55%);
+  --primary-foreground: hsl(30, 50%, 12%);
+  --secondary: hsl(25, 70%, 50%);
+  --secondary-foreground: hsl(25, 50%, 15%);
+  --muted: hsl(10, 25%, 22%);
+  --muted-foreground: hsl(40, 50%, 70%);
+  --accent: hsl(202, 50%, 55%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 65%, 55%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --border: hsl(10, 25%, 28%);
+  --input: hsl(10, 20%, 20%);
+  --ring: hsl(30, 85%, 55%);
+  --sidebar-background: hsl(10, 15%, 10%);
+  --sidebar-foreground: hsl(40, 62%, 87%);
+  --sidebar-primary: hsl(30, 85%, 55%);
+  --sidebar-primary-foreground: hsl(30, 50%, 12%);
+  --sidebar-accent: hsl(202, 50%, 55%);
+  --sidebar-accent-foreground: hsl(0, 0%, 100%);
+  --sidebar-border: hsl(10, 20%, 15%);
+  --sidebar-ring: hsl(30, 85%, 55%);
+  --chart-1: hsl(220, 70%, 50%);
+  --chart-2: hsl(160, 60%, 45%);
+  --chart-3: hsl(30, 80%, 55%);
+  --chart-4: hsl(280, 65%, 60%);
+  --chart-5: hsl(340, 75%, 55%);
+}
+
+/* Estilos base */
+* {
+  border-color: var(--border);
+}
 
 body {
-  /* Font family is set in layout.tsx using next/font */
-}
-
-@layer base {
-  :root {
-    --background: 1 56% 51%; /* Deep Red (from logo background) */
-    --foreground: 40 62% 87%; /* Light Beige/Cream (from "STOP" text in logo) */
-
-    --card: 1 45% 57%; /* Slightly Lighter/Desaturated Red for cards */
-    --card-foreground: 40 62% 87%; /* Light Beige/Cream */
-
-    --popover: 1 35% 45%; /* Darker Muted Red for popovers */
-    --popover-foreground: 40 62% 87%; /* Light Beige/Cream */
-
-    --primary: 30 91% 60%; /* Orange/Yellow (from logo letters like 'A', 'B') */
-    --primary-foreground: 30 50% 15%; /* Dark Brown (for text on primary orange) */
-
-    --secondary: 25 80% 65%; /* Lighter orange for secondary elements */
-    --secondary-foreground: 25 50% 20%; /* Dark brown for text on secondary orange */
-
-    --muted: 10 30% 35%; /* Muted Dark Red/Brown */
-    --muted-foreground: 40 50% 78%; /* Slightly darker/muted Beige */
-
-    --accent: 202 42% 48%; /* Blue (from logo letters like 'G', 'H') */
-    --accent-foreground: 0 0% 100%; /* White for text on accent blue */
-
-    --destructive: 0 72% 51%; /* A vibrant red for destructive actions */
-    --destructive-foreground: 0 0% 98%; /* Light color for text on destructive red */
-
-    --border: 1 50% 40%; /* Darker Red for borders */
-    --input: 10 20% 30%; /* Dark muted red/brown for input background */
-    --ring: 30 91% 60%; /* Primary orange for focus rings */
-
-    --radius: 0.5rem;
-
-    /* Sidebar colors - adjusted to fit the new theme */
-    --sidebar-background: 10 25% 25%; /* Darker brown/red */
-    --sidebar-foreground: 40 62% 87%; /* Light Beige/Cream */
-    --sidebar-primary: 30 91% 60%; /* Orange/Yellow */
-    --sidebar-primary-foreground: 30 50% 15%; /* Dark Brown */
-    --sidebar-accent: 202 42% 48%; /* Blue */
-    --sidebar-accent-foreground: 0 0% 100%; /* White */
-    --sidebar-border: 10 30% 20%; /* Very dark brown/red */
-    --sidebar-ring: 30 91% 60%;
-    
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-  }
-
-  .dark {
-    /* A basic dark theme interpretation of the new palette */
-    --background: 10 20% 12%; /* Very Dark Red/Brown, almost black */
-    --foreground: 40 62% 87%; /* Light Beige/Cream */
-
-    --card: 10 20% 18%; /* Slightly lighter dark red/brown for cards */
-    --card-foreground: 40 62% 87%;
-
-    --popover: 10 15% 15%; /* Even darker for popovers */
-    --popover-foreground: 40 62% 87%;
-
-    --primary: 30 85% 55%; /* Slightly less saturated Orange/Yellow for dark mode */
-    --primary-foreground: 30 50% 12%; /* Very Dark Brown */
-
-    --secondary: 25 70% 50%; /* Muted orange for secondary */
-    --secondary-foreground: 25 50% 15%; /* Dark brown */
-
-    --muted: 10 25% 22%; /* Dark muted red/brown */
-    --muted-foreground: 40 50% 70%; /* Muted Beige */
-
-    --accent: 202 50% 55%; /* Brighter Blue for dark mode accent */
-    --accent-foreground: 0 0% 100%; /* White */
-
-    --destructive: 0 65% 55%; /* Slightly adjusted destructive red */
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 10 25% 28%; /* Muted border for dark mode */
-    --input: 10 20% 20%; /* Dark input background */
-    --ring: 30 85% 55%; /* Primary orange for rings */
-
-    --sidebar-background: 10 15% 10%; /* Very dark for sidebar */
-    --sidebar-foreground: 40 62% 87%;
-    --sidebar-primary: 30 85% 55%;
-    --sidebar-primary-foreground: 30 50% 12%;
-    --sidebar-accent: 202 50% 55%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 10 20% 15%;
-    --sidebar-ring: 30 85% 55%;
-
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  background-color: var(--background);
+  color: var(--foreground);
 }
