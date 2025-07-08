@@ -1,125 +1,293 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { RouletteWheel } from '@/components/game/roulette-wheel';
-import { GameArea } from '@/components/game/game-area';
-import { StopButton } from '@/components/game/stop-button';
-import { AppHeader } from '@/components/layout/header';
-import { AppFooter } from '@/components/layout/footer';
-import { generateAiOpponentResponse } from '@/ai/flows/generate-ai-opponent-response';
-import { validatePlayerWord } from '@/ai/flows/validate-player-word-flow';
-import { Loader2, PlayCircle, RotateCcw, Share2, Copy, Trophy, Users, BarChart3, PlusCircle, LogIn, Clock, AlertTriangle, MessageSquare, ArrowRight, LogOut, Link as LinkIcon, Gamepad2, PartyPopper, UserPlus, Sword, Info } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast";
-import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/auth-context';
-import { useLanguage, type Language } from '@/contexts/language-context';
-import { PersonalHighScoreCard } from '@/components/game/personal-high-score-card';
-import { GlobalLeaderboardCard } from '@/components/game/global-leaderboard-card';
-import { FriendsLeaderboardCard } from '@/components/game/friends-leaderboard-card';
-import { Progress } from '@/components/ui/progress';
-import { ChatPanel } from '@/components/chat/chat-panel';
-import type { ChatMessage } from '@/components/chat/chat-message-item';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { cn } from '@/lib/supabase/utils';
-import type { EnrichedPlayerScore } from '@/components/game/leaderboard-table';
-import { UI_TEXTS } from '@/constants/ui-texts';
+import { Share2, Users, Trophy, Globe, MessageCircle, Play } from 'lucide-react';
 
-type GameState = "IDLE" | "SPINNING" | "PLAYING" | "EVALUATING" | "RESULTS";
+export default function LandingPage() {
+  const [language, setLanguage] = useState<'es' | 'en'>('es');
 
-const CATEGORIES_BY_LANG: Record<Language, string[]> = {
-  es: ["Nombre", "Lugar", "Animal", "Objeto", "Color", "Fruta o Verdura"],
-  en: ["Name", "Place", "Animal", "Thing", "Color", "Fruit or Vegetable"],
-  fr: ["Nom", "Lieu", "Animal", "Chose", "Couleur", "Fruit ou Légume"],
-  pt: ["Nome", "Lugar", "Animal", "Coisa", "Cor", "Fruta ou Legume"],
-};
+  const content = {
+    es: {
+      title: "¡Juega Stop Online!",
+      subtitle: "El juego de palabras más divertido para jugar con amigos",
+      description: "Compite con tus amigos en el clásico juego de Stop. Demuestra tu vocabulario y velocidad mental en categorías como países, animales, nombres y mucho más.",
+      playButton: "¡Jugar Ahora!",
+      shareButton: "Compartir en WhatsApp",
+      howToPlay: "Cómo Jugar",
+      categories: "Categorías",
+      features: "Características",
+      multiplayerTitle: "Multijugador",
+      multiplayerDesc: "Juega con amigos en tiempo real",
+      fastTitle: "Rápido y Divertido",
+      fastDesc: "Partidas dinámicas de 5 minutos",
+      competitiveTitle: "Competitivo",
+      competitiveDesc: "Sistema de puntuación justo",
+      steps: [
+        "Únete a una sala con tus amigos",
+        "Espera a que se genere una letra aleatoria",
+        "Completa todas las categorías con esa letra",
+        "¡El primero en terminar dice STOP!",
+        "Compara respuestas y gana puntos"
+      ],
+      categoryList: [
+        "País", "Animal", "Nombre", "Apellido", 
+        "Color", "Comida", "Objeto", "Profesión"
+      ],
+      featureList: [
+        "Multijugador en tiempo real",
+        "Salas privadas con código",
+        "Sistema de puntuación automático",
+        "Interfaz intuitiva y responsive",
+        "Compatible con móviles"
+      ]
+    },
+    en: {
+      title: "Play Stop Online!",
+      subtitle: "The most fun word game to play with friends",
+      description: "Compete with your friends in the classic Stop game. Show your vocabulary and mental speed in categories like countries, animals, names and much more.",
+      playButton: "Play Now!",
+      shareButton: "Share on WhatsApp",
+      howToPlay: "How to Play",
+      categories: "Categories",
+      features: "Features",
+      multiplayerTitle: "Multiplayer",
+      multiplayerDesc: "Play with friends in real time",
+      fastTitle: "Fast and Fun",
+      fastDesc: "Dynamic 5-minute games",
+      competitiveTitle: "Competitive",
+      competitiveDesc: "Fair scoring system",
+      steps: [
+        "Join a room with your friends",
+        "Wait for a random letter to be generated",
+        "Complete all categories with that letter",
+        "The first to finish says STOP!",
+        "Compare answers and earn points"
+      ],
+      categoryList: [
+        "Country", "Animal", "Name", "Surname", 
+        "Color", "Food", "Object", "Profession"
+      ],
+      featureList: [
+        "Real-time multiplayer",
+        "Private rooms with code",
+        "Automatic scoring system",
+        "Intuitive and responsive interface",
+        "Mobile compatible"
+      ]
+    }
+  };
 
-const ALPHABET_BY_LANG: Record<Language, string[]> = {
-  es: "ABCDEFGHIJKLMNÑOPQRSTUVWXYZ".split(""),
-  en: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
-  fr: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
-  pt: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
-};
+  const shareOnWhatsApp = () => {
+    const text = language === 'es' 
+      ? "¡Ven a jugar Stop conmigo! 🎮 El juego de palabras más divertido. Compite y demuestra tu vocabulario 🧠"
+      : "Come play Stop with me! 🎮 The most fun word game. Compete and show your vocabulary 🧠";
+    
+    const url = window.location.href;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`;
+    window.open(whatsappUrl, '_blank');
+  };
 
-const ROUND_DURATION_SECONDS = 60;
-
-export interface PlayerScore {
-  id: string;
-  name: string;
-  score: number;
-  avatar?: string;
-}
-
-export interface RoundResultDetail {
-  playerScore: number;
-  aiScore: number;
-  playerResponse: string;
-  aiResponse: string;
-  playerResponseIsValid?: boolean;
-  playerResponseErrorReason?: 'format' | 'invalid_word' | 'api_error' | null;
-}
-
-export type RoundResults = Record<string, RoundResultDetail>;
-
-interface PlayerInLobby {
-  id: string;
-  name: string;
-  avatar?: string | null;
-  isCurrentUser?: boolean;
-  isOnline?: boolean;
-}
-
-const MOCK_PLAYERS_IN_LOBBY: PlayerInLobby[] = [
-  { id: 'player2', name: 'Amigo Carlos', avatar: `https://placehold.co/40x40.png?text=C` },
-];
-
-export default function GamePage() {
-  const [currentLetter, setCurrentLetter] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<GameState>("IDLE");
-  const [showCreateRoomDialog, setShowCreateRoomDialog] = useState(false);
-  const [generatedRoomId, setGeneratedRoomId] = useState<string | null>(null);
-  const [showJoinRoomDialog, setShowJoinRoomDialog] = useState(false);
-  const [joinRoomId, setJoinRoomId] = useState<string>("");
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const { language, translate } = useLanguage();
-  const router = useRouter();
-
-  const [playerResponses, setPlayerResponses] = useState<Record<string, string>>({});
-  const [aiResponses, setAiResponses] = useState<Record<string, string>>({});
-  const [playerRoundScore, setPlayerRoundScore] = useState(0);
-  const [aiRoundScore, setAiRoundScore] = useState(0);
-  const [totalPlayerScore, setTotalPlayerScore] = useState(0);
-  const [totalAiScore, setTotalAiScore] = useState(0);
-  const [roundResults, setRoundResults] = useState<RoundResults | null>(null);
-  const [roundWinner, setRoundWinner] = useState<string | null>(null);
-  const [personalHighScore, setPersonalHighScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(ROUND_DURATION_SECONDS);
-  const [countdownWarningText, setCountdownWarningText] = useState<string>("");
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [playersInLobby, setPlayersInLobby] = useState<PlayerInLobby[]>([]);
-  const [friendsList, setFriendsList] = useState<EnrichedPlayerScore[]>([]);
-
-  const currentCategories = CATEGORIES_BY_LANG[language] || CATEGORIES_BY_LANG.es;
-  const currentAlphabet = ALPHABET_BY_LANG[language] || ALPHABET_BY_LANG.es;
-
-  // Resto del código corregido...
-  // (Aquí irían todas las funciones y useEffect con las correcciones necesarias)
+  const t = content[language];
 
   return (
-    <>
-      <AppHeader />
-      <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8 flex flex-col items-center relative">
-        {/* Resto del JSX corregido... */}
-      </main>
-    </>
+    <div className="min-h-screen bg-gradient-to-br from-red-600 via-red-500 to-orange-500">
+      {/* Header */}
+      <header className="bg-white/10 backdrop-blur-sm border-b border-white/20">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg">
+              <Image 
+                src="/logo.png" 
+                alt="Stop Logo" 
+                width={32} 
+                height={32}
+                className="rounded-full"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <span className="hidden text-red-600 font-bold text-lg">S</span>
+            </div>
+            <h1 className="text-2xl font-bold text-white">STOP</h1>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex bg-white/20 rounded-full p-1">
+              <button
+                onClick={() => setLanguage('es')}
+                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                  language === 'es' ? 'bg-white text-red-600' : 'text-white'
+                }`}
+              >
+                ES
+              </button>
+              <button
+                onClick={() => setLanguage('en')}
+                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                  language === 'en' ? 'bg-white text-red-600' : 'text-white'
+                }`}
+              >
+                EN
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-16 text-center">
+        <div className="max-w-4xl mx-auto">
+          {/* Logo Principal */}
+          <div className="mb-8">
+            <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center shadow-2xl mx-auto mb-6">
+              <Image 
+                src="/logo.png" 
+                alt="Stop Logo" 
+                width={100} 
+                height={100}
+                className="rounded-full"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <span className="hidden text-red-600 font-bold text-6xl">S</span>
+            </div>
+          </div>
+
+          <h2 className="text-5xl md:text-6xl font-bold text-white mb-4">
+            {t.title}
+          </h2>
+          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+            {t.subtitle}
+          </p>
+          <p className="text-white/80 mb-12 max-w-3xl mx-auto">
+            {t.description}
+          </p>
+
+          {/* Botones principales */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+            <button className="bg-white text-red-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-red-50 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-lg">
+              <Play size={20} />
+              <span>{t.playButton}</span>
+            </button>
+            <button 
+              onClick={shareOnWhatsApp}
+              className="bg-green-500 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-green-600 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-lg"
+            >
+              <MessageCircle size={20} />
+              <span>{t.shareButton}</span>
+            </button>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <Users className="w-12 h-12 text-white mb-4 mx-auto" />
+              <h3 className="text-xl font-bold text-white mb-2">{t.multiplayerTitle}</h3>
+              <p className="text-white/80">{t.multiplayerDesc}</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <Trophy className="w-12 h-12 text-white mb-4 mx-auto" />
+              <h3 className="text-xl font-bold text-white mb-2">{t.fastTitle}</h3>
+              <p className="text-white/80">{t.fastDesc}</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <Globe className="w-12 h-12 text-white mb-4 mx-auto" />
+              <h3 className="text-xl font-bold text-white mb-2">{t.competitiveTitle}</h3>
+              <p className="text-white/80">{t.competitiveDesc}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How to Play Section */}
+      <section className="bg-white/10 backdrop-blur-sm py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-white text-center mb-12">{t.howToPlay}</h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="space-y-6">
+              {t.steps.map((step, index) => (
+                <div key={index} className="flex items-start space-x-4">
+                  <div className="w-8 h-8 bg-white text-red-600 rounded-full flex items-center justify-center font-bold flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <p className="text-white/90 text-lg">{step}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Categories Section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-white text-center mb-12">{t.categories}</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+            {t.categoryList.map((category, index) => (
+              <div key={index} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+                <span className="text-white font-semibold">{category}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="bg-white/10 backdrop-blur-sm py-16">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-white text-center mb-12">{t.features}</h2>
+          <div className="max-w-3xl mx-auto">
+            <div className="space-y-4">
+              {t.featureList.map((feature, index) => (
+                <div key={index} className="flex items-center space-x-3">
+                  <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm">✓</span>
+                  </div>
+                  <span className="text-white/90 text-lg">{feature}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Final */}
+      <section className="py-16 text-center">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-white mb-8">
+            {language === 'es' ? '¿Listo para jugar?' : 'Ready to play?'}
+          </h2>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button className="bg-white text-red-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-red-50 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-lg">
+              <Play size={20} />
+              <span>{t.playButton}</span>
+            </button>
+            <button 
+              onClick={shareOnWhatsApp}
+              className="bg-green-500 text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-green-600 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-lg"
+            >
+              <Share2 size={20} />
+              <span>{t.shareButton}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-black/20 py-8">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-white/60">
+            {language === 'es' 
+              ? '© 2024 Stop Game. Todos los derechos reservados.'
+              : '© 2024 Stop Game. All rights reserved.'
+            }
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 }
