@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Share2, Users, Trophy, Globe, MessageCircle, Play } from 'lucide-react';
 
 export default function LandingPage() {
-  const [language, setLanguage] = useState<'es' | 'en'>('es');
+  const [language, setLanguage] = useState<'es' | 'en' | 'fr' | 'pt'>('es');
 
   const content = {
     es: {
@@ -23,8 +23,10 @@ export default function LandingPage() {
       fastDesc: "Partidas dinámicas de 5 minutos",
       competitiveTitle: "Competitivo",
       competitiveDesc: "Sistema de puntuación justo",
+      aiTitle: "Contra IA",
+      aiDesc: "Practica contra inteligencia artificial",
       steps: [
-        "Únete a una sala con tus amigos",
+        "Únete a una sala con tus amigos o juega contra la IA",
         "Espera a que se genere una letra aleatoria",
         "Completa todas las categorías con esa letra",
         "¡El primero en terminar dice STOP!",
@@ -36,11 +38,15 @@ export default function LandingPage() {
       ],
       featureList: [
         "Multijugador en tiempo real",
+        "Modo single player contra IA",
         "Salas privadas con código",
         "Sistema de puntuación automático",
         "Interfaz intuitiva y responsive",
-        "Compatible con móviles"
-      ]
+        "Compatible con móviles",
+        "Soporte multiidioma"
+      ],
+      readyToPlay: "¿Listo para jugar?",
+      shareText: "¡Ven a jugar Stop conmigo! 🎮 El juego de palabras más divertido. Compite y demuestra tu vocabulario 🧠"
     },
     en: {
       title: "Play Stop Online!",
@@ -57,8 +63,10 @@ export default function LandingPage() {
       fastDesc: "Dynamic 5-minute games",
       competitiveTitle: "Competitive",
       competitiveDesc: "Fair scoring system",
+      aiTitle: "Against AI",
+      aiDesc: "Practice against artificial intelligence",
       steps: [
-        "Join a room with your friends",
+        "Join a room with your friends or play against AI",
         "Wait for a random letter to be generated",
         "Complete all categories with that letter",
         "The first to finish says STOP!",
@@ -70,19 +78,100 @@ export default function LandingPage() {
       ],
       featureList: [
         "Real-time multiplayer",
+        "Single player mode against AI",
         "Private rooms with code",
         "Automatic scoring system",
         "Intuitive and responsive interface",
-        "Mobile compatible"
-      ]
+        "Mobile compatible",
+        "Multilingual support"
+      ],
+      readyToPlay: "Ready to play?",
+      shareText: "Come play Stop with me! 🎮 The most fun word game. Compete and show your vocabulary 🧠"
+    },
+    fr: {
+      title: "Jouez à Stop en ligne !",
+      subtitle: "Le jeu de mots le plus amusant à jouer avec des amis",
+      description: "Jouez au jeu classique Stop, multilingue, contre l'IA ou des amis ! Affrontez vos amis dans le jeu classique Stop. Montrez votre vocabulaire et votre rapidité mentale dans des catégories comme les pays, les animaux, les noms et bien plus encore.",
+      playButton: "Jouer maintenant !",
+      shareButton: "Partager sur WhatsApp",
+      howToPlay: "Comment jouer",
+      categories: "Catégories",
+      features: "Fonctionnalités",
+      multiplayerTitle: "Multijoueur",
+      multiplayerDesc: "Jouez avec des amis en temps réel",
+      fastTitle: "Rapide et amusant",
+      fastDesc: "Parties dynamiques de 5 minutes",
+      competitiveTitle: "Compétitif",
+      competitiveDesc: "Système de notation équitable",
+      aiTitle: "Contre l'IA",
+      aiDesc: "Entraînez-vous contre l'intelligence artificielle",
+      steps: [
+        "Rejoignez une salle avec vos amis ou jouez contre l'IA",
+        "Attendez qu'une lettre aléatoire soit générée",
+        "Complétez toutes les catégories avec cette lettre",
+        "Le premier à terminer dit STOP !",
+        "Comparez les réponses et gagnez des points"
+      ],
+      categoryList: [
+        "Pays", "Animal", "Prénom", "Nom", 
+        "Couleur", "Nourriture", "Objet", "Profession"
+      ],
+      featureList: [
+        "Multijoueur en temps réel",
+        "Mode solo contre l'IA",
+        "Salles privées avec code",
+        "Système de notation automatique",
+        "Interface intuitive et responsive",
+        "Compatible mobile",
+        "Support multilingue"
+      ],
+      readyToPlay: "Prêt à jouer ?",
+      shareText: "Venez jouer à Stop avec moi ! 🎮 Le jeu de mots le plus amusant. Affrontez-vous et montrez votre vocabulaire 🧠"
+    },
+    pt: {
+      title: "Jogue Stop Online!",
+      subtitle: "O jogo de palavras mais divertido para jogar com amigos",
+      description: "Jogue o clássico jogo Stop, multilíngue, contra a IA ou amigos! Compita com seus amigos no clássico jogo Stop. Mostre seu vocabulário e velocidade mental em categorias como países, animais, nomes e muito mais.",
+      playButton: "Jogar Agora!",
+      shareButton: "Compartilhar no WhatsApp",
+      howToPlay: "Como Jogar",
+      categories: "Categorias",
+      features: "Características",
+      multiplayerTitle: "Multijogador",
+      multiplayerDesc: "Jogue com amigos em tempo real",
+      fastTitle: "Rápido e Divertido",
+      fastDesc: "Partidas dinâmicas de 5 minutos",
+      competitiveTitle: "Competitivo",
+      competitiveDesc: "Sistema de pontuação justo",
+      aiTitle: "Contra IA",
+      aiDesc: "Pratique contra inteligência artificial",
+      steps: [
+        "Entre em uma sala com seus amigos ou jogue contra a IA",
+        "Aguarde uma letra aleatória ser gerada",
+        "Complete todas as categorias com essa letra",
+        "O primeiro a terminar diz STOP!",
+        "Compare respostas e ganhe pontos"
+      ],
+      categoryList: [
+        "País", "Animal", "Nome", "Sobrenome", 
+        "Cor", "Comida", "Objeto", "Profissão"
+      ],
+      featureList: [
+        "Multijogador em tempo real",
+        "Modo single player contra IA",
+        "Salas privadas com código",
+        "Sistema de pontuação automático",
+        "Interface intuitiva e responsiva",
+        "Compatível com celulares",
+        "Suporte multilíngue"
+      ],
+      readyToPlay: "Pronto para jogar?",
+      shareText: "Venha jogar Stop comigo! 🎮 O jogo de palavras mais divertido. Compita e mostre seu vocabulário 🧠"
     }
   };
 
   const shareOnWhatsApp = () => {
-    const text = language === 'es' 
-      ? "¡Ven a jugar Stop conmigo! 🎮 El juego de palabras más divertido. Compite y demuestra tu vocabulario 🧠"
-      : "Come play Stop with me! 🎮 The most fun word game. Compete and show your vocabulary 🧠";
-    
+    const text = t.shareText;
     const url = window.location.href;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + "\n" + url)}`;
     window.open(whatsappUrl, '_blank');
@@ -130,6 +219,22 @@ export default function LandingPage() {
                 }`}
               >
                 EN
+              </button>
+              <button
+                onClick={() => setLanguage('fr')}
+                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                  language === 'fr' ? 'bg-white text-blue-600' : 'text-white'
+                }`}
+              >
+                FR
+              </button>
+              <button
+                onClick={() => setLanguage('pt')}
+                className={`px-3 py-1 rounded-full text-sm transition-all ${
+                  language === 'pt' ? 'bg-white text-blue-600' : 'text-white'
+                }`}
+              >
+                PT
               </button>
             </div>
           </div>
@@ -183,7 +288,7 @@ export default function LandingPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-16">
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
               <Users className="w-12 h-12 text-white mb-4 mx-auto" />
               <h3 className="text-xl font-bold text-white mb-2">{t.multiplayerTitle}</h3>
@@ -198,6 +303,11 @@ export default function LandingPage() {
               <Globe className="w-12 h-12 text-white mb-4 mx-auto" />
               <h3 className="text-xl font-bold text-white mb-2">{t.competitiveTitle}</h3>
               <p className="text-white/80">{t.competitiveDesc}</p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <MessageCircle className="w-12 h-12 text-white mb-4 mx-auto" />
+              <h3 className="text-xl font-bold text-white mb-2">{t.aiTitle}</h3>
+              <p className="text-white/80">{t.aiDesc}</p>
             </div>
           </div>
         </div>
@@ -259,7 +369,7 @@ export default function LandingPage() {
       <section className="py-16 text-center">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl font-bold text-white mb-8">
-            {language === 'es' ? '¿Listo para jugar?' : 'Ready to play?'}
+            {t.readyToPlay}
           </h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-blue-50 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-lg">
@@ -281,10 +391,10 @@ export default function LandingPage() {
       <footer className="bg-black/20 py-8">
         <div className="container mx-auto px-4 text-center">
           <p className="text-white/60">
-            {language === 'es' 
-              ? '© 2024 Stop Game. Todos los derechos reservados.'
-              : '© 2024 Stop Game. All rights reserved.'
-            }
+            {language === 'es' && '© 2024 Juego Stop. Todos los derechos reservados.'}
+            {language === 'en' && '© 2024 Stop Game. All rights reserved.'}
+            {language === 'fr' && '© 2024 Jeu Stop. Tous droits réservés.'}
+            {language === 'pt' && '© 2024 Jogo Stop. Todos os direitos reservados.'}
           </p>
         </div>
       </footer>
